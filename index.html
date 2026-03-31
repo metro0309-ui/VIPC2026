@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#07090f">
-<title>레버리지 게이지 v4</title>
+<title>레버리지 게이지 v6 · 실시간 OI+CVD+청산</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;700;900&display=swap');
 
@@ -220,6 +220,30 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
 .score-val{font-family:'Orbitron',monospace;font-size:0.78rem;font-weight:700;}
 .spark{width:58px;height:20px;}
 
+/* ══════════════════
+   ⑥ CVD / 실시간 패널
+══════════════════ */
+.rt-panel{padding:11px 14px;}
+.rt-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+.rt-card{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:9px 10px;}
+.rt-lbl{font-size:0.5rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;}
+.rt-val{font-family:'Orbitron',monospace;font-size:0.85rem;font-weight:700;}
+.rt-sub{font-size:0.5rem;color:var(--muted);margin-top:2px;}
+/* CVD 바 */
+.cvd-bar-wrap{position:relative;height:10px;border-radius:5px;background:rgba(255,255,255,0.05);margin-top:6px;overflow:hidden;}
+.cvd-bar-fill{position:absolute;top:0;bottom:0;border-radius:5px;transition:left 0.4s ease,width 0.4s ease;}
+/* 청산 히스토리 리스트 */
+.liq-list{max-height:110px;overflow-y:auto;margin-top:7px;}
+.liq-item{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.58rem;}
+.liq-item:last-child{border-bottom:none;}
+.liq-sym{font-family:'Orbitron',monospace;font-size:0.56rem;font-weight:700;}
+.liq-val{font-family:'Orbitron',monospace;font-size:0.56rem;}
+.ws-dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:4px;flex-shrink:0;}
+/* OI 변화 배지 */
+.oi-delta{font-size:0.56rem;font-weight:700;padding:1px 5px;border-radius:3px;}
+.oi-up{background:rgba(0,255,136,0.12);color:#00ff88;}
+.oi-down{background:rgba(255,51,85,0.1);color:#ff3355;}
+
 ::-webkit-scrollbar{width:2px;height:2px;}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px;}
 
@@ -325,6 +349,45 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
     <div id="squeezeAlert" style="display:none"></div>
   </div>
 
+  <!-- ③-b 실시간 OI · CVD · 청산 패널 (신규) -->
+  <div class="panel rt-panel">
+    <div class="pnl-label">▸ REAL-TIME · OI · CVD · LIQUIDATION STREAM</div>
+    <div class="rt-grid">
+      <!-- BTC 실제 OI -->
+      <div class="rt-card">
+        <div class="rt-lbl">BTC OI (실제)</div>
+        <div class="rt-val" id="rtOIVal">--</div>
+        <div class="rt-sub" id="rtOIDelta">변화: --</div>
+      </div>
+      <!-- CVD (누적 매수-매도 델타) -->
+      <div class="rt-card">
+        <div class="rt-lbl">CVD · 매수-매도 델타</div>
+        <div class="rt-val" id="rtCVDVal">--</div>
+        <div class="cvd-bar-wrap">
+          <div class="cvd-bar-fill" id="cvdBarFill" style="left:50%;width:0%;background:#ffd700"></div>
+        </div>
+        <div class="rt-sub" id="rtCVDSub">aggTrade 수집 중...</div>
+      </div>
+      <!-- OI × 변동성 스퀴즈 지수 -->
+      <div class="rt-card">
+        <div class="rt-lbl">OI×VOL 스퀴즈 지수</div>
+        <div class="rt-val" id="rtSqueezeIdx">--</div>
+        <div class="rt-sub" id="rtSqueezeDesc">계산 중...</div>
+      </div>
+      <!-- 최근 5분 청산 합계 -->
+      <div class="rt-card">
+        <div class="rt-lbl">청산 5분합 (BTC+ETH)</div>
+        <div class="rt-val" id="rtLiqTotal">$0</div>
+        <div class="rt-sub" id="rtLiqSub">LONG $0 · SHORT $0</div>
+      </div>
+    </div>
+    <!-- 최근 청산 이벤트 리스트 -->
+    <div style="margin-top:8px;">
+      <div style="font-size:0.5rem;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">▸ 실시간 청산 이벤트 <span id="wsStatus" style="color:var(--muted)">● 연결 중...</span></div>
+      <div class="liq-list" id="liqList"><div style="color:var(--muted);font-size:0.6rem;padding:6px 0;">WebSocket 연결 대기 중...</div></div>
+    </div>
+  </div>
+
   <!-- ④ 7일 예측 -->
   <div class="panel pred-panel">
     <div class="pred-title" id="predTitle">▸ 7-DAY PREDICTION · BOOTSTRAP MC N=800 · 범위 = ±1σ</div>
@@ -394,11 +457,11 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
       <div class="frow">
         <span class="ftag">RSI &gt;70 → +22 / &lt;30 → -22</span>
         <span class="ftag">MACD 골든 → +14 / 데드 → -14</span>
-        <span class="ftag">OI(추정) × 0.75 → ±18 max</span>
+        <span class="ftag">실제OI변화 × 가중 → ±18 max</span>
         <span class="ftag">24H변동 × 1.1 → ±14 max</span>
       </div><br>
       <b>등급 기준:</b> S≥80 · A≥65 · B≥50 · C≥35 · D≥20 · E&lt;20<br>
-      <b>OI 추정:</b> 7일변동×0.6 + (거래량/시총)×100×0.4<br>
+      <b>OI:</b> Binance fapi/v1/openInterest 실제값 · CVD: aggTrade WebSocket 누적 델타<br>
       <span style="color:rgba(255,255,255,0.3)">⚠ 이 점수는 기술적 신호의 단순 합산이며, 투자 판단의 보조 참고용입니다.</span>
     </div>
   </div>
@@ -408,30 +471,386 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
 <script>
 'use strict';
 /* ================================================================
-   레버리지 게이지 v4 — 모바일 최적화 리빌드
-   · 아크 → 수평 바 게이지 (메인 + 미니 7일)
-   · 롱/숏 비율 바 게이지 (신규)
-   · SES-safe (crypto.getRandomValues, RAF 타이머)
-   · 자동갱신 60초
+   레버리지 게이지 v6 — 실시간 바이낸스 데이터 업그레이드
+   ─────────────────────────────────────────────────────────────────
+   [신규] ① 실제 OI: fapi/v1/openInterest 배치 조회 (20개 심볼)
+   [신규] ② forceOrder WebSocket → 실시간 청산 스트림 + squeezeAlert 연동
+   [신규] ③ aggTrade WebSocket → CVD(Cumulative Volume Delta) 실시간 누적
+   [신규] ④ OI × 변동성(ATR proxy) → 정교한 스퀴즈 지수 계산
+   [유지] 기존 버그픽스(ADX→선형회귀, Race Condition, MC 무한루프 방어 등)
 ================================================================ */
 
 /* ── RNG ── */
 function makeRng(s){s=s>>>0;return function(){s^=s<<13;s^=s>>17;s^=s<<5;return(s>>>0)/4294967296;};}
 function getSeed(){try{const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0];}catch(e){return Date.now()&0xFFFFFFFF;}}
-const rng=makeRng(getSeed());
 
 /* ── 유틸 ── */
 function clamp(v,lo,hi){return v<lo?lo:v>hi?hi:v;}
 function fmt(n,d=2){return Number(n).toFixed(d);}
 function fmtPct(n){const v=Number(n);return(v>=0?'+':'')+v.toFixed(2)+'%';}
 function fmtB(n){if(n>=1e12)return'$'+(n/1e12).toFixed(2)+'T';if(n>=1e9)return'$'+(n/1e9).toFixed(1)+'B';if(n>=1e6)return'$'+(n/1e6).toFixed(0)+'M';return'$'+n.toFixed(0);}
-function safeTime(){try{const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');}catch(e){return'--:--:--;'}}
-// [수정] XSS 방어: 외부 API(CoinGecko) 응답값을 innerHTML에 직접 삽입 시 이스케이프 적용
+function safeTime(){try{const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');}catch(e){return'--:--:--';}}
 function esc(str){return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
-/* ── 상태 ── */
+/* ── 전역 상태 ── */
 let allCoins=[],curFilter='ALL',sortKey='score',sortDir=-1;
-let isRefreshing=false; // [수정] Race Condition 방어 플래그
+let isRefreshing=false;
+
+/* ══════════════════════════════════════════════════════════════
+   ① 실시간 OI 상태
+   · TARGET_SYMS 20개 심볼의 OI를 배치 조회 후 캐싱
+   · oiCache: { sym → { oi: number(USD), prevOi: number, ts: ms } }
+   · oiSnapshotPrev: 이전 갱신 시점 스냅샷 (delta 계산용)
+══════════════════════════════════════════════════════════════ */
+const TARGET_SYMS=[
+  'BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT',
+  'AVAXUSDT','DOGEUSDT','ADAUSDT','LINKUSDT','DOTUSDT',
+  'MATICUSDT','LTCUSDT','ATOMUSDT','NEARUSDT','APTUSDT',
+  'ARBUSDT','OPUSDT','SUIUSDT','INJUSDT','TIAUSDT'
+];
+const MAJOR_CAP=new Set(['BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT',
+                          'AVAXUSDT','ADAUSDT','DOTUSDT','LINKUSDT','LTCUSDT']);
+const CAP_MAJOR=0.00375, CAP_ALT=0.0075;
+
+// OI 캐시: sym → {oiUsd, prevOiUsd, markPrice, ts}
+const oiCache=new Map();
+// 마크가격 캐시 (premiumIndex에서 가져옴)
+const markPriceCache=new Map();
+
+/* ── OI 배치 조회 ──
+   fapi/v1/openInterest는 심볼 1개씩만 지원.
+   Promise.allSettled로 20개 병렬 조회 후 실패한 것은 이전 캐시 유지.
+   markPrice는 이미 premiumIndex에서 가져오므로 재사용. */
+async function fetchAllOI(){
+  const results=await Promise.allSettled(
+    TARGET_SYMS.map(sym=>
+      fetch(`https://fapi.binance.com/fapi/v1/openInterest?symbol=${sym}`,
+        {method:'GET',headers:{'Accept':'application/json'}})
+        .then(r=>r.ok?r.json():Promise.reject(r.status))
+        .then(d=>({sym,oi:parseFloat(d.openInterest||0)}))
+    )
+  );
+  results.forEach(r=>{
+    if(r.status==='fulfilled'){
+      const{sym,oi}=r.value;
+      const mp=markPriceCache.get(sym)||0;
+      const oiUsd=oi*mp;
+      const prev=oiCache.get(sym);
+      oiCache.set(sym,{
+        oiUsd,
+        prevOiUsd:prev?prev.oiUsd:oiUsd,
+        markPrice:mp,
+        rawOi:oi,
+        ts:Date.now()
+      });
+    }
+  });
+}
+
+/* ── OI 파생 지표 계산 ──
+   oiDeltaPct: (현재OI - 이전OI) / 이전OI × 100
+   oiVolRatio: OI(USD) / 24H거래량(USD) → 레버리지 과열 proxy
+   squeezeIdx: OI변화율 × BTC ATR proxy → 실제 스퀴즈 압력 지수 */
+function calcOIMetrics(tickerMap){
+  let totalOiUsd=0, totalDeltaUsd=0;
+  let btcOiUsd=0, btcDeltaPct=0, btcOiPrev=0;
+  const perSym=[];
+  for(const sym of TARGET_SYMS){
+    const c=oiCache.get(sym);
+    if(!c)continue;
+    const delta=c.oiUsd-c.prevOiUsd;
+    const deltaPct=c.prevOiUsd>0?(delta/c.prevOiUsd)*100:0;
+    totalOiUsd+=c.oiUsd;
+    totalDeltaUsd+=delta;
+    perSym.push({sym,oiUsd:c.oiUsd,deltaPct,delta});
+    if(sym==='BTCUSDT'){btcOiUsd=c.oiUsd;btcDeltaPct=deltaPct;btcOiPrev=c.prevOiUsd;}
+  }
+  // OI 가중 delta% (전체 시장)
+  const totalPrevOi=perSym.reduce((a,b)=>a+(oiCache.get(b.sym)?.prevOiUsd||0),0);
+  const weightedDeltaPct=totalPrevOi>0?(totalDeltaUsd/totalPrevOi)*100:0;
+
+  // OI-to-Volume ratio (BTC): 레버리지 축적 정도
+  const btcVol=tickerMap.get('BTCUSDT')||1;
+  const oiVolRatio=btcVol>0?btcOiUsd/btcVol:0;
+
+  return{totalOiUsd,weightedDeltaPct,btcOiUsd,btcDeltaPct,oiVolRatio,perSym};
+}
+
+/* ── OI × 변동성 스퀴즈 지수 ──
+   핵심 로직(요구사항 ④):
+   squeezeIdx = OI변화율(±%) × ATR_proxy(%) × 방향계수
+   · OI가 급증 + 가격 횡보(ATR 낮음) → 압력 누적 → 스퀴즈 임박
+   · OI가 급증 + 가격 이미 급등(ATR 높음) → 과열 청산 위험
+   ATR proxy = BTC sparkline 최근 24봉의 고-저 평균 / 현재가
+   squeezeIdx 범위: -100 ~ +100
+   양수: 숏스퀴즈 압력, 음수: 롱스퀴즈(캐스케이드) 위험 */
+function calcSqueezeIndex(oiMetrics, lsr, frBTCVal, btcPrices){
+  const{btcDeltaPct, oiVolRatio}=oiMetrics;
+  // ATR proxy: 최근 24개 봉의 범위 평균 / 현재가
+  let atrPct=0;
+  if(btcPrices&&btcPrices.length>=24){
+    const slice=btcPrices.slice(-24);
+    const ranges=[];
+    for(let i=1;i<slice.length;i++)ranges.push(Math.abs(slice[i]-slice[i-1]));
+    const avgRange=ranges.reduce((a,b)=>a+b,0)/ranges.length;
+    const curPrice=slice[slice.length-1]||1;
+    atrPct=(avgRange/curPrice)*100;
+  }
+
+  // 방향 계수: 펀딩비 + L/S 비율로 시장 편향 결정
+  // 양수 = 롱 우세(숏스퀴즈 압력), 음수 = 숏 우세(롱캐스케이드 위험)
+  const frBias=frBTCVal*5000; // ±0.375% → ±18.75
+  const lsBias=(lsr-1.0)*20;  // 0.5 편차 → ±10
+  const dirBias=clamp(frBias+lsBias,-30,30);
+
+  // OI 변화 압력: 급증 시 스퀴즈 가능성 ↑
+  // ATR이 낮을수록 압력이 누적(아직 폭발 안 함) → 계수 반전
+  const atrFactor=atrPct>0?clamp(1/(atrPct+0.1)*0.5,0.1,3.0):1;
+  const oiPressure=clamp(btcDeltaPct*atrFactor,-40,40);
+
+  // OI/Volume 과열 계수: 1.5 이상이면 레버 과다 상태
+  const ovrHeat=clamp((oiVolRatio-1.5)*10,-15,15);
+
+  const raw=dirBias+oiPressure+ovrHeat;
+  const idx=clamp(raw,-100,100);
+
+  let label,color;
+  if(idx>=50){label='🚀 숏스퀴즈 압력 높음';color='#00ff88';}
+  else if(idx>=20){label='↗ 숏스퀴즈 가능';color='#7fff00';}
+  else if(idx>=-20){label='→ 중립';color='#ffd700';}
+  else if(idx>=-50){label='↘ 롱캐스케이드 주의';color='#ff8c00';}
+  else{label='🔥 롱캐스케이드 위험';color='#ff3355';}
+
+  return{idx,label,color,atrPct,oiPressure,dirBias};
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ② forceOrder WebSocket — 실시간 청산 스트림
+   · BTC + ETH 청산 스트림 병합 (btcusdt@forceOrder + ethusdt@forceOrder)
+   · 5분 롤링 윈도우로 청산 합계 집계
+   · $500K 이상 단건 청산 → squeezeAlert 즉시 갱신
+   · 자동 재연결 (exponential backoff, 최대 30s)
+══════════════════════════════════════════════════════════════ */
+const LIQ_WINDOW_MS=5*60*1000; // 5분
+const liqHistory=[]; // {ts, sym, side, usdSize}
+let wsLiquidation=null;
+let wsLiqRetry=0;
+
+function connectLiquidationWS(){
+  if(wsLiquidation&&(wsLiquidation.readyState===WebSocket.CONNECTING||wsLiquidation.readyState===WebSocket.OPEN))return;
+  const streams='btcusdt@forceOrder/ethusdt@forceOrder/solusdt@forceOrder';
+  wsLiquidation=new WebSocket(`wss://fstream.binance.com/stream?streams=${streams}`);
+
+  wsLiquidation.onopen=()=>{
+    wsLiqRetry=0;
+    setWsDot('liq',true);
+    updateWsStatus();
+  };
+
+  wsLiquidation.onmessage=(ev)=>{
+    try{
+      const msg=JSON.parse(ev.data);
+      const o=msg?.data?.o; // forceOrder 이벤트 내부 객체
+      if(!o)return;
+      const sym=(o.s||'').replace('USDT','');
+      const side=o.S==='BUY'?'SHORT':'LONG'; // BUY 청산 = SHORT 포지션 청산
+      const usdSize=parseFloat(o.q||0)*parseFloat(o.ap||0);
+      if(usdSize<1000)return; // $1K 미만 노이즈 무시
+
+      const now=Date.now();
+      liqHistory.push({ts:now,sym,side,usdSize});
+      // 5분 이전 항목 제거
+      while(liqHistory.length&&liqHistory[0].ts<now-LIQ_WINDOW_MS)liqHistory.shift();
+
+      renderLiqPanel();
+
+      // 대규모 청산($500K+) → 즉시 squeezeAlert 갱신
+      if(usdSize>=500000)triggerLiqAlert(sym,side,usdSize);
+    }catch(_){}
+  };
+
+  wsLiquidation.onerror=()=>{setWsDot('liq',false);};
+  wsLiquidation.onclose=()=>{
+    setWsDot('liq',false);
+    const delay=Math.min(30000,1000*Math.pow(2,wsLiqRetry++));
+    setTimeout(connectLiquidationWS,delay);
+  };
+}
+
+function setWsDot(type,ok){
+  const el=document.getElementById('wsStatus');
+  if(el)el.innerHTML=ok
+    ?'<span style="color:#00ff88">● LIVE</span>'
+    :'<span style="color:#ff3355">● 재연결 중...</span>';
+}
+function updateWsStatus(){
+  const bothOk=wsLiquidation?.readyState===1&&wsCVD?.readyState===1;
+  const el=document.getElementById('wsStatus');
+  if(el)el.innerHTML=bothOk
+    ?'<span style="color:#00ff88">● LIVE · WS×2</span>'
+    :'<span style="color:#ffd700">● 부분연결</span>';
+}
+
+function renderLiqPanel(){
+  const now=Date.now();
+  const recent=liqHistory.filter(l=>l.ts>=now-LIQ_WINDOW_MS);
+  let longUsd=0,shortUsd=0;
+  recent.forEach(l=>{l.side==='LONG'?longUsd+=l.usdSize:shortUsd+=l.usdSize;});
+  const total=longUsd+shortUsd;
+
+  const totalEl=document.getElementById('rtLiqTotal');
+  const subEl=document.getElementById('rtLiqSub');
+  if(totalEl)totalEl.innerHTML='<span style="color:'+(longUsd>shortUsd?'#ff3355':'#00ff88')+'">'+fmtB(total)+'</span>';
+  if(subEl)subEl.textContent='LONG '+fmtB(longUsd)+' · SHORT '+fmtB(shortUsd);
+
+  // 최근 8개 청산 이벤트 렌더
+  const listEl=document.getElementById('liqList');
+  if(!listEl)return;
+  const items=liqHistory.slice(-8).reverse();
+  if(!items.length){listEl.innerHTML='<div style="color:var(--muted);font-size:0.6rem;padding:4px 0">청산 이벤트 없음 (5분 내)</div>';return;}
+  listEl.innerHTML=items.map(l=>{
+    const age=Math.round((now-l.ts)/1000);
+    const ageStr=age<60?age+'s':Math.round(age/60)+'m';
+    const col=l.side==='LONG'?'#ff3355':'#00ff88';
+    const dotCol=l.side==='LONG'?'#ff3355':'#00ff88';
+    return`<div class="liq-item">
+      <span><span class="ws-dot" style="background:${dotCol}"></span><span class="liq-sym">${esc(l.sym)}</span></span>
+      <span style="color:${col};font-size:0.56rem;font-weight:700">${l.side}</span>
+      <span class="liq-val" style="color:${col}">${fmtB(l.usdSize)}</span>
+      <span style="color:var(--muted);font-size:0.5rem">${ageStr}전</span>
+    </div>`;
+  }).join('');
+}
+
+function triggerLiqAlert(sym,side,usdSize){
+  const sqEl=document.getElementById('squeezeAlert');
+  if(!sqEl)return;
+  const isBull=side==='SHORT'; // 숏 청산 = 가격 상승 압력
+  const col=isBull?'rgba(0,255,136,0.12)':'rgba(255,51,85,0.1)';
+  const border=isBull?'rgba(0,255,136,0.35)':'rgba(255,51,85,0.3)';
+  const textCol=isBull?'var(--green)':'var(--red)';
+  const emoji=isBull?'🚀':'🔥';
+  sqEl.style.cssText=`display:block;padding:8px 12px;border-radius:7px;margin-top:8px;font-size:0.66rem;font-weight:700;background:${col};border:1px solid ${border};color:${textCol}`;
+  sqEl.textContent=`${emoji} 대규모 ${side} 청산 · ${esc(sym)} ${fmtB(usdSize)} · ${safeTime()}`;
+  // 10초 후 자동 숨김 (다음 정기 신호가 덮어쓸 수 있음)
+  setTimeout(()=>{if(sqEl.textContent.includes(sym))sqEl.style.display='none';},10000);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ③ aggTrade WebSocket — CVD(Cumulative Volume Delta) 실시간
+   · BTC aggTrade 스트림: 매수 체결 - 매도 체결 누적
+   · m=true: 매도자 maker → 매수 taker 체결(시장 매수)
+   · m=false: 매수자 maker → 매도 taker 체결(시장 매도)
+   · CVD 양수 → 매수 압력 우위, 음수 → 매도 압력 우위
+   · 롤링 5분 윈도우 + 총 누적(세션)
+══════════════════════════════════════════════════════════════ */
+let wsCVD=null;
+let wsCVDRetry=0;
+
+// CVD 데이터 구조
+const cvdData={
+  session:0,      // 세션 누적 델타(USD)
+  window:[],      // 롤링 5분: [{ts, delta}]
+  buyVol5m:0,     // 5분 매수 볼륨
+  sellVol5m:0,    // 5분 매도 볼륨
+  lastPrice:0,
+};
+
+function connectCVDWS(){
+  if(wsCVD&&(wsCVD.readyState===WebSocket.CONNECTING||wsCVD.readyState===WebSocket.OPEN))return;
+  wsCVD=new WebSocket('wss://fstream.binance.com/ws/btcusdt@aggTrade');
+
+  wsCVD.onopen=()=>{wsCVDRetry=0;updateWsStatus();};
+
+  wsCVD.onmessage=(ev)=>{
+    try{
+      const d=JSON.parse(ev.data);
+      // m=true → 매도 taker(시장 매도), m=false → 매수 taker(시장 매수)
+      const qty=parseFloat(d.q||0);
+      const price=parseFloat(d.p||0);
+      const usd=qty*price;
+      cvdData.lastPrice=price;
+      // 시장 매수 = +delta, 시장 매도 = -delta
+      const delta=d.m?-usd:usd;
+      cvdData.session+=delta;
+
+      const now=Date.now();
+      cvdData.window.push({ts:now,delta,buy:d.m?0:usd,sell:d.m?usd:0});
+      // 5분 초과 항목 제거
+      while(cvdData.window.length&&cvdData.window[0].ts<now-LIQ_WINDOW_MS)
+        cvdData.window.shift();
+
+      // 5분 통계 재계산 (throttle: 매 50틱마다)
+      if(cvdData.window.length%50===0)renderCVDPanel();
+    }catch(_){}
+  };
+
+  wsCVD.onerror=()=>{};
+  wsCVD.onclose=()=>{
+    const delay=Math.min(30000,1000*Math.pow(2,wsCVDRetry++));
+    setTimeout(connectCVDWS,delay);
+  };
+}
+
+function renderCVDPanel(){
+  const w=cvdData.window;
+  const cvd5m=w.reduce((a,b)=>a+b.delta,0);
+  const buy5m=w.reduce((a,b)=>a+b.buy,0);
+  const sell5m=w.reduce((a,b)=>a+b.sell,0);
+
+  // CVD 표시
+  const cvdEl=document.getElementById('rtCVDVal');
+  const cvdSubEl=document.getElementById('rtCVDSub');
+  if(cvdEl){
+    const col=cvd5m>0?'#00ff88':cvd5m<0?'#ff3355':'#ffd700';
+    cvdEl.innerHTML=`<span style="color:${col}">${cvd5m>=0?'+':''}${fmtB(cvd5m)}</span>`;
+  }
+  if(cvdSubEl){
+    const ratio=buy5m+sell5m>0?buy5m/(buy5m+sell5m)*100:50;
+    cvdSubEl.textContent=`매수 ${fmt(ratio,1)}% · 매도 ${fmt(100-ratio,1)}%`;
+  }
+
+  // CVD 바 (중앙=0, 좌=매도, 우=매수)
+  const barEl=document.getElementById('cvdBarFill');
+  if(barEl&&(buy5m+sell5m)>0){
+    const ratio=buy5m/(buy5m+sell5m); // 0~1
+    const col=ratio>0.55?'#00ff88':ratio<0.45?'#ff3355':'#ffd700';
+    if(ratio>=0.5){
+      barEl.style.left='50%';
+      barEl.style.width=((ratio-0.5)*2*50)+'%';
+    }else{
+      barEl.style.width=((0.5-ratio)*2*50)+'%';
+      barEl.style.left=(ratio*100)+'%';
+    }
+    barEl.style.background=col;
+  }
+
+  // levScore에 CVD 반영 (전역 상태 업데이트 트리거)
+  cvdData.buyVol5m=buy5m;
+  cvdData.sellVol5m=sell5m;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   OI 실제값 UI 업데이트
+══════════════════════════════════════════════════════════════ */
+function renderOIPanel(oiMetrics){
+  const{btcOiUsd,btcDeltaPct,totalOiUsd}=oiMetrics;
+  const oiEl=document.getElementById('rtOIVal');
+  const deltaEl=document.getElementById('rtOIDelta');
+  if(oiEl)oiEl.innerHTML=`<span>${fmtB(btcOiUsd)}</span>`;
+  if(deltaEl){
+    const col=btcDeltaPct>0?'#00ff88':btcDeltaPct<0?'#ff3355':'#ffd700';
+    const arrow=btcDeltaPct>0?'▲':'▼';
+    deltaEl.innerHTML=`변화: <span style="color:${col}">${arrow}${fmt(Math.abs(btcDeltaPct),2)}%</span>`;
+  }
+}
+
+function renderSqueezeIndexPanel(si){
+  const idxEl=document.getElementById('rtSqueezeIdx');
+  const descEl=document.getElementById('rtSqueezeDesc');
+  if(idxEl)idxEl.innerHTML=`<span style="color:${si.color}">${si.idx>0?'+':''}${fmt(si.idx,1)}</span>`;
+  if(descEl){descEl.textContent=si.label;descEl.style.color=si.color;}
+}
 
 /* ── 상태바 ── */
 function setStatus(msg,type){
@@ -450,15 +869,11 @@ function setStatus(msg,type){
 ══════════════════════════════════ */
 function updateBarGauge(pct){
   pct=clamp(pct,0,100);
-  // 포인터
   const ptr=document.getElementById('barPtr');
-  if(ptr) ptr.style.left=pct+'%';
-  // 어두운 영역
+  if(ptr)ptr.style.left=pct+'%';
   const dim=document.getElementById('barDim');
-  if(dim) dim.style.width=(100-pct)+'%';
-  // 수치
+  if(dim)dim.style.width=(100-pct)+'%';
   document.getElementById('gaugePct').textContent=fmt(pct,0)+'%';
-  // 라벨
   let lbl,sub;
   if(pct>=85){lbl='S등급 · 극도 과열';sub='즉시 진입 / 과열 주의';}
   else if(pct>=70){lbl='A등급 · 레버리지 급증';sub='FOMO 주도 · 추격 주의';}
@@ -468,7 +883,6 @@ function updateBarGauge(pct){
   else{lbl='E등급 · 극도 공포';sub='디레버리징 / 진입 금지';}
   document.getElementById('gaugeLbl').textContent=lbl;
   document.getElementById('gaugeSub').textContent=sub;
-  // 존 하이라이트
   document.querySelectorAll('.zone-item').forEach(el=>{
     const lo=parseFloat(el.dataset.lo),hi=parseFloat(el.dataset.hi);
     el.classList.toggle('active',pct>=lo&&pct<hi);
@@ -476,38 +890,31 @@ function updateBarGauge(pct){
 }
 
 /* ══════════════════════════════════
-   롱/숏 바 게이지 업데이트 (v5)
+   롱/숏 바 게이지 업데이트 (v6)
 ══════════════════════════════════ */
 function updateLSGauge(lsr,avgFunding,levScore,lev){
-  // lev = 전체 fetchLeverageMetrics 결과 (스퀴즈 신호 포함)
   const oiWF=(lev&&lev.oiWeightedFunding!=null)?lev.oiWeightedFunding:avgFunding;
   const sq=(lev&&lev.squeezeSignal)||'none';
   const sqLabel=(lev&&lev.squeezeLabel)||'';
 
-  // 롱 비율 = lsr/(lsr+1)*100
   const longPct=clamp((lsr/(lsr+1))*100,1,99);
   const shortPct=100-longPct;
 
   const fill=document.getElementById('lsBarFill');
-  if(fill) fill.style.width=longPct+'%';
-
+  if(fill)fill.style.width=longPct+'%';
   const lp=document.getElementById('lsLongPct');
   const sp=document.getElementById('lsShortPct');
-  if(lp) lp.textContent=fmt(longPct,1)+'%';
-  if(sp) sp.textContent=fmt(shortPct,1)+'%';
-
+  if(lp)lp.textContent=fmt(longPct,1)+'%';
+  if(sp)sp.textContent=fmt(shortPct,1)+'%';
   const li=document.getElementById('lsLongInside');
-  if(li) li.textContent=longPct>28?fmt(longPct,1)+'%':'';
+  if(li)li.textContent=longPct>28?fmt(longPct,1)+'%':'';
   const si=document.getElementById('lsShortInside');
-  if(si) si.textContent=shortPct>18?fmt(shortPct,1)+'%':'';
-
+  if(si)si.textContent=shortPct>18?fmt(shortPct,1)+'%':'';
   const rv=document.getElementById('lsRatioVal');
   if(rv){
     const cls=lsr>1.2?'up':lsr<0.8?'down':'neu';
     rv.innerHTML='<span class="'+cls+'">'+fmt(lsr,3)+'</span>';
   }
-
-  // OI 가중 펀딩비 표시 (캡 적용 후 값)
   const frEl=document.getElementById('mFunding');
   if(frEl){
     const fp=oiWF*100;
@@ -515,15 +922,11 @@ function updateLSGauge(lsr,avgFunding,levScore,lev){
     frEl.innerHTML='<span class="'+fc+'">'+fmt(fp,4)+'%</span>'
       +'<div style="font-size:0.48rem;color:var(--muted);margin-top:1px">OI가중·캡적용</div>';
   }
-
-  // 레버 점수
   const lsEl=document.getElementById('mLevScore');
   if(lsEl){
     const lc=levScore>=70?'up':levScore<=30?'down':'neu';
     lsEl.innerHTML='<span class="'+lc+'">'+fmt(levScore,0)+'</span>';
   }
-
-  // 시장신호 + 스퀴즈 표시
   const sigEl=document.getElementById('mLevSignal');
   if(sigEl){
     let sig,sc;
@@ -538,24 +941,21 @@ function updateLSGauge(lsr,avgFunding,levScore,lev){
     else{sig='패닉';sc='down';}
     sigEl.innerHTML='<span class="'+sc+'">'+sig+'</span>';
   }
-
-  // 스퀴즈 배너 (있을 경우)
+  // squeezeAlert: WS 대규모 청산이 없으면 정기 신호로 업데이트
   const sqEl=document.getElementById('squeezeAlert');
   if(sqEl){
-    if(sqLabel&&sq!=='neutral'&&sq!=='none'){
+    // WS 실시간 청산 알림이 10초 이내에 노출 중이면 덮어쓰지 않음
+    if(sqLabel&&sq!=='neutral'&&sq!=='none'&&sqEl.style.display==='none'){
       const sqColor=sq==='short_squeeze'?'rgba(0,255,136,0.1)':
-                    sq==='long_cascade'||sq==='long_squeeze_risk'?'rgba(255,51,85,0.1)':
-                    'rgba(255,215,0,0.08)';
+                    sq==='long_cascade'||sq==='long_squeeze_risk'?'rgba(255,51,85,0.1)':'rgba(255,215,0,0.08)';
       const sqBorder=sq==='short_squeeze'?'rgba(0,255,136,0.3)':
-                     sq==='long_cascade'||sq==='long_squeeze_risk'?'rgba(255,51,85,0.3)':
-                     'rgba(255,215,0,0.2)';
+                     sq==='long_cascade'||sq==='long_squeeze_risk'?'rgba(255,51,85,0.3)':'rgba(255,215,0,0.2)';
       const sqTextColor=sq==='short_squeeze'?'var(--green)':
-                        sq==='long_cascade'||sq==='long_squeeze_risk'?'var(--red)':
-                        'var(--yellow)';
+                        sq==='long_cascade'||sq==='long_squeeze_risk'?'var(--red)':'var(--yellow)';
       sqEl.style.cssText='display:block;padding:7px 10px;border-radius:7px;margin-top:8px;font-size:0.66rem;font-weight:700;background:'+sqColor+';border:1px solid '+sqBorder+';color:'+sqTextColor;
       sqEl.textContent=sqLabel;
-    } else {
-      sqEl.style.display='none';
+    }else if(!sqLabel||sq==='none'||sq==='neutral'){
+      if(sqEl.style.display!=='none'&&!sqEl.textContent.includes('청산'))sqEl.style.display='none';
     }
   }
 }
@@ -564,8 +964,6 @@ function updateLSGauge(lsr,avgFunding,levScore,lev){
    7일 예측 (바 게이지)
 ══════════════════════════════════ */
 function dirLabel(sp){
-  // sp=50이 정확히 0% 기준 (중앙)
-  // sp>50 상승, sp<50 하락
   if(sp>=82)return['지속상승','#00ff88'];
   if(sp>=68)return['상승','#7fff00'];
   if(sp>=56)return['소폭상승','#adff2f'];
@@ -574,8 +972,6 @@ function dirLabel(sp){
   if(sp>=18)return['하락','#ff4444'];
   return['지속하락','#cc2222'];
 }
-// sp=50 → 0% 변화 기준선 (바 중앙)
-// 스케일: 1% 변동 = 4pt → ±12.5%가 바 전체 범위
 function pctToSP(pct){return clamp(50+pct*4,5,95);}
 
 function renderDayGauges(pred){
@@ -590,19 +986,14 @@ function renderDayGauges(pred){
     const chg=sign+fmt(p.muPct,2)+'%';
     const rangeLeft=Math.min(spLo,spHi);
     const rangeW=Math.max(2,Math.abs(spHi-spLo));
-    // 중앙(0%) 기준으로 색이 채워지는 방향 결정
     const fillLeft=sp>=50?50:sp;
     const fillW=Math.abs(sp-50);
     return '<div class="day-item">'
       +'<div class="day-tag">'+t+'</div>'
       +'<div class="mini-bar-wrap">'
-        // ±1σ 범위 (회색 밴드)
         +'<div class="pred-range" style="left:'+rangeLeft+'%;width:'+rangeW+'%"></div>'
-        // 0%→현재 방향으로 채우는 색 막대
         +'<div style="position:absolute;top:2px;bottom:2px;left:'+fillLeft+'%;width:'+fillW+'%;background:'+col+';opacity:0.5;border-radius:3px;transition:all 0.5s ease;"></div>'
-        // 중앙 기준선 (0% = 50%)
         +'<div style="position:absolute;top:0;bottom:0;left:50%;width:2px;background:rgba(255,255,255,0.3);transform:translateX(-50%);z-index:3;"></div>'
-        // 중앙값 마커
         +'<div class="pred-mu" style="left:'+sp+'%;background:'+col+'"></div>'
       +'</div>'
       +'<div class="day-dir" style="color:'+col+';font-size:0.58rem">'+dir+'</div>'
@@ -621,35 +1012,33 @@ function sparkline(prices){
 }
 
 /* ══════════════════════════════════
-   Bootstrap Monte Carlo
+   Bootstrap Monte Carlo (버그픽스 v2)
 ══════════════════════════════════ */
 function monteCarloBootstrap(hist,days,n){
   days=days||7;n=n||800;
   if(!hist||hist.length<10)return Array.from({length:days},(_,i)=>({muPct:(i-3)*0.3,loPct:-6,hiPct:6}));
   const rets=[];
   for(let i=1;i<hist.length;i++){if(hist[i-1]>0&&hist[i]>0)rets.push(Math.log(hist[i]/hist[i-1]));}
-  // [수정] bs=5 기준으로 rets.length < bs+1이면 블록 선택 시 si=0 고정 → MC 다양성 0
-  // + rets.length < bs면 while 루프에서 blk가 빈 배열 → done 증가 안됨 → 무한루프
   if(rets.length<6)return Array.from({length:days},()=>({muPct:0,loPct:-5,hiPct:5}));
   const last=hist[hist.length-1];
   const lr=makeRng(getSeed());
   const bs=5,paths=[];
-  const maxStart=Math.max(1,rets.length-bs); // [수정] 최소 1 보장
+  const maxStart=Math.max(1,rets.length-bs);
   for(let sim=0;sim<n;sim++){
     let price=last;const path=[price];let done=0;
-    let guard=0; // [수정] 무한루프 안전장치
+    let guard=0;
     while(done<days&&guard<days*10){
       guard++;
       const si=Math.floor(lr()*maxStart);
       const blk=rets.slice(si,si+bs);
-      if(blk.length===0)continue; // [수정] 빈 블록 skip
+      if(blk.length===0)continue;
       for(let b=0;b<blk.length&&done<days;b++){price*=Math.exp(blk[b]);path.push(price);done++;}
     }
     paths.push(path);
   }
   const res=[];
   for(let d=1;d<=days;d++){
-    const v=paths.map(p=>p[d]??last).sort((a,b)=>a-b); // [수정] undefined 방어
+    const v=paths.map(p=>p[d]??last).sort((a,b)=>a-b);
     res.push({muPct:((v[Math.floor(n*0.5)]-last)/last)*100,loPct:((v[Math.floor(n*0.16)]-last)/last)*100,hiPct:((v[Math.floor(n*0.84)]-last)/last)*100});
   }
   return res;
@@ -668,102 +1057,82 @@ function calcMACDbull(prices){
   const ema=(arr,n)=>{const k=2/(n+1);let e=arr[0];for(let i=1;i<arr.length;i++)e=arr[i]*k+e*(1-k);return e;};
   const sl=prices.slice(-26);return ema(sl,12)>ema(sl,26);
 }
-function estOI(c7d,vol,mcap){return clamp(c7d*0.6+(vol/(mcap||1))*100*0.4,-30,30);}
-function calcScore(rsi,bull,oi,c24){
+
+/* ── 실제 OI 기반 코인 점수 계산 ──
+   요구사항 ①: estOI(추정 공식) → 실제 OI 캐시 우선 사용
+   심볼이 TARGET_SYMS에 없으면 종전 추정식(fallback) */
+function getOIDelta(sym){
+  const futureSym=sym+'USDT';
+  const c=oiCache.get(futureSym);
+  if(!c||!c.prevOiUsd||c.prevOiUsd===0)return null;
+  return(c.oiUsd-c.prevOiUsd)/c.prevOiUsd*100; // %
+}
+
+function calcScore(rsi,bull,oiDelta,c24){
   let s=50;
   if(rsi>70)s+=22;else if(rsi>60)s+=12;else if(rsi>50)s+=4;
   else if(rsi<30)s-=22;else if(rsi<40)s-=12;else if(rsi<50)s-=4;
   s+=bull?14:-14;
-  s+=clamp(oi*0.75,-18,18);
+  // OI delta: 실제 값이 있으면 사용, 없으면 0
+  const oiScore=oiDelta!=null?clamp(oiDelta*1.2,-18,18):0;
+  s+=oiScore;
   s+=clamp(c24*1.1,-14,14);
   return clamp(s,0,100);
 }
+
 function toGrade(sc){if(sc>=80)return'S';if(sc>=65)return'A';if(sc>=50)return'B';if(sc>=35)return'C';if(sc>=20)return'D';return'E';}
 function gradeAction(g){return{S:['바로진입','tag-go'],A:['추가하락후','tag-wait'],B:['소액진입','tag-small'],C:['진입고려','tag-watch'],D:['관망','tag-hold'],E:['진입금지','tag-out']}[g]||['--',''];}
 function gradeColor(g){return{S:'#00ff88',A:'#7fff00',B:'#ffd700',C:'#ff8c00',D:'#ff4444',E:'#cc2222'}[g]||'#888';}
 
-/* ══════════════════════════════════════════════════════════════
-   코인별 롱/숏 유리 판단 — 알고리즘 기반
-   ────────────────────────────────────────────────────────────
-   입력: coin 객체 (rsi, bull, oi, c24, c7d, score, grade, mcPred)
-   출력: { bias:'long'|'short'|'neutral', label, color, detail }
-
-   판단 기준 (가중합):
-   1. RSI: <35 → 롱 유리 (+2), >65 → 숏 유리 (-2)
-   2. MACD: 골든크로스 → 롱(+1.5), 데드크로스 → 숏(-1.5)
-   3. OI 변화율: 양수 → 롱(+1), 음수 → 숏(-1)
-   4. 7일 예측(mcPred D+3 중앙값): 상승 → 롱, 하락 → 숏
-   5. 7D 모멘텀: 상승 → 롱(+0.5), 하락 → 숏(-0.5)
-   6. 종합점수: >65 → 롱 보정, <35 → 숏 보정
-══════════════════════════════════════════════════════════════ */
+/* ── 코인별 롱/숏 바이어스 (CVD 반영) ── */
 function calcLSBias(c){
   let w=0;
   const reasons=[];
-
-  // 1. RSI
-  if(c.rsi<35){ w+=2; reasons.push('RSI과매도'); }
-  else if(c.rsi<45){ w+=1; reasons.push('RSI저점권'); }
-  else if(c.rsi>65){ w-=2; reasons.push('RSI과매수'); }
-  else if(c.rsi>55){ w-=1; reasons.push('RSI고점권'); }
-
-  // 2. MACD
-  if(c.bull){ w+=1.5; reasons.push('MACD골든'); }
-  else { w-=1.5; reasons.push('MACD데드'); }
-
-  // 3. OI 변화율
-  if(c.oi>8){ w+=1.2; reasons.push('OI급증'); }
-  else if(c.oi>3){ w+=0.6; reasons.push('OI증가'); }
-  else if(c.oi<-8){ w-=1.2; reasons.push('OI급감'); }
-  else if(c.oi<-3){ w-=0.6; reasons.push('OI감소'); }
-
-  // 4. 7일 예측 D+3
+  if(c.rsi<35){w+=2;reasons.push('RSI과매도');}
+  else if(c.rsi<45){w+=1;reasons.push('RSI저점권');}
+  else if(c.rsi>65){w-=2;reasons.push('RSI과매수');}
+  else if(c.rsi>55){w-=1;reasons.push('RSI고점권');}
+  if(c.bull){w+=1.5;reasons.push('MACD골든');}
+  else{w-=1.5;reasons.push('MACD데드');}
+  // 실제 OI delta 사용
+  const od=c.oiDelta;
+  if(od!=null){
+    if(od>3){w+=1.2;reasons.push('OI급증');}
+    else if(od>1){w+=0.6;reasons.push('OI증가');}
+    else if(od<-3){w-=1.2;reasons.push('OI급감');}
+    else if(od<-1){w-=0.6;reasons.push('OI감소');}
+  }
   if(c.mcPred&&c.mcPred.length>=3){
     const d3=c.mcPred[2].muPct;
-    if(d3>1.5){ w+=1; reasons.push('D+3상승예측'); }
-    else if(d3>0.5){ w+=0.5; }
-    else if(d3<-1.5){ w-=1; reasons.push('D+3하락예측'); }
-    else if(d3<-0.5){ w-=0.5; }
+    if(d3>1.5){w+=1;reasons.push('D+3상승예측');}
+    else if(d3>0.5){w+=0.5;}
+    else if(d3<-1.5){w-=1;reasons.push('D+3하락예측');}
+    else if(d3<-0.5){w-=0.5;}
   }
-
-  // 5. 7D 모멘텀
-  if(c.c7d>5){ w+=0.5; }
-  else if(c.c7d<-5){ w-=0.5; }
-
-  // 6. 종합 점수 보정
-  if(c.score>70){ w+=0.8; }
-  else if(c.score<30){ w-=0.8; }
-
-  // 판정
+  if(c.c7d>5)w+=0.5;else if(c.c7d<-5)w-=0.5;
+  if(c.score>70)w+=0.8;else if(c.score<30)w-=0.8;
+  // CVD 바이어스: BTC CVD가 강하면 전체 롱 편향 보정
+  const cvd5m=cvdData.window.reduce((a,b)=>a+b.delta,0);
+  const cvdBuy=cvdData.buyVol5m,cvdSell=cvdData.sellVol5m;
+  if(cvdBuy+cvdSell>0){
+    const cvdRatio=cvdBuy/(cvdBuy+cvdSell);
+    if(cvdRatio>0.62){w+=0.5;reasons.push('CVD매수우세');}
+    else if(cvdRatio<0.38){w-=0.5;reasons.push('CVD매도우세');}
+  }
   let bias,label,color;
-  if(w>=3.5){
-    bias='long'; label='📈 롱 유리'; color='#00ff88';
-  } else if(w>=1.5){
-    bias='long_weak'; label='↗ 롱 우세'; color='#7fff00';
-  } else if(w<=-3.5){
-    bias='short'; label='📉 숏 유리'; color='#ff3355';
-  } else if(w<=-1.5){
-    bias='short_weak'; label='↘ 숏 우세'; color='#ff8c00';
-  } else {
-    bias='neutral'; label='→ 중립'; color='#ffd700';
-  }
-
-  const detail=reasons.slice(0,3).join(' · ');
-  return{bias,label,color,detail,score:w};
+  if(w>=3.5){bias='long';label='📈 롱 유리';color='#00ff88';}
+  else if(w>=1.5){bias='long_weak';label='↗ 롱 우세';color='#7fff00';}
+  else if(w<=-3.5){bias='short';label='📉 숏 유리';color='#ff3355';}
+  else if(w<=-1.5){bias='short_weak';label='↘ 숏 우세';color='#ff8c00';}
+  else{bias='neutral';label='→ 중립';color='#ffd700';}
+  return{bias,label,color,detail:reasons.slice(0,3).join(' · '),score:w};
 }
 
-/* ══════════════════════════════════════════════════════════════
-   신규 고급 지표 함수들
-══════════════════════════════════════════════════════════════ */
-
-// 1. Regime Detection — 선형회귀 기울기 + 변동성 기반
-// [수정] CoinGecko sparkline은 close만 제공. High/Low 없음.
-// 기존 ADX 구현은 highs=lows=closes=prices로 대입해 TR=0이 되는 치명적 오류.
-// → 선형회귀 기울기(추세방향) + CV(변동성)으로 대체.
+/* ── 선형회귀 기반 Regime Detection (ADX 대체) ── */
 function detectRegime(prices){
   if(!prices||prices.length<20)return{regime:'unknown',strength:0};
   const n=Math.min(prices.length,30);
   const slice=prices.slice(-n);
-  // 선형회귀 기울기 계산
   let sumX=0,sumY=0,sumXY=0,sumX2=0;
   for(let i=0;i<n;i++){sumX+=i;sumY+=slice[i];sumXY+=i*slice[i];sumX2+=i*i;}
   const denom=(n*sumX2-sumX*sumX);
@@ -771,198 +1140,91 @@ function detectRegime(prices){
   const slope=(n*sumXY-sumX*sumY)/denom;
   const mean=sumY/n;
   if(mean===0)return{regime:'ranging',strength:0};
-  // 기울기를 평균 대비 % 비율로 정규화
   const slopePct=(slope/mean)*100;
-  // 표준편차 / 평균 = 변동계수(CV) → 추세강도 proxy
-  const std=Math.sqrt(slice.reduce((a,b)=>a+Math.pow(b-mean,2),0)/n);
   const strength=clamp(Math.abs(slopePct)*10,0,100);
-  if(Math.abs(slopePct)>0.5){
-    return{
-      regime:slopePct>0?'trending_up':'trending_down',
-      strength,
-      direction:slopePct>0?'up':'down'
-    };
-  }
+  if(Math.abs(slopePct)>0.5)return{regime:slopePct>0?'trending_up':'trending_down',strength,direction:slopePct>0?'up':'down'};
   return{regime:'ranging',strength};
 }
 
-// 2. Bollinger Band Squeeze (변동성 수축 감지)
+/* ── BB Squeeze ── */
 function calcBBSqueeze(prices){
   if(!prices||prices.length<20)return{squeeze:false,strength:0};
-  
   const period=20;
   const recent=prices.slice(-period);
   const sma=recent.reduce((a,b)=>a+b,0)/period;
-  
-  // 표준편차
   const variance=recent.reduce((a,b)=>a+Math.pow(b-sma,2),0)/period;
   const std=Math.sqrt(variance);
-  
-  const upper=sma+2*std;
-  const lower=sma-2*std;
-  const bandwidth=(upper-lower)/sma*100;
-  
-  // 과거 평균 대비
-  // [수정] prices.length === period 일 때 allBW 빈 배열 → avgBW=NaN/0 → strength=Infinity 방어
+  const bandwidth=(4*std)/sma*100;
   const allBW=[];
   for(let i=period;i<prices.length;i++){
-    const slice=prices.slice(i-period,i);
-    const m=slice.reduce((a,b)=>a+b,0)/period;
-    if(m===0)continue; // 평균이 0이면 skip
-    const s=Math.sqrt(slice.reduce((a,b)=>a+Math.pow(b-m,2),0)/period);
-    allBW.push((2*s)/m*100);
+    const sl=prices.slice(i-period,i);
+    const m=sl.reduce((a,b)=>a+b,0)/period;
+    if(m===0)continue;
+    const s=Math.sqrt(sl.reduce((a,b)=>a+Math.pow(b-m,2),0)/period);
+    allBW.push((4*s)/m*100);
   }
-  // allBW가 비어있으면 현재 bandwidth 자체를 기준으로 사용 → 스퀴즈 아님 처리
   const avgBW=allBW.length>0?allBW.reduce((a,b)=>a+b,0)/allBW.length:bandwidth;
-  
-  const squeeze=avgBW>0&&bandwidth<avgBW*0.6; // 평균 대비 60% 이하면 스퀴즈
+  const squeeze=avgBW>0&&bandwidth<avgBW*0.6;
   const strength=avgBW>0?clamp((1-(bandwidth/avgBW))*100,0,100):0;
-  
   return{squeeze,strength,bandwidth};
 }
 
-// 3. Volume Profile POC (가격대별 거래량 집중 구간)
-// [수정] volumes 빈 배열 또는 더미 데이터 시 nearPOC:false 반환으로 별점 오염 방지
-function calcVolumePOC(prices,volumes){
-  const currentPrice=prices&&prices.length?prices[prices.length-1]:0;
-  if(!prices||!volumes||volumes.length<50||prices.length<50)
-    return{poc:currentPrice,distance:0,nearPOC:false};
-  
-  const priceMin=Math.min(...prices);
-  const priceMax=Math.max(...prices);
-  // [수정] priceMin===priceMax → binSize=0 → 무한루프/NaN 방어
-  if(priceMax===priceMin)return{poc:currentPrice,distance:0,nearPOC:false};
-  const bins=20;
-  const binSize=(priceMax-priceMin)/bins;
-  
-  const volumeProfile=new Array(bins).fill(0);
-  
-  for(let i=0;i<prices.length;i++){
-    const binIdx=Math.min(bins-1,Math.floor((prices[i]-priceMin)/binSize));
-    volumeProfile[binIdx]+=volumes[i]||1;
-  }
-  
-  let maxVolIdx=0;
-  for(let i=1;i<bins;i++){
-    if(volumeProfile[i]>volumeProfile[maxVolIdx])maxVolIdx=i;
-  }
-  
-  const poc=priceMin+(maxVolIdx+0.5)*binSize;
-  const distance=(currentPrice-poc)/poc*100;
-  
-  return{poc,distance,nearPOC:Math.abs(distance)<2}; // 2% 이내면 POC 근처
-}
-
-// 4. MTF (Multi-Time Frame) 확인
-// 간소화: sparkline 데이터로 단기/중기 추세 확인
+/* ── MTF ── */
 function calcMTF(prices){
-  if(!prices||prices.length<50)return{score:0,signals:[]};
-  
+  if(!prices||prices.length<50)return{score:0,signals:[],aligned:false};
   const signals=[];
-  
-  // 단기: 최근 7일
   const short=prices.slice(-7);
-  const shortTrend=short[short.length-1]>short[0];
-  if(shortTrend)signals.push('7d↑');
-  else signals.push('7d↓');
-  
-  // 중기: 최근 30일
+  signals.push(short[short.length-1]>short[0]?'7d↑':'7d↓');
   const mid=prices.slice(-30);
-  const midTrend=mid[mid.length-1]>mid[0];
-  if(midTrend)signals.push('30d↑');
-  else signals.push('30d↓');
-  
-  // 전체: 전체 기간
-  const longTrend=prices[prices.length-1]>prices[0];
-  if(longTrend)signals.push('60d↑');
-  else signals.push('60d↓');
-  
-  // 일치도 점수
+  signals.push(mid[mid.length-1]>mid[0]?'30d↑':'30d↓');
+  signals.push(prices[prices.length-1]>prices[0]?'60d↑':'60d↓');
   const bullCount=signals.filter(s=>s.includes('↑')).length;
-  const score=bullCount>=2?bullCount:0; // 2개 이상 일치해야 점수
-  
-  return{score,signals,aligned:bullCount>=2||bullCount===0};
+  return{score:bullCount>=2?bullCount:0,signals,aligned:bullCount>=2||bullCount===0};
 }
 
-/* ══════════════════════════════════════════════════════════════
-   별점 계산 (⭐⭐⭐ / ⭐⭐ / ⭐)
-   
-   조건:
-   1. Regime = Trending + OI 증가 + BB Squeeze
-   2. Volume Profile POC 근처 (±2%)
-   3. MTF 2개 이상 일치
-   
-   ⭐⭐⭐ = 3개 조건 충족
-   ⭐⭐ = 2개 조건 충족
-   ⭐ = 1개 이하
-══════════════════════════════════════════════════════════════ */
-function calcStarRating(coin,regime,bbsqueeze,vpoc,mtf){
-  let points=0;
-  const conditions=[];
-  
-  // 조건 1: Regime Trending + OI 증가 + BB Squeeze
-  const cond1=(regime.regime.includes('trending')&&coin.oi>5&&bbsqueeze.squeeze);
-  if(cond1){
-    points++;
-    conditions.push('추세+OI+BB스퀴즈');
-  }
-  
-  // 조건 2: Volume POC 근처
-  const cond2=vpoc.nearPOC;
-  if(cond2){
-    points++;
-    conditions.push('POC근처');
-  }
-  
-  // 조건 3: MTF 2개 이상 일치
-  const cond3=mtf.aligned;
-  if(cond3){
-    points++;
-    conditions.push('MTF일치');
-  }
-  
+/* ── 별점 ── */
+function calcStarRating(coin,regime,bbsqueeze,mtf){
+  let points=0;const conditions=[];
+  // 조건 1: 추세 + 실제 OI 증가 + BB스퀴즈
+  const oiOk=coin.oiDelta!=null?coin.oiDelta>2:false;
+  if(regime.regime.includes('trending')&&oiOk&&bbsqueeze.squeeze){points++;conditions.push('추세+실OI+BB스퀴즈');}
+  // 조건 2: MTF 일치
+  if(mtf.aligned){points++;conditions.push('MTF일치');}
+  // 조건 3: CVD 매수 우세 (BTC 기준)
+  const buy5=cvdData.buyVol5m,sell5=cvdData.sellVol5m;
+  if(buy5+sell5>0&&buy5/(buy5+sell5)>0.58){points++;conditions.push('CVD매수우세');}
   let stars='⭐';
   if(points>=3)stars='⭐⭐⭐';
   else if(points>=2)stars='⭐⭐';
-  
   return{stars,points,conditions:conditions.join(' · ')||'조건 미충족'};
 }
 
-// ── 스테이블코인 / 래핑토큰 / ETF 완전 제외 목록 ──────────────
-// Binance 캡 적용 대상 메이저만 남기고 스테이블·래핑·ETF 전부 차단
+/* ── 스테이블·래핑 필터 ── */
 const STABLES=new Set([
-  // USD 스테이블
   'USDT','USDC','BUSD','DAI','TUSD','FDUSD','USDD','USDP','GUSD','FRAX',
   'LUSD','SUSD','MIM','ALUSD','PYUSD','EURC','CRVUSD','USDE','USDX',
   'USDS','USDJ','ZUSD','CUSD','AGEUR','EURS','VEUR','EURT','USDM','DOLA',
-  'USDZ','UUSD','OUSD','HUSD','MUSD','RUSD','FXUSD','GHO','CUSD','USDK',
-  'FRAX','USDV','USDB','FXUSD','USDH','USDN','USDX','USDY',
-  // 래핑 토큰
+  'USDZ','UUSD','OUSD','HUSD','MUSD','RUSD','FXUSD','GHO','USDK',
+  'USDV','USDB','USDH','USDN','USDY',
   'WBTC','WETH','WBNB','WMATIC','WAVAX','WSOL','WFTM','WONE',
   'STETH','WSTETH','CBETH','RETH','SETH2','ANKRETH','FRXETH','SFRXETH',
   'WEETH','EZETH','PUFETH','RSETH','SWETH','METH','WBETH','EETH',
-  // 합성·파생
   'RENBTC','SBTC','TBTC','HBTC','FBTC','BBTC',
-  // 가격지수 ETF류
   'XAUT','PAXG','CACHE','GOLD',
 ]);
-
-// 이름으로도 걸러낼 키워드 (소문자)
 const STABLE_NAME_KW=['usd coin','tether','binance usd','dai ','true usd','frax','wrapped bitcoin',
   'wrapped ether','staked ether','wrapped staked','staked eth','restaked','rocket pool eth',
   'pax gold','tether gold','usd+','usd0','first digital usd','gemini dollar','liquity usd',
   'magic internet money','alchemix usd','fei usd','origin dollar','neutrino usd','terra usd',
   'wrapped btc','wrapped bnb','wrapped matic','wrapped avax','wrapped sol','wrapped ftm',
   'wrapped one','coinbase wrapped','liquid staked','staked sol','wrapped beacon'];
-
 function isStableOrWrapped(coin){
-  const sym=(coin.symbol||'').toUpperCase();
-  if(STABLES.has(sym)) return true;
+  if(STABLES.has((coin.symbol||'').toUpperCase()))return true;
   const nm=(coin.name||'').toLowerCase();
   return STABLE_NAME_KW.some(kw=>nm.includes(kw));
 }
 
-/* ── API ── */
+/* ── API 헬퍼 ── */
 async function getJSON(url){
   const r=await fetch(url,{method:'GET',headers:{'Accept':'application/json'},mode:'cors'});
   if(!r.ok)throw new Error('HTTP '+r.status);
@@ -998,212 +1260,154 @@ async function fetchFNG(){
 }
 
 async function fetchTop100(){
-  // per_page=250으로 충분히 받아서 스테이블·래핑 제거 후 상위 100개 확보
   const d=await getJSON(
     'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=true&price_change_percentage=7d'
   );
-  const filtered=d.filter(c=>!isStableOrWrapped(c));
-  console.log('Filtered coins:',filtered.length,'from',d.length);
-  return filtered.slice(0,100);
+  return d.filter(c=>!isStableOrWrapped(c)).slice(0,100);
 }
 
 /* ══════════════════════════════════════════════════════════════
-   fetchLeverageMetrics — v5 퀀트 등급 업그레이드
-   ────────────────────────────────────────────────────────────
-   [1] OI-weighted 펀딩비: 단순 평균 → 미결제약정(OI) 규모 가중
-   [2] Binance 캡/플로어 적용: 메이저(BTC·ETH·SOL 등) ±0.375%,
-       나머지 ±0.75%. raw값이 캡을 초과하면 캡값으로 클램핑
-   [3] 롱/숏 스퀴즈 신호:
-       · fr < -0.05% AND lsr > 1.5 → 숏 스퀴즈 가능성
-       · fr > +0.10% AND lsr < 0.7 → 롱 스퀴즈(청산 캐스케이드) 가능성
-   [4] levScore: OI가중 fr 기반 바이어스 × 5~8배 가중
+   fetchLeverageMetrics v6
+   · OI 실제값 배치 조회 통합 (fetchAllOI 선행 실행)
+   · tickerMap을 Map으로 변경 (성능)
+   · CVD 데이터 levScore 반영
 ══════════════════════════════════════════════════════════════ */
 async function fetchLeverageMetrics(){
   const DEF={longShortRatio:1.0,avgFunding:0,oiWeightedFunding:0,levScore:50,
-             squeezeSignal:'none',squeezeLabel:'',oiTotal:0};
+             squeezeSignal:'none',squeezeLabel:'',oiTotal:0,
+             oiMetrics:null,squeezeIdx:null,tickerMap:new Map()};
   try{
-    // ── 1. BTC 글로벌 롱숏 비율 (5m) ────────────────────────
-    const lsData=await getJSON(
-      'https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=5m&limit=1'
-    );
+    // 병렬: L/S 비율 + premiumIndex + 24hr 티커 + 실제 OI
+    const[lsData,frData,tickers]=await Promise.all([
+      getJSON('https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=5m&limit=1'),
+      getJSON('https://fapi.binance.com/fapi/v1/premiumIndex'),
+      getJSON('https://fapi.binance.com/fapi/v1/ticker/24hr'),
+    ]);
     const lsr=parseFloat(lsData[0]?.longShortRatio||1.0);
 
-    // ── 2. 전체 선물 premiumIndex (펀딩비 + 마크가격 포함) ───
-    const frData=await getJSON('https://fapi.binance.com/fapi/v1/premiumIndex');
+    // tickerMap: Map으로 변경 (O(1) lookup)
+    const tickerMap=new Map();
+    tickers.forEach(t=>{
+      tickerMap.set(t.symbol,parseFloat(t.quoteVolume||0));
+    });
 
-    // Binance 캡 기준: 메이저는 ±0.375%, 나머지 ±0.75%
-    const MAJOR_CAP=new Set(['BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT',
-                              'AVAXUSDT','ADAUSDT','DOTUSDT','LINKUSDT','LTCUSDT']);
-    const CAP_MAJOR=0.00375; // 0.375%
-    const CAP_ALT  =0.0075;  // 0.75%
+    // markPrice 캐시 업데이트 (OI USD 계산에 필요)
+    frData.forEach(d=>{
+      const mp=parseFloat(d.markPrice||0);
+      if(mp>0)markPriceCache.set(d.symbol,mp);
+    });
 
-    // 캡 적용 함수
-    function applyFundingCap(sym, raw){
+    // 실제 OI 배치 조회 (병렬, 실패해도 DEF 반환 안 함)
+    await fetchAllOI();
+
+    // OI 파생 지표
+    const oiMetrics=calcOIMetrics(tickerMap);
+
+    // 펀딩비 처리 (캡 적용)
+    function applyFundingCap(sym,raw){
       const cap=MAJOR_CAP.has(sym)?CAP_MAJOR:CAP_ALT;
       return clamp(raw,-cap,cap);
     }
-
-    // ── 3. OI 조회 — /fapi/v1/openInterest (개별 심볼) ──────
-    // openInterest API는 한 번에 한 심볼만 지원하므로
-    // premiumIndex의 markPrice × openInterest를 대신 사용
-    // (실제로는 premiumIndex에 OI가 없어 volume 기반 대리변수 사용)
-    // Binance /fapi/v1/ticker/24hr로 volume 가져와 OI 가중 근사
-    let tickerMap={};
-    try{
-      const tickers=await getJSON('https://fapi.binance.com/fapi/v1/ticker/24hr');
-      tickers.forEach(t=>{ tickerMap[t.symbol]=parseFloat(t.quoteVolume||0); });
-    }catch(_){}
-
-    // 분석 대상 심볼: 상위 거래량 20개로 확대 (이전 10개 → 20개)
-    const TARGET_SYMS=[
-      'BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT',
-      'AVAXUSDT','DOGEUSDT','ADAUSDT','LINKUSDT','DOTUSDT',
-      'MATICUSDT','LTCUSDT','ATOMUSDT','NEARUSDT','APTUSDT',
-      'ARBUSDT','OPUSDT','SUIUSDT','INJUSDT','TIAUSDT'
-    ];
-
-    let oiWeightedSum=0, oiTotal=0;
+    let oiWeightedSum=0,oiTotalVol=0;
     const frRaw=[];
-
     frData.forEach(d=>{
-      if(!TARGET_SYMS.includes(d.symbol)) return;
+      if(!TARGET_SYMS.includes(d.symbol))return;
       const rawFr=parseFloat(d.lastFundingRate||0);
-      const cappedFr=applyFundingCap(d.symbol, rawFr); // ← 캡 적용
-      const vol=tickerMap[d.symbol]||1e6; // 볼륨 = OI 대리변수
-      oiWeightedSum+=cappedFr*vol;
-      oiTotal+=vol;
-      frRaw.push({sym:d.symbol, raw:rawFr, capped:cappedFr, vol});
+      const cappedFr=applyFundingCap(d.symbol,rawFr);
+      // OI 실제값 우선, 없으면 volume fallback
+      const oiUsd=oiCache.get(d.symbol)?.oiUsd||tickerMap.get(d.symbol)||1e6;
+      oiWeightedSum+=cappedFr*oiUsd;
+      oiTotalVol+=oiUsd;
+      frRaw.push({sym:d.symbol,raw:rawFr,capped:cappedFr,vol:oiUsd});
     });
-
-    // OI-weighted 평균 펀딩비 (캡 적용 후)
-    const oiWeightedFunding=oiTotal>0?oiWeightedSum/oiTotal:0;
-    // 단순 평균 펀딩비 (참고용)
+    const oiWeightedFunding=oiTotalVol>0?oiWeightedSum/oiTotalVol:0;
     const avgFunding=frRaw.length?frRaw.reduce((a,b)=>a+b.capped,0)/frRaw.length:0;
 
-    // ── 4. 롱/숏 스퀴즈 신호 감지 ───────────────────────────
-    // [수정] 기존 코드: long_squeeze_risk(lsr>=1.4)가 short_squeeze(lsr<=0.75)보다 먼저 체크되어
-    // 동일 frBTCVal 범위에서 short_squeeze 도달 불가 + 주석이 신호 의미와 반전된 오류 수정.
-    // 조건 우선순위: 과열(양수FR+롱과다) → 롱캐스케이드(양수FR+숏과다) → 숏스퀴즈(음수FR+숏과다) → 롱스퀴즈위험(음수FR+롱과다)
-    let squeezeSignal='none', squeezeLabel='';
+    // 스퀴즈 신호 (순서 수정 버전)
+    let squeezeSignal='none',squeezeLabel='';
     const frBTC=frRaw.find(f=>f.sym==='BTCUSDT');
     const frBTCVal=frBTC?frBTC.capped:oiWeightedFunding;
+    if(frBTCVal>=0.001&&lsr>=1.5){squeezeSignal='overheat';squeezeLabel='⚡ 극단과열 → 단기 조정 주의';}
+    else if(frBTCVal>=0.001&&lsr<=0.7){squeezeSignal='long_cascade';squeezeLabel='🔥 양수펀딩+숏우세 → 롱 청산 캐스케이드';}
+    else if(frBTCVal<=-0.0005&&lsr<=0.75){squeezeSignal='short_squeeze';squeezeLabel='🚀 음수펀딩+숏우세 → 숏스퀴즈 가능';}
+    else if(frBTCVal<=-0.0005&&lsr>=1.4){squeezeSignal='long_squeeze_risk';squeezeLabel='⚠ 롱과다+음수펀딩 → 롱스퀴즈 주의';}
+    else if(Math.abs(frBTCVal)<0.0001&&lsr>=0.9&&lsr<=1.1){squeezeSignal='neutral';squeezeLabel='→ 균형 상태';}
 
-    if(frBTCVal>=0.001&&lsr>=1.5){
-      // 극양수 펀딩 + 롱 과다 → 과열, 단기 조정 가능
-      squeezeSignal='overheat';
-      squeezeLabel='⚡ 극단과열 → 단기 조정 주의';
-    } else if(frBTCVal>=0.001&&lsr<=0.7){
-      // 펀딩비 극양수, 숏 비율 높음 → 롱 스퀴즈(청산 캐스케이드)
-      squeezeSignal='long_cascade';
-      squeezeLabel='🔥 양수펀딩+숏우세 → 롱 청산 캐스케이드';
-    } else if(frBTCVal<=-0.0005&&lsr<=0.75){
-      // 펀딩비 깊은 음수 + 숏 비율 높음 → 반등 시 숏 강제청산 → 숏 스퀴즈 가능성
-      squeezeSignal='short_squeeze';
-      squeezeLabel='🚀 음수펀딩+숏우세 → 숏스퀴즈 가능';
-    } else if(frBTCVal<=-0.0005&&lsr>=1.4){
-      // 음수 펀딩 + 롱 과다 → 롱 포지션 추가 청산 위험
-      squeezeSignal='long_squeeze_risk';
-      squeezeLabel='⚠ 롱과다+음수펀딩 → 롱스퀴즈 주의';
-    } else if(Math.abs(frBTCVal)<0.0001&&lsr>=0.9&&lsr<=1.1){
-      squeezeSignal='neutral';
-      squeezeLabel='→ 균형 상태 (포지션 중립)';
-    }
-
-    // ── 5. levScore 계산 — OI 가중 + 5~8배 상향 ────────────
-    // 기존: lsScore + funding×1500 (최대 ±25점)
-    // 개선: OI가중 펀딩비 × 8000 (최대 ±35점) + 캡 반영 스케일
+    // levScore v6: 실제 OI delta + CVD 반영
     const lsScore=clamp(50+(lsr-1.0)*30,0,100);
-
-    // OI-weighted 펀딩비 바이어스 (캡 적용으로 극단값 과소평가 방지)
-    // 캡 이후 최대 ±0.375% = ±3.75e-3
-    // 바이어스 스케일: 3.75e-3 × 8000 = ±30점 (기존 ±25점 대비 상향)
     const fundingBias=clamp(oiWeightedFunding*8000,-35,35);
-
-    // 스퀴즈 보정: 신호 강도에 따라 추가 보정
+    // OI 변화율 보정: 실제 OI delta% 사용
+    const oiDeltaBias=clamp(oiMetrics.weightedDeltaPct*2,-10,10);
+    // CVD 보정
+    const cvdBuy=cvdData.buyVol5m,cvdSell=cvdData.sellVol5m;
+    const cvdBias=(cvdBuy+cvdSell)>0?clamp(((cvdBuy-cvdSell)/(cvdBuy+cvdSell))*8,-8,8):0;
     let squeezeBias=0;
-    if(squeezeSignal==='short_squeeze') squeezeBias=+12; // 상승 가능성
-    if(squeezeSignal==='long_cascade')  squeezeBias=-12; // 하락 위험
-    if(squeezeSignal==='long_squeeze_risk') squeezeBias=-8;
-    if(squeezeSignal==='overheat')      squeezeBias=-5;
+    if(squeezeSignal==='short_squeeze')squeezeBias=+12;
+    if(squeezeSignal==='long_cascade')squeezeBias=-12;
+    if(squeezeSignal==='long_squeeze_risk')squeezeBias=-8;
+    if(squeezeSignal==='overheat')squeezeBias=-5;
+    const levScore=clamp(lsScore+fundingBias+oiDeltaBias+cvdBias+squeezeBias,0,100);
 
-    const levScore=clamp(lsScore+fundingBias+squeezeBias,0,100);
+    // BTC sparkline (OI×변동성 스퀴즈 지수에 사용)
+    // buildCoins 이후에 사용 가능하므로 일단 빈 배열 → refreshAll에서 갱신
+    const squeezeIdx=calcSqueezeIndex(oiMetrics,lsr,frBTCVal,[]);
 
     return{
-      longShortRatio:lsr,
-      avgFunding,           // 단순 평균 (참고)
-      oiWeightedFunding,    // OI 가중 평균 (실제 사용)
-      levScore,
-      squeezeSignal,
-      squeezeLabel,
-      oiTotal,
-      frRaw                 // 개별 심볼 펀딩비 (디버그/표시용)
+      longShortRatio:lsr,avgFunding,oiWeightedFunding,levScore,
+      squeezeSignal,squeezeLabel,oiTotal:oiTotalVol,frRaw,
+      oiMetrics,squeezeIdx,tickerMap,frBTCVal
     };
   }catch(e){
-    console.warn('[Leverage v5]',e.message);
+    console.warn('[Leverage v6]',e.message);
     return DEF;
   }
 }
 
-/* ── 코인 빌드 ── */
+/* ── 코인 빌드 (실제 OI delta 통합) ── */
 function buildCoins(raw){
   return raw.map((c,i)=>{
     const prices=(c.sparkline_in_7d?.price)||[];
-    // [수정] CoinGecko sparkline은 시간별 볼륨 미제공.
-    // 동일 볼륨으로 채우면 volumeProfile이 균등해져 POC=항상 최저가 bin → nearPOC 오염.
-    // → volumes를 빈 배열로 전달하여 calcVolumePOC가 nearPOC:false 반환하도록 처리.
-    const volumes=[];
-    
     const rsi=calcRSI(prices),bull=calcMACDbull(prices);
     const c24=c.price_change_percentage_24h||0,c7d=c.price_change_percentage_7d_in_currency||0;
-    const oi=estOI(c7d,c.total_volume||0,c.market_cap||1);
-    const score=calcScore(rsi,bull,oi,c24),grade=toGrade(score);
-    const mcPred=monteCarloBootstrap(prices,7,300);// 모바일 성능 고려
-    
-    // 고급 지표 계산
+    // 실제 OI delta 우선, 없으면 null(calcScore에서 0 처리)
+    const oiDelta=getOIDelta((c.symbol||'').toUpperCase());
+    const score=calcScore(rsi,bull,oiDelta,c24),grade=toGrade(score);
+    const mcPred=monteCarloBootstrap(prices,7,300);
     const regime=detectRegime(prices);
     const bbsqueeze=calcBBSqueeze(prices);
-    const vpoc=calcVolumePOC(prices,volumes);
     const mtf=calcMTF(prices);
-    
-    // 별점 계산
-    const rating=calcStarRating({oi},regime,bbsqueeze,vpoc,mtf);
-    
+    const rating=calcStarRating({oiDelta},regime,bbsqueeze,mtf);
     return{
       rank:i+1,id:c.id,sym:(c.symbol||'').toUpperCase(),name:c.name||'',
-      price:c.current_price||0,c24,c7d,rsi,bull,oi,score,grade,mcPred,
+      price:c.current_price||0,c24,c7d,rsi,bull,oiDelta,score,grade,mcPred,
       sparkline:prices,mcap:c.market_cap||0,
-      regime,bbsqueeze,vpoc,mtf,rating // 새 지표 추가
+      regime,bbsqueeze,mtf,rating
     };
   });
 }
 
 /* ── 코인 검색 ── */
-let searchQuery='';
-let searchRefreshTimer=null;
+let searchQuery='',searchRefreshTimer=null;
 function onSearch(val){
   searchQuery=val.trim().toLowerCase();
   const clearBtn=document.getElementById('searchClear');
-  if(clearBtn) clearBtn.style.display=searchQuery?'block':'none';
-  // 검색어가 있으면 300ms 디바운스 후 전체 갱신
+  if(clearBtn)clearBtn.style.display=searchQuery?'block':'none';
   if(searchQuery){
     clearTimeout(searchRefreshTimer);
     const inp=document.getElementById('coinSearch');
-    if(inp){inp.style.borderColor='var(--yellow)';}
+    if(inp)inp.style.borderColor='var(--yellow)';
     searchRefreshTimer=setTimeout(async()=>{
       await refreshAll();
-      // refreshAll 안에서 renderCoins()가 호출되므로 추가 불필요
-      if(inp){inp.style.borderColor='';}
+      if(inp)inp.style.borderColor='';
     },300);
-  } else {
-    renderCoins();
-  }
+  }else{renderCoins();}
 }
 function clearSearch(){
   searchQuery='';
   const inp=document.getElementById('coinSearch');
   const clearBtn=document.getElementById('searchClear');
-  if(inp) inp.value='';
-  if(clearBtn) clearBtn.style.display='none';
+  if(inp)inp.value='';
+  if(clearBtn)clearBtn.style.display='none';
   renderCoins();
 }
 
@@ -1217,28 +1421,16 @@ function renderCounts(coins){
 
 function renderCoins(){
   let rows=curFilter==='ALL'?allCoins:allCoins.filter(c=>c.grade===curFilter);
-  // 검색 필터
-  if(searchQuery){
-    rows=rows.filter(c=>
-      c.sym.toLowerCase().includes(searchQuery)||
-      c.name.toLowerCase().includes(searchQuery)
-    );
-  }
-  // 검색 결과 안내
+  if(searchQuery)rows=rows.filter(c=>c.sym.toLowerCase().includes(searchQuery)||c.name.toLowerCase().includes(searchQuery));
   const info=document.getElementById('searchInfo');
   if(info){
-    if(searchQuery){
-      info.style.display='block';
-      info.textContent=rows.length?'검색결과 '+rows.length+'개':'검색 결과 없음';
-    } else {
-      info.style.display='none';
-    }
+    if(searchQuery){info.style.display='block';info.textContent=rows.length?'검색결과 '+rows.length+'개':'검색 결과 없음';}
+    else{info.style.display='none';}
   }
   const sorted=rows.slice().sort((a,b)=>{
-    // ALL 필터: 별점(stars) 내림차순 1차 정렬, 동점이면 기존 sortKey로 2차 정렬
     if(curFilter==='ALL'){
-      const aStar=a.rating?.points||0, bStar=b.rating?.points||0;
-      if(aStar!==bStar) return bStar-aStar; // 별 많은 순
+      const aStar=a.rating?.points||0,bStar=b.rating?.points||0;
+      if(aStar!==bStar)return bStar-aStar;
     }
     let av=a[sortKey],bv=b[sortKey];
     if(sortKey==='grade'){const o={S:6,A:5,B:4,C:3,D:2,E:1};av=o[a.grade];bv=o[b.grade];}
@@ -1259,33 +1451,23 @@ function renderCoins(){
     const rsiColor=c.rsi>70?'#ff4444':c.rsi<30?'#00ff88':'var(--muted)';
     const rsiC=c.rsi>70?'+22':c.rsi>60?'+12':c.rsi>50?'+4':c.rsi<30?'-22':c.rsi<40?'-12':'-4';
     const macdC=c.bull?'+14':'-14';
-    const oiC=(c.oi>=0?'+':'')+fmt(Math.min(Math.max(c.oi*0.75,-18),18),0);
-    // ── 리스크 배지 계산 ──
+    // OI delta 표시
+    const oiC=c.oiDelta!=null?(c.oiDelta>=0?'+':'')+fmt(c.oiDelta,1)+'%':'추정';
+    const oiCol=c.oiDelta!=null?(c.oiDelta>0?'var(--green)':'var(--red)'):'var(--muted)';
     let riskHtml='';
-    if(c.grade==='S'&&c.rsi>75){
-      riskHtml='<div class="risk-badge risk-overbought">⚠ RSI과매수 급락주의</div>';
-    } else if(c.grade==='S'&&c.c24>15){
-      riskHtml='<div class="risk-badge risk-overbought">⚠ 단기급등 고점주의</div>';
-    } else if(c.grade==='S'&&!c.bull){
-      riskHtml='<div class="risk-badge risk-warning">△ MACD약화 주시</div>';
-    } else if(c.grade==='A'&&c.rsi>72){
-      riskHtml='<div class="risk-badge risk-warning">△ RSI경계</div>';
-    } else if((c.grade==='D'||c.grade==='E')&&c.rsi<28){
-      riskHtml='<div class="risk-badge risk-oversold">✓ RSI과매도 반등가능</div>';
-    }
-    // ── 롱/숏 유리 판단 ──
+    if(c.grade==='S'&&c.rsi>75)riskHtml='<div class="risk-badge risk-overbought">⚠ RSI과매수 급락주의</div>';
+    else if(c.grade==='S'&&c.c24>15)riskHtml='<div class="risk-badge risk-overbought">⚠ 단기급등 고점주의</div>';
+    else if(c.grade==='S'&&!c.bull)riskHtml='<div class="risk-badge risk-warning">△ MACD약화 주시</div>';
+    else if(c.grade==='A'&&c.rsi>72)riskHtml='<div class="risk-badge risk-warning">△ RSI경계</div>';
+    else if((c.grade==='D'||c.grade==='E')&&c.rsi<28)riskHtml='<div class="risk-badge risk-oversold">✓ RSI과매도 반등가능</div>';
     const lsb=calcLSBias(c);
     const lsBadge='<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:0.56rem;font-weight:700;background:'+lsb.color+'22;color:'+lsb.color+';border:1px solid '+lsb.color+'44;margin-top:2px">'+lsb.label+'</span>'
       +(lsb.detail?'<span style="font-size:0.52rem;color:var(--muted);margin-left:4px">'+lsb.detail+'</span>':'');
-    
-    // ── 별점 표시 ──
     const starColor=c.rating.points>=3?'#ffd700':c.rating.points>=2?'#ff8c00':'#666';
     const starBadge='<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 7px;background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.25);border-radius:5px;margin-top:4px">'
       +'<span style="font-size:0.9rem;line-height:1">'+c.rating.stars+'</span>'
-      +'<span style="font-size:0.54rem;color:'+starColor+';font-weight:700">'+c.rating.points+'조건</span>'
-      +'</div>';
-    const starDetail='<div style="font-size:0.5rem;color:var(--muted);margin-top:2px">'+c.rating.conditions+'</div>';
-    
+      +'<span style="font-size:0.54rem;color:'+starColor+';font-weight:700">'+c.rating.points+'조건</span></div>';
+    const starDetail='<div style="font-size:0.5rem;color:var(--muted);margin-top:2px">'+esc(c.rating.conditions)+'</div>';
     return'<div class="coin-card">'
       +'<div class="coin-left"><div class="coin-ico">'+esc(c.sym.slice(0,3))+'</div><div><div class="csym">'+esc(c.sym)+'</div><div class="cname">'+esc(c.name.slice(0,12))+'</div>'+starBadge+'</div></div>'
       +'<div><div class="coin-price">'+priceStr+' <span class="'+c24cls+'" style="font-size:0.68rem">'+fmtPct(c.c24)+'</span></div>'
@@ -1296,35 +1478,26 @@ function renderCoins(){
         +(riskHtml?'<div style="margin-top:4px">'+riskHtml+'</div>':'')
       +'</div>'
       +'<div class="coin-right"><span class="gbadge g'+c.grade+'">'+c.grade+'</span><span class="score-val" style="color:'+gc+'">'+fmt(c.score,0)+'</span><span class="atag '+ac+'">'+at+'</span>'
-      +'<div class="score-breakdown">RSI<span style="color:'+(rsiC[0]==='-'?'var(--red)':'var(--green)')+'">'+rsiC+'</span> MACD<span style="color:'+(macdC[0]==='-'?'var(--red)':'var(--green)')+'">'+macdC+'</span> OI<span style="color:'+(oiC[0]==='-'?'var(--red)':'var(--green)')+'">'+oiC+'</span></div>'
+      +'<div class="score-breakdown">RSI<span style="color:'+(rsiC[0]==='-'?'var(--red)':'var(--green)')+'">'+rsiC+'</span> MACD<span style="color:'+(macdC[0]==='-'?'var(--red)':'var(--green)')+'">'+macdC+'</span> OI<span style="color:'+oiCol+'">'+oiC+'</span></div>'
       +sparkline(c.sparkline)+'</div>'
       +'</div>';
   }).join('');
-  // ── 코인 섹션 경고 배너 ──
   const sCount=sorted.filter(c=>c.grade==='S').length;
   const eCount=sorted.filter(c=>c.grade==='E').length;
   const highRsiS=sorted.filter(c=>c.grade==='S'&&c.rsi>75).length;
   const alertEl=document.getElementById('coinGradeAlert');
   if(alertEl){
-    if(highRsiS>=3){
-      alertEl.className='grade-alert alert-hot';
-      alertEl.innerHTML='⚠ S등급 '+sCount+'개 중 '+highRsiS+'개가 RSI 과매수(>75) — 단기 급락 리스크 주의';
-    } else if(sCount>=5){
-      alertEl.className='grade-alert alert-hot';
-      alertEl.innerHTML='⚠ S등급 코인 '+sCount+'개 집중 — 시장 과열 신호, 익절 라인 관리 필요';
-    } else if(eCount>=5){
-      alertEl.className='grade-alert alert-cold';
-      alertEl.innerHTML='✓ E등급 '+eCount+'개 집중 — 시장 공포 구간, 역발상 진입 기회 탐색';
-    } else {
-      alertEl.className='grade-alert';
-    }
+    if(highRsiS>=3){alertEl.className='grade-alert alert-hot';alertEl.innerHTML='⚠ S등급 '+sCount+'개 중 '+highRsiS+'개가 RSI 과매수(>75) — 단기 급락 리스크 주의';}
+    else if(sCount>=5){alertEl.className='grade-alert alert-hot';alertEl.innerHTML='⚠ S등급 코인 '+sCount+'개 집중 — 시장 과열 신호, 익절 라인 관리 필요';}
+    else if(eCount>=5){alertEl.className='grade-alert alert-cold';alertEl.innerHTML='✓ E등급 '+eCount+'개 집중 — 시장 공포 구간, 역발상 진입 기회 탐색';}
+    else{alertEl.className='grade-alert';}
   }
 }
 
 function setFilter(g,btn){curFilter=g;document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');renderCoins();}
 
 /* ── 시장 예측 + 센티먼트 ── */
-function buildMarketPred(coins, lev){
+function buildMarketPred(coins,lev){
   const merged=[],len=168;
   for(let i=0;i<len;i++){
     let sum=0,cnt=0;
@@ -1333,77 +1506,60 @@ function buildMarketPred(coins, lev){
   }
   const rawPred=monteCarloBootstrap(merged,7,800);
   const lsr=(lev&&lev.longShortRatio!=null)?lev.longShortRatio:1.0;
-
-  // OI 가중 펀딩비 우선 사용 (없으면 단순 평균)
-  const fr=(lev&&lev.oiWeightedFunding!=null)?lev.oiWeightedFunding
-           :(lev&&lev.avgFunding!=null)?lev.avgFunding:0;
+  const fr=(lev&&lev.oiWeightedFunding!=null)?lev.oiWeightedFunding:(lev&&lev.avgFunding!=null)?lev.avgFunding:0;
   const sq=(lev&&lev.squeezeSignal)||'none';
-
-  // L/S 바이어스 (×5)
   const lsBias=clamp((lsr-1.0)*5,-3.0,3.0);
-
-  // OI가중 펀딩비 바이어스 (캡 적용 후 값이므로 극단값 안전)
-  // 캡 최대 ±0.375% → ×3000 → 최대 ±11.25%, clamp ±2.5%
   const absFr=Math.abs(fr);
   let frBias=clamp(fr*3000,-2.5,2.5);
-  if(absFr>0.002) frBias*=0.5; // 극단 펀딩비는 과열 신호 → 감쇠
-
-  // 기술 지표 바이어스 (S/A 비율)
+  if(absFr>0.002)frBias*=0.5;
   const bullRatio=coins.filter(c=>c.grade==='S'||c.grade==='A').length/Math.max(coins.length,1);
   const techBias=clamp((bullRatio-0.3)*6,-2.0,2.0);
-
-  // 스퀴즈 바이어스
   let squeezeBias=0;
-  if(sq==='short_squeeze') squeezeBias=+2.5;
-  if(sq==='long_cascade')  squeezeBias=-2.5;
-  if(sq==='long_squeeze_risk') squeezeBias=-1.5;
-
-  const totalBias=lsBias+frBias+techBias+squeezeBias;
-
+  if(sq==='short_squeeze')squeezeBias=+2.5;
+  if(sq==='long_cascade')squeezeBias=-2.5;
+  if(sq==='long_squeeze_risk')squeezeBias=-1.5;
+  // CVD 바이어스 반영
+  const cvdBuy=cvdData.buyVol5m,cvdSell=cvdData.sellVol5m;
+  const cvdPredBias=(cvdBuy+cvdSell)>0?clamp(((cvdBuy-cvdSell)/(cvdBuy+cvdSell))*1.5,-1.5,1.5):0;
+  // OI delta 바이어스
+  const oiDeltaBias=lev?.oiMetrics?clamp(lev.oiMetrics.weightedDeltaPct*0.1,-1.0,1.0):0;
+  const totalBias=lsBias+frBias+techBias+squeezeBias+cvdPredBias+oiDeltaBias;
   return rawPred.map((p,i)=>{
-    const decay=Math.exp(-i*0.18); // D+1 최대, 이후 감쇠
+    const decay=Math.exp(-i*0.18);
     const adj=totalBias*decay;
-    return{muPct:p.muPct+adj, loPct:p.loPct+adj, hiPct:p.hiPct+adj, bias:adj};
+    return{muPct:p.muPct+adj,loPct:p.loPct+adj,hiPct:p.hiPct+adj,bias:adj};
   });
 }
 
-/* ══════════════════════════════════
-   calcSentiment v5
-   · 기술 40% + 레버리지 40% + FNG 20%
-   · OI가중 펀딩비 사용 (기존 단순 평균 대체)
-   · 스퀴즈 신호 보정 포함
-══════════════════════════════════ */
+/* ── calcSentiment v6 (CVD + 실OI 반영) ── */
 function calcSentiment(coins,fng,lev){
   const tech=coins.reduce((a,b)=>a+b.score,0)/coins.length;
   const ls=(lev&&lev.levScore!=null)?lev.levScore:50;
   const fngS=clamp(fng,0,100);
-
-  // 기술 40% + 레버리지 40% + FNG 20%
   let v=tech*0.40+ls*0.40+fngS*0.20;
-
-  // 극단 레버 보정
-  if(ls>=85)v+=8; if(ls<=15)v-=8;
-  // 극단 FNG 보정
-  if(fngS>=85)v+=5; if(fngS<=15)v-=5;
-
-  // 스퀴즈 신호 추가 보정
+  if(ls>=85)v+=8;if(ls<=15)v-=8;
+  if(fngS>=85)v+=5;if(fngS<=15)v-=5;
   const sq=(lev&&lev.squeezeSignal)||'none';
-  if(sq==='short_squeeze')v+=10;   // 상승 가능성
-  if(sq==='long_cascade') v-=10;   // 하락 위험
+  if(sq==='short_squeeze')v+=10;
+  if(sq==='long_cascade')v-=10;
   if(sq==='long_squeeze_risk')v-=6;
-  if(sq==='overheat')     v-=4;
-
+  if(sq==='overheat')v-=4;
+  // CVD 보정
+  const cvdBuy=cvdData.buyVol5m,cvdSell=cvdData.sellVol5m;
+  if(cvdBuy+cvdSell>0){
+    const ratio=cvdBuy/(cvdBuy+cvdSell);
+    if(ratio>0.62)v+=4;else if(ratio<0.38)v-=4;
+  }
   return clamp(v,0,100);
 }
 
 /* ── 메인 리프레시 ── */
 async function refreshAll(){
-  // [수정] 중복 호출(검색 디바운스 + 자동갱신 동시 실행) 방어
   if(isRefreshing)return;
   isRefreshing=true;
   const rbtn=document.getElementById('refreshBtn');
   rbtn.disabled=true;rbtn.textContent='...';
-  setStatus('데이터 수신 중... Binance + CoinGecko + F&G','info');
+  setStatus('데이터 수신 중... Binance(OI+펀딩) + CoinGecko + F&G','info');
   try{
     const[fng,raw,lev]=await Promise.all([fetchFNG(),fetchTop100(),fetchLeverageMetrics()]);
     fetchGlobal().catch(()=>{});
@@ -1415,6 +1571,17 @@ async function refreshAll(){
     renderCoins();
     const mktPred=buildMarketPred(allCoins,lev);
     renderDayGauges(mktPred);
+
+    // BTC sparkline으로 squeezeIdx 재계산 (buildCoins 이후)
+    const btcCoin=allCoins.find(c=>c.sym==='BTC');
+    if(btcCoin&&lev.oiMetrics){
+      const si=calcSqueezeIndex(lev.oiMetrics,lev.longShortRatio,lev.frBTCVal||0,btcCoin.sparkline);
+      renderSqueezeIndexPanel(si);
+    }
+
+    // OI UI 업데이트
+    if(lev.oiMetrics)renderOIPanel(lev.oiMetrics);
+
     // 노트 업데이트
     const oiWF=(lev.oiWeightedFunding||0)*100;
     const fc=oiWF>0?'up':oiWF<0?'down':'neu';
@@ -1423,31 +1590,33 @@ async function refreshAll(){
     const biasDir=mktPredD1>0.3?'▲상승편향':mktPredD1<-0.3?'▼하락편향':'→중립';
     const biasCol=mktPredD1>0.3?'up':mktPredD1<-0.3?'down':'neu';
     const sqTxt=lev.squeezeLabel?(' · <b style="color:'+(lev.squeezeSignal==='short_squeeze'?'var(--green)':'var(--red)')+'">'+lev.squeezeLabel+'</b>'):'';
+    const cvd5m=cvdData.window.reduce((a,b)=>a+b.delta,0);
+    const cvdTxt=cvdData.window.length>0?' · CVD <b><span class="'+(cvd5m>=0?'up':'down')+'">'+(cvd5m>=0?'+':'')+fmtB(cvd5m)+'</span></b>':'';
     const noteEl=document.getElementById('mcNote');
     if(noteEl)noteEl.innerHTML=
       'Bootstrap MC <b>N=800</b> · OI가중펀딩비 <b><span class="'+fc+'">'+(oiWF>=0?'+':'')+oiWF.toFixed(4)+'%</span></b>'
       +' · L/S <b>'+fmt(lev.longShortRatio,3)+'</b>'
       +' · S/A코인 <b>'+Math.round(bullRatio*100)+'%</b>'
       +' · D+1 <b><span class="'+biasCol+'">'+biasDir+'</span></b>'
-      +sqTxt;
+      +sqTxt+cvdTxt;
 
     document.getElementById('updateTime').textContent=safeTime();
-    setStatus('✓ '+allCoins.length+'개 분석 | 센티먼트 '+fmt(sent,0)+'% | 레버 '+fmt(lev.levScore,0)+'pts | 1분 후 자동갱신','info');
+    const oiDeltaStr=lev.oiMetrics?` | OI변화 ${lev.oiMetrics.btcDeltaPct>=0?'+':''}${fmt(lev.oiMetrics.btcDeltaPct,2)}%`:'';
+    setStatus('✓ '+allCoins.length+'개 분석 | 센티먼트 '+fmt(sent,0)+'%'+oiDeltaStr+' | 1분 후 자동갱신','info');
   }catch(e){
     console.error(e);
     setStatus('⚠ '+e.message,'error');
-    // [수정] 실패해도 기존 데이터가 있으면 렌더 유지 (빈 화면 방지)
     if(allCoins.length)renderCoins();
   }finally{
     rbtn.disabled=false;rbtn.textContent='↺ 갱신';
-    isRefreshing=false; // [수정] 항상 플래그 해제
+    isRefreshing=false;
   }
 }
 function triggerRefresh(){refreshAll();}
 
-/* ── 초기화 + 1분 자동갱신 ── */
+/* ── 초기화 ── */
 (function init(){
-  const msgs=['INITIALIZING...','CONNECTING...','FETCHING TOP100...','BOOTSTRAP MC...','COMPUTING GRADES...'];
+  const msgs=['INITIALIZING...','CONNECTING WS...','FETCHING OI...','BOOTSTRAP MC...','COMPUTING GRADES...'];
   const bar=document.getElementById('loadBar');
   const msg=document.getElementById('loadMsg');
   let mi=0;
@@ -1462,6 +1631,9 @@ function triggerRefresh(){refreshAll();}
         if(msg&&step!==mi){mi=step;if(msgs[mi])msg.textContent=msgs[mi];}
         if(p<1){requestAnimationFrame(anim);}
         else{
+          // WebSocket 먼저 연결
+          connectLiquidationWS();
+          connectCVDWS();
           refreshAll().finally(()=>{
             const ls=document.getElementById('loadScreen');
             const app=document.getElementById('app');
@@ -1478,20 +1650,15 @@ function triggerRefresh(){refreshAll();}
     });
   });
 
-  /* [수정] 1분 자동갱신 — setInterval + visibilitychange 기반
-     기존 RAF 루프는 탭이 숨겨져도 ~1fps로 계속 실행되어 배터리 낭비.
-     setInterval은 탭 비활성 시 브라우저가 최소화하고, visibilitychange로 복귀 즉시 갱신. */
-  function scheduleRefresh(){
-    const INTERVAL=60000;
-    let autoTimer=setInterval(()=>{
-      if(!document.hidden)refreshAll();
-    },INTERVAL);
-    // 탭 복귀 시 즉시 갱신 (오래된 데이터 표시 방지)
-    document.addEventListener('visibilitychange',()=>{
-      if(!document.hidden)refreshAll();
-    });
-  }
-  scheduleRefresh();
+  // 1분 자동갱신
+  setInterval(()=>{if(!document.hidden)refreshAll();},60000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshAll();});
+
+  // CVD 패널 10초 주기 렌더 (WS 틱과 별개로 UI 동기화)
+  setInterval(()=>{
+    renderCVDPanel();
+    renderLiqPanel();
+  },10000);
 })();
 </script>
 </body>
