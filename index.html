@@ -132,6 +132,19 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
 .day-chg{font-family:'Orbitron',monospace;font-size:0.58rem;text-align:right;}
 .mc-note{margin-top:10px;padding:6px 10px;background:rgba(0,229,255,0.03);border:1px solid rgba(0,229,255,0.1);border-radius:6px;font-size:0.58rem;color:var(--muted);line-height:1.6;}
 .mc-note b{color:var(--accent);}
+/* ── 예측 바 축 라벨 ── */
+.pred-axis{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;padding:0 1px;}
+.pred-axis-lbl{font-family:'Orbitron',monospace;font-size:0.48rem;letter-spacing:1px;}
+.pred-axis-center{font-family:'Orbitron',monospace;font-size:0.45rem;color:var(--muted);text-align:center;}
+/* ── 등급 위험 배지 ── */
+.risk-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.54rem;font-weight:700;margin-top:2px;}
+.risk-overbought{background:rgba(255,51,85,0.15);color:#ff3355;border:1px solid rgba(255,51,85,0.35);}
+.risk-oversold{background:rgba(0,255,136,0.1);color:#00ff88;border:1px solid rgba(0,255,136,0.25);}
+.risk-warning{background:rgba(255,165,0,0.12);color:#ffa500;border:1px solid rgba(255,165,0,0.3);}
+/* ── S/E등급 경고 배너 ── */
+.grade-alert{display:none;padding:6px 12px;border-radius:7px;font-size:0.62rem;font-weight:700;margin-bottom:6px;line-height:1.5;}
+.grade-alert.alert-hot{background:rgba(255,51,85,0.1);border:1px solid rgba(255,51,85,0.3);color:#ff3355;display:block;}
+.grade-alert.alert-cold{background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.2);color:#00ff88;display:block;}
 
 /* ══════════════════
    ⑤ 코인 카드
@@ -313,6 +326,17 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
   <!-- ④ 7일 예측 -->
   <div class="panel pred-panel">
     <div class="pred-title" id="predTitle">▸ 7-DAY PREDICTION · BOOTSTRAP MC N=800 · 범위 = ±1σ</div>
+    <!-- 축 방향 라벨 -->
+    <div class="pred-axis">
+      <span class="pred-axis-lbl" style="color:#ff3355">◀ 하락 BEAR</span>
+      <span class="pred-axis-center">중립 0%</span>
+      <span class="pred-axis-lbl" style="color:#00ff88">BULL 상승 ▶</span>
+    </div>
+    <!-- 중앙 기준선 표시 바 -->
+    <div style="position:relative;height:2px;background:rgba(255,255,255,0.04);border-radius:1px;margin-bottom:8px;">
+      <div style="position:absolute;left:50%;top:-3px;width:2px;height:8px;background:rgba(255,255,255,0.25);transform:translateX(-50%);border-radius:1px;"></div>
+    </div>
+    <div id="gradeAlert" class="grade-alert"></div>
     <div class="day-row" id="dayRow"></div>
     <div class="mc-note" id="mcNote">Bootstrap Resampling <b>N=800</b> · 블록크기 5 · fat-tail 반영 · <b>수동갱신</b></div>
     <div class="formula-box" style="margin-top:8px">
@@ -324,6 +348,7 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
         <span class="ftag">hi = 84th pct</span>
         <span class="ftag">fat-tail: block=5</span>
       </div>
+      <div style="margin-top:4px;color:rgba(255,255,255,0.25);font-size:0.52rem;">바 중앙(50%) = 변동 0% 기준 · 오른쪽 = 상승 · 왼쪽 = 하락</div>
     </div>
   </div>
 
@@ -336,6 +361,7 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
         <button class="search-clear" id="searchClear" onclick="clearSearch()">✕</button>
       </div>
       <div class="search-result-info" id="searchInfo"></div>
+      <div id="coinGradeAlert" class="grade-alert"></div>
       <div class="csec-title">▸ TOP 50 COIN · S-A-B-C-D-E GRADE</div>
       <div class="grade-counts" id="gradeCounts"></div>
       <div class="filter-btns">
@@ -498,14 +524,18 @@ function updateLSGauge(lsr,avgFunding,levScore){
    7일 예측 (바 게이지)
 ══════════════════════════════════ */
 function dirLabel(sp){
-  if(sp>=85)return['지속상승','#00ff88'];
-  if(sp>=70)return['상승','#7fff00'];
-  if(sp>=58)return['급상승','#adff2f'];
-  if(sp>=43)return['횡보','#ffd700'];
-  if(sp>=30)return['하락','#ff8c00'];
-  if(sp>=15)return['급락','#ff4444'];
+  // sp=50이 정확히 0% 기준 (중앙)
+  // sp>50 상승, sp<50 하락
+  if(sp>=82)return['지속상승','#00ff88'];
+  if(sp>=68)return['상승','#7fff00'];
+  if(sp>=56)return['소폭상승','#adff2f'];
+  if(sp>=44)return['횡보','#ffd700'];
+  if(sp>=32)return['소폭하락','#ff8c00'];
+  if(sp>=18)return['하락','#ff4444'];
   return['지속하락','#cc2222'];
 }
+// sp=50 → 0% 변화 기준선 (바 중앙)
+// 스케일: 1% 변동 = 4pt → ±12.5%가 바 전체 범위
 function pctToSP(pct){return clamp(50+pct*4,5,95);}
 
 function renderDayGauges(pred){
@@ -516,16 +546,26 @@ function renderDayGauges(pred){
     const spLo=pctToSP(p.loPct||p.muPct-3);
     const spHi=pctToSP(p.hiPct||p.muPct+3);
     const[dir,col]=dirLabel(sp);
-    const chg=(p.muPct>=0?'+':'')+fmt(p.muPct,1)+'%';
+    const sign=p.muPct>=0?'+':'';
+    const chg=sign+fmt(p.muPct,2)+'%';
     const rangeLeft=Math.min(spLo,spHi);
-    const rangeW=Math.max(1,Math.abs(spHi-spLo));
+    const rangeW=Math.max(2,Math.abs(spHi-spLo));
+    // 중앙(0%) 기준으로 색이 채워지는 방향 결정
+    const fillLeft=sp>=50?50:sp;
+    const fillW=Math.abs(sp-50);
     return '<div class="day-item">'
       +'<div class="day-tag">'+t+'</div>'
       +'<div class="mini-bar-wrap">'
+        // ±1σ 범위 (회색 밴드)
         +'<div class="pred-range" style="left:'+rangeLeft+'%;width:'+rangeW+'%"></div>'
+        // 0%→현재 방향으로 채우는 색 막대
+        +'<div style="position:absolute;top:2px;bottom:2px;left:'+fillLeft+'%;width:'+fillW+'%;background:'+col+';opacity:0.5;border-radius:3px;transition:all 0.5s ease;"></div>'
+        // 중앙 기준선 (0% = 50%)
+        +'<div style="position:absolute;top:0;bottom:0;left:50%;width:2px;background:rgba(255,255,255,0.3);transform:translateX(-50%);z-index:3;"></div>'
+        // 중앙값 마커
         +'<div class="pred-mu" style="left:'+sp+'%;background:'+col+'"></div>'
       +'</div>'
-      +'<div class="day-dir" style="color:'+col+'">'+dir+'</div>'
+      +'<div class="day-dir" style="color:'+col+';font-size:0.58rem">'+dir+'</div>'
       +'<div class="day-chg" style="color:'+col+'">'+chg+'</div>'
       +'</div>';
   }).join('');
@@ -740,22 +780,53 @@ function renderCoins(){
     const c24cls=c.c24>=0?'up':'down';
     const macd=c.bull?'<span class="up">▲골든</span>':'<span class="down">▼데드</span>';
     const rsiColor=c.rsi>70?'#ff4444':c.rsi<30?'#00ff88':'var(--muted)';
-    // 점수 분해: RSI기여, MACD기여, OI기여, C24기여
     const rsiC=c.rsi>70?'+22':c.rsi>60?'+12':c.rsi>50?'+4':c.rsi<30?'-22':c.rsi<40?'-12':'-4';
     const macdC=c.bull?'+14':'-14';
     const oiC=(c.oi>=0?'+':'')+fmt(Math.min(Math.max(c.oi*0.75,-18),18),0);
-    const c24C=(c.c24>=0?'+':'')+fmt(Math.min(Math.max(c.c24*1.1,-14),14),0);
+    // ── 리스크 배지 계산 ──
+    let riskHtml='';
+    if(c.grade==='S'&&c.rsi>75){
+      riskHtml='<div class="risk-badge risk-overbought">⚠ RSI과매수 급락주의</div>';
+    } else if(c.grade==='S'&&c.c24>15){
+      riskHtml='<div class="risk-badge risk-overbought">⚠ 단기급등 고점주의</div>';
+    } else if(c.grade==='S'&&!c.bull){
+      riskHtml='<div class="risk-badge risk-warning">△ MACD약화 주시</div>';
+    } else if(c.grade==='A'&&c.rsi>72){
+      riskHtml='<div class="risk-badge risk-warning">△ RSI경계</div>';
+    } else if((c.grade==='D'||c.grade==='E')&&c.rsi<28){
+      riskHtml='<div class="risk-badge risk-oversold">✓ RSI과매도 반등가능</div>';
+    }
     return'<div class="coin-card">'
       +'<div class="coin-left"><div class="coin-ico">'+c.sym.slice(0,3)+'</div><div><div class="csym">'+c.sym+'</div><div class="cname">'+c.name.slice(0,12)+'</div></div></div>'
       +'<div><div class="coin-price">'+priceStr+' <span class="'+c24cls+'" style="font-size:0.68rem">'+fmtPct(c.c24)+'</span></div>'
         +'<div class="coin-meta"><span class="coin-rsi" style="color:'+rsiColor+'">RSI '+fmt(c.rsi,0)+'</span>'+macd+'<span style="color:'+dc7+';font-size:0.58rem;font-weight:700">'+dir7+'</span></div>'
         +'<div class="cpb-track"><div class="cpb-fill" style="width:'+sp7+'%;background:'+dc7+'"></div></div>'
+        +(riskHtml?'<div style="margin-top:4px">'+riskHtml+'</div>':'')
       +'</div>'
       +'<div class="coin-right"><span class="gbadge g'+c.grade+'">'+c.grade+'</span><span class="score-val" style="color:'+gc+'">'+fmt(c.score,0)+'</span><span class="atag '+ac+'">'+at+'</span>'
       +'<div class="score-breakdown">RSI<span style="color:'+(rsiC[0]==='-'?'var(--red)':'var(--green)')+'">'+rsiC+'</span> MACD<span style="color:'+(macdC[0]==='-'?'var(--red)':'var(--green)')+'">'+macdC+'</span> OI<span style="color:'+(oiC[0]==='-'?'var(--red)':'var(--green)')+'">'+oiC+'</span></div>'
       +sparkline(c.sparkline)+'</div>'
       +'</div>';
   }).join('');
+  // ── 코인 섹션 경고 배너 ──
+  const sCount=sorted.filter(c=>c.grade==='S').length;
+  const eCount=sorted.filter(c=>c.grade==='E').length;
+  const highRsiS=sorted.filter(c=>c.grade==='S'&&c.rsi>75).length;
+  const alertEl=document.getElementById('coinGradeAlert');
+  if(alertEl){
+    if(highRsiS>=3){
+      alertEl.className='grade-alert alert-hot';
+      alertEl.innerHTML='⚠ S등급 '+sCount+'개 중 '+highRsiS+'개가 RSI 과매수(>75) — 단기 급락 리스크 주의';
+    } else if(sCount>=5){
+      alertEl.className='grade-alert alert-hot';
+      alertEl.innerHTML='⚠ S등급 코인 '+sCount+'개 집중 — 시장 과열 신호, 익절 라인 관리 필요';
+    } else if(eCount>=5){
+      alertEl.className='grade-alert alert-cold';
+      alertEl.innerHTML='✓ E등급 '+eCount+'개 집중 — 시장 공포 구간, 역발상 진입 기회 탐색';
+    } else {
+      alertEl.className='grade-alert';
+    }
+  }
 }
 
 function setFilter(g,btn){curFilter=g;document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');renderCoins();}
@@ -770,27 +841,33 @@ function buildMarketPred(coins, lev){
   }
   const rawPred=monteCarloBootstrap(merged,7,800);
 
-  // 롱/숏 비율로 예측값에 방향성 바이어스 적용
-  // lsr > 1 → 롱 우세 → 상승 편향 가산
-  // lsr < 1 → 숏 우세 → 하락 편향 가산
   const lsr=(lev&&lev.longShortRatio!=null)?lev.longShortRatio:1.0;
   const fr=(lev&&lev.avgFunding!=null)?lev.avgFunding:0;
-  // 바이어스: L/S 1.0 기준, ±0.5 범위에서 최대 ±1.5% 편향 (일별 감쇠)
-  const lsBias=clamp((lsr-1.0)*3,-1.5,1.5);
-  // 펀딩비 양수면 롱 과열 → 단기 상승 후 반전 가능성, 음수면 숏 과열
-  const frBias=clamp(fr*2000,-1.0,1.0);
-  const totalBias=lsBias+frBias;
+
+  // ─── L/S 바이어스 (강화) ───
+  // lsr=1.5 → +1.5%, lsr=0.7 → -0.9% (스케일 3배로 확대)
+  // 롱 우세가 실제로 예측에 반영되도록 계수 상향: ×5 (이전 ×3)
+  const lsBias=clamp((lsr-1.0)*5,-3.0,3.0);
+
+  // ─── 펀딩비 바이어스 ───
+  // 양수 펀딩비 → 롱 과열 → 단기 추가 상승 가능 (방향 동조)
+  // 단, 극단 펀딩비(>0.01%)는 과열 경고로 반전 가능성
+  const absFr=Math.abs(fr);
+  let frBias=clamp(fr*3000,-2.0,2.0);
+  if(absFr>0.0008) frBias*=0.6; // 과열 시 감쇠
+
+  // ─── 기술 지표 평균 바이어스 ───
+  // S/A 등급 코인 비율로 추가 편향
+  const bullRatio=coins.filter(c=>c.grade==='S'||c.grade==='A').length/Math.max(coins.length,1);
+  const techBias=clamp((bullRatio-0.3)*6,-2.0,2.0); // 30% 이상이면 상승 편향
+
+  const totalBias=lsBias+frBias+techBias;
 
   return rawPred.map((p,i)=>{
-    // 시간이 지날수록 바이어스 감쇠 (D+1에 최대, D+7에 30%)
-    const decay=1/(1+i*0.2);
+    // D+1 최대 편향, 이후 서서히 감쇠 (반감기 약 3일)
+    const decay=Math.exp(-i*0.18);
     const adj=totalBias*decay;
-    return{
-      muPct:p.muPct+adj,
-      loPct:p.loPct+adj,
-      hiPct:p.hiPct+adj,
-      bias:adj  // 디버그용
-    };
+    return{muPct:p.muPct+adj, loPct:p.loPct+adj, hiPct:p.hiPct+adj, bias:adj};
   });
 }
 
@@ -823,13 +900,16 @@ async function refreshAll(){
     // 노트 업데이트
     const fp=(lev.avgFunding*100).toFixed(4);
     const fc=lev.avgFunding>0?'up':lev.avgFunding<0?'down':'neu';
-    const lsBias=clamp((lev.longShortRatio-1.0)*3,-1.5,1.5);
-    const frBias=clamp(lev.avgFunding*2000,-1.0,1.0);
-    const totalBias=lsBias+frBias;
-    const biasDir=totalBias>0.1?'▲롱편향':totalBias<-0.1?'▼숏편향':'→중립';
-    const biasCol=totalBias>0.1?'up':totalBias<-0.1?'down':'neu';
+    const lsBias=clamp((lev.longShortRatio-1.0)*5,-3.0,3.0);
+    const frBias=clamp(lev.avgFunding*3000,-2.0,2.0);
+    const bullRatio=allCoins.filter(c=>c.grade==='S'||c.grade==='A').length/Math.max(allCoins.length,1);
+    const techBias=clamp((bullRatio-0.3)*6,-2.0,2.0);
+    const totalBias=lsBias+frBias+techBias;
+    const biasDir=totalBias>0.3?'▲상승편향':totalBias<-0.3?'▼하락편향':'→중립';
+    const biasCol=totalBias>0.3?'up':totalBias<-0.3?'down':'neu';
+    const biasPct=(totalBias>=0?'+':'')+fmt(totalBias,2)+'%';
     const noteEl=document.getElementById('mcNote');
-    if(noteEl)noteEl.innerHTML='Bootstrap MC <b>N=800</b> · 블록5 · fat-tail · 펀딩비 <b><span class="'+fc+'">'+fp+'%</span></b> · L/S <b>'+fmt(lev.longShortRatio,3)+'</b> · 방향편향 <b><span class="'+biasCol+'">'+biasDir+'</span></b> · <b>수동갱신</b>';
+    if(noteEl)noteEl.innerHTML='Bootstrap MC <b>N=800</b> · 펀딩비 <b><span class="'+fc+'">'+fp+'%</span></b> · L/S <b>'+fmt(lev.longShortRatio,3)+'</b> · S/A코인 <b>'+Math.round(bullRatio*100)+'%</b> · D+1편향 <b><span class="'+biasCol+'">'+biasDir+' '+biasPct+'</span></b>';
     document.getElementById('updateTime').textContent=safeTime();
     setStatus('✓ '+allCoins.length+'개 분석 | 센티먼트 '+fmt(sent,0)+'% | 레버 '+fmt(lev.levScore,0)+'pts | ↺ 버튼으로 수동 갱신','info');
   }catch(e){
