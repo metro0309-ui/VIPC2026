@@ -364,7 +364,7 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
       </div>
       <div class="search-result-info" id="searchInfo"></div>
       <div id="coinGradeAlert" class="grade-alert"></div>
-      <div class="csec-title">▸ TOP 50 COIN · S-A-B-C-D-E GRADE</div>
+      <div class="csec-title">▸ TOP 100 COIN · S-A-B-C-D-E GRADE</div>
       <div class="grade-counts" id="gradeCounts"></div>
       <div class="filter-btns">
         <button class="fbtn on" data-g="ALL" onclick="setFilter('ALL',this)">ALL</button>
@@ -1005,14 +1005,14 @@ async function fetchFNG(){
   }catch(e){document.getElementById('sFng').textContent='72';document.getElementById('sFngL').innerHTML='<span class="neu">Greed</span>';return 72;}
 }
 
-async function fetchTop50(){
-  // per_page=250으로 충분히 받아서 스테이블·래핑 제거 후 상위 50개 확보
+async function fetchTop100(){
+  // per_page=250으로 충분히 받아서 스테이블·래핑 제거 후 상위 100개 확보
   const d=await getJSON(
     'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=true&price_change_percentage=7d'
   );
   const filtered=d.filter(c=>!isStableOrWrapped(c));
   console.log('Filtered coins:',filtered.length,'from',d.length);
-  return filtered.slice(0,50);
+  return filtered.slice(0,100);
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -1241,9 +1241,14 @@ function renderCoins(){
     }
   }
   const sorted=rows.slice().sort((a,b)=>{
+    // ALL 필터: 별점(stars) 내림차순 1차 정렬, 동점이면 기존 sortKey로 2차 정렬
+    if(curFilter==='ALL'){
+      const aStar=a.rating?.points||0, bStar=b.rating?.points||0;
+      if(aStar!==bStar) return bStar-aStar; // 별 많은 순
+    }
     let av=a[sortKey],bv=b[sortKey];
     if(sortKey==='grade'){const o={S:6,A:5,B:4,C:3,D:2,E:1};av=o[a.grade];bv=o[b.grade];}
-    if(sortKey==='stars'){av=a.rating?.points||0;bv=b.rating?.points||0;} // 별점 정렬
+    if(sortKey==='stars'){av=a.rating?.points||0;bv=b.rating?.points||0;}
     return sortDir*(bv-av);
   });
   const list=document.getElementById('coinList');
@@ -1403,7 +1408,7 @@ async function refreshAll(){
   rbtn.disabled=true;rbtn.textContent='...';
   setStatus('데이터 수신 중... Binance + CoinGecko + F&G','info');
   try{
-    const[fng,raw,lev]=await Promise.all([fetchFNG(),fetchTop50(),fetchLeverageMetrics()]);
+    const[fng,raw,lev]=await Promise.all([fetchFNG(),fetchTop100(),fetchLeverageMetrics()]);
     fetchGlobal().catch(()=>{});
     allCoins=buildCoins(raw);
     const sent=calcSentiment(allCoins,fng,lev);
@@ -1442,7 +1447,7 @@ function triggerRefresh(){refreshAll();}
 
 /* ── 초기화 + 1분 자동갱신 ── */
 (function init(){
-  const msgs=['INITIALIZING...','CONNECTING...','FETCHING COINS...','BOOTSTRAP MC...','COMPUTING GRADES...'];
+  const msgs=['INITIALIZING...','CONNECTING...','FETCHING TOP100...','BOOTSTRAP MC...','COMPUTING GRADES...'];
   const bar=document.getElementById('loadBar');
   const msg=document.getElementById('loadMsg');
   let mi=0;
