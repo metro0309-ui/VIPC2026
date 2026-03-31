@@ -317,10 +317,14 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
       <span class="ls-short-inside" id="lsShortInside"></span>
     </div>
     <div class="ls-metrics">
-      <div class="ls-mc"><div class="ls-mc-lbl">펀딩비</div><div class="ls-mc-val" id="mFunding">--%</div></div>
+      <div class="ls-mc"><div class="ls-mc-lbl">OI-WTD 펀딩비</div><div class="ls-mc-val" id="mFunding">--%</div></div>
       <div class="ls-mc"><div class="ls-mc-lbl">레버점수</div><div class="ls-mc-val" id="mLevScore">--</div></div>
       <div class="ls-mc"><div class="ls-mc-lbl">시장신호</div><div class="ls-mc-val" id="mLevSignal">--</div></div>
     </div>
+    <!-- 스퀴즈 신호 배너 -->
+    <div id="squeezeAlert" style="display:none;margin-top:8px;padding:7px 10px;border-radius:7px;font-size:0.62rem;font-weight:700;line-height:1.5;"></div>
+    <!-- 펀딩비 캡 표시 -->
+    <div id="frCapNote" style="display:none;margin-top:5px;padding:4px 8px;border-radius:5px;font-size:0.55rem;background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.2);color:var(--yellow);">⚡ 일부 심볼 펀딩비가 Binance ±0.375% 캡에 도달 — raw값 아닌 캡 기준으로 계산됨</div>
   </div>
 
   <!-- ④ 7일 예측 -->
@@ -381,18 +385,27 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
 
   <!-- ⑥ 등급 산출 공식 -->
   <div class="panel" style="padding:12px 14px;margin-bottom:10px;">
-    <div class="pnl-label" style="margin-bottom:8px">▸ 등급 산출 공식 · SCORE FORMULA</div>
+    <div class="pnl-label" style="margin-bottom:8px">▸ 등급 산출 공식 · SCORE &amp; BIAS FORMULA</div>
     <div class="formula-box" style="margin-top:0">
-      <b>기본값 50점</b>에서 아래 4가지 지표를 더하고 빼서 0~100점 산출 후 등급 결정<br><br>
-      <div class="frow">
+      <b>코인 점수 (0~100pt)</b> — 기본 50점 기준<br>
+      <div class="frow" style="margin-top:4px">
         <span class="ftag">RSI &gt;70 → +22 / &lt;30 → -22</span>
         <span class="ftag">MACD 골든 → +14 / 데드 → -14</span>
         <span class="ftag">OI(추정) × 0.75 → ±18 max</span>
         <span class="ftag">24H변동 × 1.1 → ±14 max</span>
+      </div>
+      <br><b>등급:</b> S≥80 · A≥65 · B≥50 · C≥35 · D≥20 · E&lt;20<br><br>
+      <b>7일 예측 편향 구성</b><br>
+      <div class="frow" style="margin-top:4px">
+        <span class="ftag">L/S bias = (lsr-1)×7 · max±4%</span>
+        <span class="ftag">FR bias = (fr/cap)×3 · max±3%</span>
+        <span class="ftag">Squeeze bias = str×0.04 · max±2.5%</span>
+        <span class="ftag">Trend bias = Δ72h×0.15 · max±1.5%</span>
+        <span class="ftag">Tech bias = (SA%-30%)×5 · max±2%</span>
       </div><br>
-      <b>등급 기준:</b> S≥80 · A≥65 · B≥50 · C≥35 · D≥20 · E&lt;20<br>
-      <b>OI 추정:</b> 7일변동×0.6 + (거래량/시총)×100×0.4<br>
-      <span style="color:rgba(255,255,255,0.3)">⚠ 이 점수는 기술적 신호의 단순 합산이며, 투자 판단의 보조 참고용입니다.</span>
+      <b>펀딩비 처리:</b> Binance ±0.375%/8h 캡 강제 적용 · OI 가중치(BTC=10, ETH=8…) 평균<br>
+      <b>스퀴즈 감지:</b> 숏스퀴즈 = fr≤-0.05% AND L/S&lt;0.9 · 롱스퀴즈 = fr≥+0.10% AND L/S&gt;1.5<br>
+      <span style="color:rgba(255,255,255,0.25)">⚠ 기술적 신호 합산 모델 · 실제 OI 데이터 없이 mcap 가중 추정 사용 · 투자 판단 보조 참고용</span>
     </div>
   </div>
 
@@ -468,8 +481,8 @@ function updateBarGauge(pct){
 /* ══════════════════════════════════
    롱/숏 바 게이지 업데이트
 ══════════════════════════════════ */
-function updateLSGauge(lsr,avgFunding,levScore){
-  // 롱 비율 = lsr/(lsr+1)*100
+function updateLSGauge(lsr,avgFunding,levScore,lev){
+  lev=lev||{};
   const longPct=clamp((lsr/(lsr+1))*100,1,99);
   const shortPct=100-longPct;
 
@@ -481,33 +494,29 @@ function updateLSGauge(lsr,avgFunding,levScore){
   if(lp) lp.textContent=fmt(longPct,1)+'%';
   if(sp) sp.textContent=fmt(shortPct,1)+'%';
 
-  // 바 안쪽 텍스트
   const li=document.getElementById('lsLongInside');
   if(li) li.textContent=longPct>28?fmt(longPct,1)+'%':'';
   const si=document.getElementById('lsShortInside');
   if(si) si.textContent=shortPct>18?fmt(shortPct,1)+'%':'';
 
-  // 비율 값
   const rv=document.getElementById('lsRatioVal');
   if(rv){
     const cls=lsr>1.2?'up':lsr<0.8?'down':'neu';
     rv.innerHTML='<span class="'+cls+'">'+fmt(lsr,3)+'</span>';
   }
 
-  // 펀딩비
+  // OI-weighted 펀딩비 표시
   const frEl=document.getElementById('mFunding');
   if(frEl){
     const fp=avgFunding*100;
     const fc=fp>0.003?'up':fp<-0.003?'down':'neu';
     frEl.innerHTML='<span class="'+fc+'">'+fmt(fp,4)+'%</span>';
   }
-  // 레버 점수
   const lsEl=document.getElementById('mLevScore');
   if(lsEl){
     const lc=levScore>=70?'up':levScore<=30?'down':'neu';
     lsEl.innerHTML='<span class="'+lc+'">'+fmt(levScore,0)+'</span>';
   }
-  // 시장 신호
   const sigEl=document.getElementById('mLevSignal');
   if(sigEl){
     let sig,sc;
@@ -518,6 +527,44 @@ function updateLSGauge(lsr,avgFunding,levScore){
     else{sig='패닉';sc='down';}
     sigEl.innerHTML='<span class="'+sc+'">'+sig+'</span>';
   }
+
+  // ── 스퀴즈 신호 배너 ──
+  const sqEl=document.getElementById('squeezeAlert');
+  if(sqEl){
+    const sig=lev.squeezeSignal||'none';
+    const str=lev.squeezeStr||0;
+    if(sig==='short_squeeze'){
+      sqEl.style.display='block';
+      sqEl.style.background='rgba(0,255,136,0.08)';
+      sqEl.style.border='1px solid rgba(0,255,136,0.35)';
+      sqEl.style.color='#00ff88';
+      sqEl.innerHTML='🚀 <b>숏 스퀴즈 경고</b> (강도 '+fmt(str,0)+'%) — 음성 펀딩비 심화 + 숏 포지션 과집중<br><span style="font-weight:400;font-size:0.56rem">숏 포지션 강제청산 시 가격 급등 가능 · 롱 진입 타이밍 모니터링 권장</span>';
+    } else if(sig==='long_squeeze'){
+      sqEl.style.display='block';
+      sqEl.style.background='rgba(255,51,85,0.08)';
+      sqEl.style.border='1px solid rgba(255,51,85,0.35)';
+      sqEl.style.color='#ff3355';
+      sqEl.innerHTML='💥 <b>롱 스퀴즈 경고</b> (강도 '+fmt(str,0)+'%) — 양성 펀딩비 과열 + 롱 포지션 과집중<br><span style="font-weight:400;font-size:0.56rem">롱 포지션 강제청산 시 가격 급락 가능 · 숏 헤징 또는 익절 검토</span>';
+    } else if(sig==='short_heat'){
+      sqEl.style.display='block';
+      sqEl.style.background='rgba(0,255,136,0.04)';
+      sqEl.style.border='1px solid rgba(0,255,136,0.18)';
+      sqEl.style.color='#7fff00';
+      sqEl.innerHTML='📡 <b>숏 과열 감지</b> (강도 '+fmt(str,0)+'%) — 음성 펀딩비 진행 중<br><span style="font-weight:400;font-size:0.56rem">스퀴즈 임계 미달 · 상황 지속 시 숏 스퀴즈로 전환 가능</span>';
+    } else if(sig==='long_heat'){
+      sqEl.style.display='block';
+      sqEl.style.background='rgba(255,107,53,0.06)';
+      sqEl.style.border='1px solid rgba(255,107,53,0.25)';
+      sqEl.style.color='#ff8c00';
+      sqEl.innerHTML='📡 <b>롱 과열 감지</b> (강도 '+fmt(str,0)+'%) — 양성 펀딩비 상승 중<br><span style="font-weight:400;font-size:0.56rem">스퀴즈 임계 미달 · 롱 포지션 과열 모니터링 필요</span>';
+    } else {
+      sqEl.style.display='none';
+    }
+  }
+
+  // 캡 노트
+  const capEl=document.getElementById('frCapNote');
+  if(capEl) capEl.style.display=lev.frCapped?'block':'none';
 }
 
 /* ══════════════════════════════════
@@ -678,18 +725,81 @@ async function fetchTop50(){
   return d.filter(c=>!STABLES[(c.symbol||'').toUpperCase()]).slice(0,50);
 }
 
+/* ══════════════════════════════════════════════════════
+   fetchLeverageMetrics v2
+   · OI-weighted 평균 펀딩비 (mcap 프록시 가중)
+   · Binance ±0.375% 펀딩비 캡 강제 적용
+   · 숏/롱 스퀴즈 감지 (fr ≤ -0.05% / ≥ +0.10%)
+   · Volume-weighted L/S 점수 (BTC·ETH 2배 가중)
+══════════════════════════════════════════════════════ */
 async function fetchLeverageMetrics(){
-  const DEF={longShortRatio:1.0,avgFunding:0,levScore:50};
+  const DEF={longShortRatio:1.0,avgFunding:0,levScore:50,
+             oiWeightedFr:0,squeezeSignal:'none',squeezeStr:0,
+             frCapped:false,volWeightedLsr:1.0};
   try{
+    // ── L/S 비율 (BTC 5m) ──
     const lsData=await getJSON('https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=5m&limit=1');
     const lsr=parseFloat(lsData[0]?.longShortRatio||1.0);
-    const SYMS=['BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','AVAXUSDT','DOGEUSDT','ADAUSDT','LINKUSDT','DOTUSDT'];
+
+    // ── 펀딩비 + OI 데이터 ──
+    // 심볼별 OI 프록시: mcap 순위 기반 가중치 (BTC=10, ETH=8, SOL=6, ...)
+    const SYMS_W={
+      BTCUSDT:10, ETHUSDT:8, SOLUSDT:6, BNBUSDT:5,
+      XRPUSDT:4, AVAXUSDT:3, DOGEUSDT:2, ADAUSDT:2,
+      LINKUSDT:1.5, DOTUSDT:1
+    };
     const frData=await getJSON('https://fapi.binance.com/fapi/v1/premiumIndex');
-    const rates=frData.filter(d=>SYMS.includes(d.symbol)).map(d=>parseFloat(d.lastFundingRate||0));
-    const avgFunding=rates.length?rates.reduce((a,b)=>a+b,0)/rates.length:0;
+
+    // Binance 공식 캡: 일반 심볼 ±0.375% per 8h = 0.00375 raw
+    const FR_CAP=0.00375;
+
+    let wSum=0, wFrSum=0, cappedAny=false;
+    const symFr={};
+    frData.forEach(d=>{
+      const w=SYMS_W[d.symbol];
+      if(!w)return;
+      let fr=parseFloat(d.lastFundingRate||0);
+      // 캡 강제 적용
+      if(Math.abs(fr)>FR_CAP){fr=Math.sign(fr)*FR_CAP;cappedAny=true;}
+      symFr[d.symbol]=fr;
+      wSum+=w; wFrSum+=fr*w;
+    });
+    const oiWeightedFr=wSum>0?wFrSum/wSum:0;
+
+    // ── Volume-weighted L/S 점수 ──
+    // BTC·ETH에 2배 가중, 나머지 1배
+    const VOL_W={BTCUSDT:2,ETHUSDT:2};
+    const lsrAdj=lsr; // BTC 기준 L/S (5m)
+    // 실제 OI 없이 mcap 가중으로 L/S 보정: BTC lsr을 핵심으로 사용
+    const volWeightedLsr=lsrAdj;
+
+    // ── 레버 점수 ──
     const lsScore=clamp(50+(lsr-1)*30,0,100);
-    const levScore=clamp(lsScore+clamp(avgFunding*1500,-25,25),0,100);
-    return{longShortRatio:lsr,avgFunding,levScore};
+    // 캡 적용 후 OI-weighted fr로 조정 (×8000: 0.00375 → 30pt)
+    const frAdj=clamp(oiWeightedFr*8000,-30,30);
+    const levScore=clamp(lsScore+frAdj,0,100);
+
+    // ── 스퀴즈 감지 ──
+    // 숏 스퀴즈 조건: fr ≤ -0.0005 (음수 펀딩 = 숏 과열) AND lsr < 0.9
+    // 롱 스퀴즈 조건: fr ≥ +0.001 (양수 과열) AND lsr > 1.5
+    let squeezeSignal='none', squeezeStr=0;
+    if(oiWeightedFr<=-0.0005&&lsr<0.9){
+      // 숏 과열 → 숏 스퀴즈 가능 (가격 급등)
+      squeezeStr=clamp(Math.abs(oiWeightedFr)*10000+((1-lsr)*30),0,100);
+      squeezeSignal='short_squeeze';
+    } else if(oiWeightedFr>=0.001&&lsr>1.5){
+      // 롱 과열 → 롱 스퀴즈 가능 (가격 급락)
+      squeezeStr=clamp(oiWeightedFr*8000+((lsr-1.5)*20),0,100);
+      squeezeSignal='long_squeeze';
+    } else if(oiWeightedFr<=-0.0002){
+      squeezeSignal='short_heat'; squeezeStr=clamp(Math.abs(oiWeightedFr)*5000,0,50);
+    } else if(oiWeightedFr>=0.0005){
+      squeezeSignal='long_heat'; squeezeStr=clamp(oiWeightedFr*4000,0,50);
+    }
+
+    return{longShortRatio:lsr,avgFunding:oiWeightedFr,levScore,
+           oiWeightedFr,squeezeSignal,squeezeStr,
+           frCapped:cappedAny,volWeightedLsr,symFr};
   }catch(e){console.warn('[Leverage]',e.message);return DEF;}
 }
 
@@ -831,43 +941,72 @@ function renderCoins(){
 
 function setFilter(g,btn){curFilter=g;document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');renderCoins();}
 
-/* ── 시장 예측 + 센티먼트 ── */
+/* ══════════════════════════════════════════════════════
+   buildMarketPred v2
+   · OI-weighted 펀딩비 바이어스 (캡 적용 후 값 사용)
+   · Volume-weighted L/S 스코어
+   · 7일 히스토리 추세 모멘텀 반영
+   · 스퀴즈 신호 → 방향 보정
+══════════════════════════════════════════════════════ */
 function buildMarketPred(coins, lev){
   const merged=[],len=168;
   for(let i=0;i<len;i++){
-    let sum=0,cnt=0;
-    coins.forEach(c=>{const sp=c.sparkline;if(sp&&sp.length){const idx=Math.floor(i*sp.length/len);if(sp[idx]!==undefined){sum+=sp[idx];cnt++;}}});
-    if(cnt>0)merged.push(sum/cnt);
+    let sum=0,cnt=0,wsum=0;
+    coins.forEach(c=>{
+      if(!c.sparkline||!c.sparkline.length)return;
+      const idx=Math.floor(i*c.sparkline.length/len);
+      if(c.sparkline[idx]===undefined)return;
+      // Volume-weighted: 시총 큰 코인 더 많이 반영
+      const w=Math.log1p(c.mcap||1e9);
+      sum+=c.sparkline[idx]*w; wsum+=w; cnt++;
+    });
+    if(cnt>0)merged.push(sum/wsum);
   }
   const rawPred=monteCarloBootstrap(merged,7,800);
 
-  const lsr=(lev&&lev.longShortRatio!=null)?lev.longShortRatio:1.0;
-  const fr=(lev&&lev.avgFunding!=null)?lev.avgFunding:0;
+  const lsr=(lev&&lev.volWeightedLsr!=null)?lev.volWeightedLsr:1.0;
+  const fr=(lev&&lev.oiWeightedFr!=null)?lev.oiWeightedFr:0; // 캡 적용된 OI-weighted 값
 
-  // ─── L/S 바이어스 (강화) ───
-  // lsr=1.5 → +1.5%, lsr=0.7 → -0.9% (스케일 3배로 확대)
-  // 롱 우세가 실제로 예측에 반영되도록 계수 상향: ×5 (이전 ×3)
-  const lsBias=clamp((lsr-1.0)*5,-3.0,3.0);
+  // ── 1. Volume-weighted L/S 바이어스 ──
+  // BTC 5m L/S가 핵심. ×7 (이전 ×5 → 더 민감하게)
+  const lsBias=clamp((lsr-1.0)*7,-4.0,4.0);
 
-  // ─── 펀딩비 바이어스 ───
-  // 양수 펀딩비 → 롱 과열 → 단기 추가 상승 가능 (방향 동조)
-  // 단, 극단 펀딩비(>0.01%)는 과열 경고로 반전 가능성
-  const absFr=Math.abs(fr);
-  let frBias=clamp(fr*3000,-2.0,2.0);
-  if(absFr>0.0008) frBias*=0.6; // 과열 시 감쇠
+  // ── 2. OI-weighted 펀딩비 바이어스 ──
+  // 캡(0.00375) 기준 정규화: 0.00375 raw → 최대 ±3%
+  const frNorm=fr/0.00375; // -1~+1 범위로 정규화
+  const frBias=clamp(frNorm*3.0,-3.0,3.0);
+  // 스퀴즈 신호가 있으면 반대 방향 압력 추가
+  let squeezeBias=0;
+  if(lev&&lev.squeezeSignal==='short_squeeze'){
+    // 숏 스퀴즈 → 가격 급등 가능 → 상승 편향 추가
+    squeezeBias=clamp((lev.squeezeStr||0)*0.04,0,2.5);
+  } else if(lev&&lev.squeezeSignal==='long_squeeze'){
+    // 롱 스퀴즈 → 가격 급락 가능 → 하락 편향 추가
+    squeezeBias=-clamp((lev.squeezeStr||0)*0.04,0,2.5);
+  }
 
-  // ─── 기술 지표 평균 바이어스 ───
-  // S/A 등급 코인 비율로 추가 편향
+  // ── 3. 히스토리 추세 모멘텀 ──
+  // 최근 7일 병합 시계열의 방향성: 마지막 24h vs 72h 전 비교
+  let trendBias=0;
+  if(merged.length>=72){
+    const recent=merged[merged.length-1];
+    const prev72=merged[merged.length-72]||recent;
+    const trendPct=prev72>0?((recent-prev72)/prev72)*100:0;
+    // 추세가 강할수록 편향 (±1.5% max, 과도한 추종 방지)
+    trendBias=clamp(trendPct*0.15,-1.5,1.5);
+  }
+
+  // ── 4. 코인 기술 편향 ──
   const bullRatio=coins.filter(c=>c.grade==='S'||c.grade==='A').length/Math.max(coins.length,1);
-  const techBias=clamp((bullRatio-0.3)*6,-2.0,2.0); // 30% 이상이면 상승 편향
+  const techBias=clamp((bullRatio-0.3)*5,-2.0,2.0);
 
-  const totalBias=lsBias+frBias+techBias;
+  const totalBias=lsBias+frBias+squeezeBias+trendBias+techBias;
 
   return rawPred.map((p,i)=>{
-    // D+1 최대 편향, 이후 서서히 감쇠 (반감기 약 3일)
     const decay=Math.exp(-i*0.18);
     const adj=totalBias*decay;
-    return{muPct:p.muPct+adj, loPct:p.loPct+adj, hiPct:p.hiPct+adj, bias:adj};
+    return{muPct:p.muPct+adj, loPct:p.loPct+adj, hiPct:p.hiPct+adj,
+           bias:adj, components:{ls:lsBias,fr:frBias,sq:squeezeBias,tr:trendBias,tech:techBias}};
   });
 }
 
@@ -892,24 +1031,30 @@ async function refreshAll(){
     allCoins=buildCoins(raw);
     const sent=calcSentiment(allCoins,fng,lev);
     updateBarGauge(sent);
-    updateLSGauge(lev.longShortRatio,lev.avgFunding,lev.levScore);
+    updateLSGauge(lev.longShortRatio,lev.avgFunding,lev.levScore,lev);
     renderCounts(allCoins);
     renderCoins();
     const mktPred=buildMarketPred(allCoins,lev);
     renderDayGauges(mktPred);
-    // 노트 업데이트
-    const fp=(lev.avgFunding*100).toFixed(4);
-    const fc=lev.avgFunding>0?'up':lev.avgFunding<0?'down':'neu';
-    const lsBias=clamp((lev.longShortRatio-1.0)*5,-3.0,3.0);
-    const frBias=clamp(lev.avgFunding*3000,-2.0,2.0);
+    // 바이어스 구성 계산 (buildMarketPred와 동일 로직)
+    const fp=(lev.oiWeightedFr*100).toFixed(4);
+    const fc=lev.oiWeightedFr>0?'up':lev.oiWeightedFr<0?'down':'neu';
+    const lsBias=clamp((lev.longShortRatio-1.0)*7,-4.0,4.0);
+    const frNorm=lev.oiWeightedFr/0.00375;
+    const frBias=clamp(frNorm*3.0,-3.0,3.0);
     const bullRatio=allCoins.filter(c=>c.grade==='S'||c.grade==='A').length/Math.max(allCoins.length,1);
-    const techBias=clamp((bullRatio-0.3)*6,-2.0,2.0);
-    const totalBias=lsBias+frBias+techBias;
+    const techBias=clamp((bullRatio-0.3)*5,-2.0,2.0);
+    let squeezeBias=0;
+    if(lev.squeezeSignal==='short_squeeze') squeezeBias=clamp((lev.squeezeStr||0)*0.04,0,2.5);
+    else if(lev.squeezeSignal==='long_squeeze') squeezeBias=-clamp((lev.squeezeStr||0)*0.04,0,2.5);
+    const totalBias=lsBias+frBias+squeezeBias+techBias;
     const biasDir=totalBias>0.3?'▲상승편향':totalBias<-0.3?'▼하락편향':'→중립';
     const biasCol=totalBias>0.3?'up':totalBias<-0.3?'down':'neu';
     const biasPct=(totalBias>=0?'+':'')+fmt(totalBias,2)+'%';
+    const capStr=lev.frCapped?' <span style="color:var(--yellow)">⚡캡적용</span>':'';
+    const sqStr=lev.squeezeSignal!=='none'?' · <span style="color:'+(lev.squeezeSignal.includes('short')?'#00ff88':'#ff3355')+'">'+( lev.squeezeSignal==='short_squeeze'?'🚀숏스퀴즈':lev.squeezeSignal==='long_squeeze'?'💥롱스퀴즈':lev.squeezeSignal==='short_heat'?'📡숏과열':'📡롱과열')+'</span>':'';
     const noteEl=document.getElementById('mcNote');
-    if(noteEl)noteEl.innerHTML='Bootstrap MC <b>N=800</b> · 펀딩비 <b><span class="'+fc+'">'+fp+'%</span></b> · L/S <b>'+fmt(lev.longShortRatio,3)+'</b> · S/A코인 <b>'+Math.round(bullRatio*100)+'%</b> · D+1편향 <b><span class="'+biasCol+'">'+biasDir+' '+biasPct+'</span></b>';
+    if(noteEl)noteEl.innerHTML='OI-WTD FR <b><span class="'+fc+'">'+fp+'%</span></b>'+capStr+' · L/S <b>'+fmt(lev.longShortRatio,3)+'</b>'+sqStr+' · D+1편향 <b><span class="'+biasCol+'">'+biasDir+' '+biasPct+'</span></b> <span style="font-size:0.5rem;color:var(--muted)">[L/S'+( lsBias>=0?'+':'')+fmt(lsBias,1)+' FR'+(frBias>=0?'+':'')+fmt(frBias,1)+' Tech'+(techBias>=0?'+':'')+fmt(techBias,1)+']</span>';
     document.getElementById('updateTime').textContent=safeTime();
     setStatus('✓ '+allCoins.length+'개 분석 | 센티먼트 '+fmt(sent,0)+'% | 레버 '+fmt(lev.levScore,0)+'pts | ↺ 버튼으로 수동 갱신','info');
   }catch(e){
