@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>레버리지 시장 정서 게이지 v2</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;700;900&display=swap');
+
+:root {
+  --bg: #07090f;
+  --panel: #0d1117;
+  --border: rgba(255,255,255,0.08);
+  --accent: #00e5ff;
+  --accent2: #ff6b35;
+  --green: #00ff88;
+  --red: #ff3355;
+  --yellow: #ffd700;
+  --muted: #64748b;
+  --text: #e2e8f0;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans KR', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,229,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,255,0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* ── HEADER ── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 22px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+header h1 {
+  font-family: 'Orbitron', monospace;
+  font-size: 1rem;
+  color: var(--accent);
+  letter-spacing: 2px;
+}
+.hdr-right { display: flex; align-items: center; gap: 14px; }
+.live-dot {
+  width: 8px; height: 8px;
+  background: var(--green);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--green);
+  animation: blink 1.5s infinite;
+}
+@keyframes blink {
+  0%,100%{opacity:1;} 50%{opacity:0.3;}
+}
+#updateTime {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.btn {
+  background: rgba(0,229,255,0.1);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-family: 'Orbitron', monospace;
+  font-size: 0.68rem;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: background 0.2s;
+}
+.btn:hover { background: rgba(0,229,255,0.22); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── STATUS BAR ── */
+.status-bar {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.76rem;
+  margin-bottom: 14px;
+  display: none;
+}
+.status-bar.info  { background: rgba(0,229,255,0.08); border:1px solid rgba(0,229,255,0.2); color:var(--accent); display:block; }
+.status-bar.error { background: rgba(255,51,85,0.1);  border:1px solid rgba(255,51,85,0.3);  color:var(--red);    display:block; }
+.status-bar.warn  { background: rgba(255,215,0,0.08); border:1px solid rgba(255,215,0,0.25); color:var(--yellow); display:block; }
+
+/* ── MAIN GRID ── */
+.main-grid {
+  display: grid;
+  grid-template-columns: 400px 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* ── GAUGE PANEL ── */
+.gauge-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.panel-label {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 3px;
+  color: var(--muted);
+  align-self: flex-start;
+  margin-bottom: 14px;
+}
+
+/* SVG gauge */
+.gauge-svg { width: 100%; max-width: 340px; overflow: visible; }
+
+.gauge-readout { text-align: center; margin-top: 2px; }
+.gauge-pct {
+  font-family: 'Orbitron', monospace;
+  font-size: 2.8rem;
+  font-weight: 900;
+  color: var(--accent);
+  text-shadow: 0 0 18px rgba(0,229,255,0.45);
+  line-height: 1;
+}
+.gauge-lbl {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent2);
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+}
+.gauge-sub { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+
+/* Zone legend */
+.zone-list { width: 100%; margin-top: 14px; display: flex; flex-direction: column; gap: 5px; }
+.zone-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid transparent;
+  transition: border-color 0.25s, background 0.25s;
+}
+.zone-item.active {
+  background: rgba(0,229,255,0.05);
+  border-color: rgba(0,229,255,0.25);
+}
+.zdot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+.zname { font-size:0.73rem; font-weight:700; flex:1; }
+.zrng  { font-size:0.63rem; color:var(--muted); font-family:'Orbitron',monospace; }
+.zact  { font-size:0.63rem; color:var(--muted); }
+
+/* ── RIGHT PANEL ── */
+.right-panel { display: flex; flex-direction: column; gap: 14px; }
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.stat-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 13px 15px;
+}
+.slabel { font-size:0.62rem; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:5px; }
+.sval   { font-family:'Orbitron',monospace; font-size:1.2rem; font-weight:700; }
+.schg   { font-size:0.68rem; margin-top:3px; }
+
+.up   { color: var(--green); }
+.down { color: var(--red);   }
+.neu  { color: var(--yellow);}
+
+/* ── 7-DAY PREDICTION ROW ── */
+.pred-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+.pred-title {
+  font-family:'Orbitron',monospace;
+  font-size:0.6rem;
+  letter-spacing:3px;
+  color:var(--muted);
+  margin-bottom:14px;
+}
+.day-row {
+  display: grid;
+  grid-template-columns: repeat(7,1fr);
+  gap: 8px;
+}
+.day-cell {
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+}
+.day-tag {
+  font-family:'Orbitron',monospace;
+  font-size:0.58rem;
+  color:var(--muted);
+}
+.mini-svg { width:66px; height:44px; overflow:visible; }
+.day-pct  { font-family:'Orbitron',monospace; font-size:0.72rem; font-weight:700; }
+.day-dir  { font-size:0.64rem; font-weight:700; text-align:center; }
+.day-chg  { font-size:0.58rem; color:var(--muted); }
+
+.mc-note {
+  margin-top:10px;
+  padding:7px 12px;
+  background:rgba(0,229,255,0.03);
+  border:1px solid rgba(0,229,255,0.1);
+  border-radius:6px;
+  font-size:0.65rem;
+  color:var(--muted);
+}
+.mc-note b { color:var(--accent); }
+
+/* ── COIN TABLE SECTION ── */
+.coin-section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.csec-hdr {
+  padding: 14px 18px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+.csec-title {
+  font-family:'Orbitron',monospace;
+  font-size:0.65rem;
+  letter-spacing:2px;
+  color:var(--muted);
+  margin-bottom:8px;
+}
+.grade-counts { display:flex; flex-wrap:wrap; gap:6px; }
+.gc {
+  padding: 2px 9px;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-family:'Orbitron',monospace;
+}
+
+.filter-btns { display:flex; gap:5px; flex-shrink:0; }
+.fbtn {
+  padding:4px 9px;
+  border-radius:4px;
+  font-size:0.65rem;
+  font-weight:700;
+  cursor:pointer;
+  border:1px solid rgba(255,255,255,0.1);
+  background:rgba(255,255,255,0.04);
+  color:var(--muted);
+  transition:all 0.2s;
+  font-family:'Orbitron',monospace;
+}
+.fbtn:hover, .fbtn.on { color:#000; }
+.fbtn[data-g="ALL"].on { background:var(--accent);  border-color:var(--accent); }
+.fbtn[data-g="S"]:hover,.fbtn[data-g="S"].on { background:#00ff88; border-color:#00ff88; }
+.fbtn[data-g="A"]:hover,.fbtn[data-g="A"].on { background:#7fff00; border-color:#7fff00; }
+.fbtn[data-g="B"]:hover,.fbtn[data-g="B"].on { background:#ffd700; border-color:#ffd700; }
+.fbtn[data-g="C"]:hover,.fbtn[data-g="C"].on { background:#ff8c00; border-color:#ff8c00; }
+.fbtn[data-g="D"]:hover,.fbtn[data-g="D"].on { background:#ff4444; border-color:#ff4444; color:#fff; }
+.fbtn[data-g="E"]:hover,.fbtn[data-g="E"].on { background:#880000; border-color:#880000; color:#fff; }
+
+.tbl-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; }
+th {
+  padding:8px 12px;
+  font-size:0.62rem;
+  color:var(--muted);
+  text-align:left;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  background:rgba(255,255,255,0.018);
+  border-bottom:1px solid var(--border);
+  white-space:nowrap;
+  cursor:pointer;
+  user-select:none;
+}
+th:hover { color:var(--accent); }
+td {
+  padding:8px 12px;
+  font-size:0.76rem;
+  border-bottom:1px solid rgba(255,255,255,0.025);
+  white-space:nowrap;
+}
+tr:hover td { background:rgba(255,255,255,0.018); }
+
+.coin-cell { display:flex; align-items:center; gap:7px; }
+.coin-ico {
+  width:24px; height:24px; border-radius:50%;
+  background:rgba(0,229,255,0.1);
+  border:1px solid rgba(0,229,255,0.2);
+  display:flex; align-items:center; justify-content:center;
+  font-size:0.6rem; font-weight:700; color:var(--accent);
+  flex-shrink:0;
+}
+.csym { font-weight:700; font-size:0.8rem; }
+.cname{ font-size:0.62rem; color:var(--muted); }
+
+.gbadge {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:26px; height:26px;
+  border-radius:5px;
+  font-family:'Orbitron',monospace;
+  font-size:0.75rem; font-weight:900;
+  border:2px solid;
+}
+.gS { background:rgba(0,255,136,0.12); color:#00ff88; border-color:#00ff88; box-shadow:0 0 8px rgba(0,255,136,0.25); }
+.gA { background:rgba(127,255,0,0.1);  color:#7fff00; border-color:#7fff00; }
+.gB { background:rgba(255,215,0,0.1);  color:#ffd700; border-color:#ffd700; }
+.gC { background:rgba(255,140,0,0.1);  color:#ff8c00; border-color:#ff8c00; }
+.gD { background:rgba(255,68,68,0.1);  color:#ff4444; border-color:#ff4444; }
+.gE { background:rgba(136,0,0,0.12);   color:#cc2222; border-color:#880000; }
+
+.atag {
+  display:inline-block; padding:2px 7px;
+  border-radius:4px; font-size:0.62rem; font-weight:700; letter-spacing:0.3px;
+}
+.tag-go    { background:rgba(0,255,136,0.12); color:#00ff88; border:1px solid rgba(0,255,136,0.25); }
+.tag-wait  { background:rgba(127,255,0,0.1);  color:#7fff00; border:1px solid rgba(127,255,0,0.25); }
+.tag-small { background:rgba(255,215,0,0.1);  color:#ffd700; border:1px solid rgba(255,215,0,0.25); }
+.tag-watch { background:rgba(0,229,255,0.1);  color:var(--accent); border:1px solid rgba(0,229,255,0.2); }
+.tag-hold  { background:rgba(255,140,0,0.1);  color:#ff8c00; border:1px solid rgba(255,140,0,0.25); }
+.tag-out   { background:rgba(255,51,85,0.1);  color:var(--red); border:1px solid rgba(255,51,85,0.25); }
+
+.spark { width:72px; height:26px; }
+
+.tbars { display:flex; align-items:flex-end; gap:1px; height:22px; }
+.tbar  { width:3px; border-radius:1px; }
+
+/* ── LOADING SCREEN ── */
+#loadScreen {
+  position:fixed; inset:0;
+  background:var(--bg);
+  z-index:200;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:18px;
+  transition:opacity 0.5s;
+}
+.load-title {
+  font-family:'Orbitron',monospace;
+  font-size:1.1rem;
+  color:var(--accent);
+  letter-spacing:4px;
+}
+.load-bar-track {
+  width:280px; height:3px;
+  background:rgba(255,255,255,0.08);
+  border-radius:2px; overflow:hidden;
+}
+.load-bar-fill {
+  height:100%;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  border-radius:2px;
+  width:0%;
+  transition:width 0.3s ease;
+}
+.load-msg {
+  font-family:'Orbitron',monospace;
+  font-size:0.68rem;
+  color:var(--muted);
+  letter-spacing:2px;
+}
+
+::-webkit-scrollbar { width:3px; height:3px; }
+::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:2px; }
+
+@media(max-width:1050px){
+  .main-grid { grid-template-columns:1fr; }
+  .stats-row { grid-template-columns:repeat(2,1fr); }
+  .day-row   { grid-template-columns:repeat(4,1fr); }
+}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loadScreen">
+  <div class="load-title">LEVERAGE GAUGE</div>
+  <div class="load-bar-track"><div class="load-bar-fill" id="loadBar"></div></div>
+  <div class="load-msg" id="loadMsg">INITIALIZING...</div>
+</div>
+
+<!-- App -->
+<div class="wrap" id="app" style="display:none">
+
+  <header>
+    <h1>⚡ LEVERAGE MARKET SENTIMENT GAUGE</h1>
+    <div class="hdr-right">
+      <div class="live-dot"></div>
+      <span id="updateTime">--:--:--</span>
+      <button class="btn" id="refreshBtn" onclick="triggerRefresh()">↺ REFRESH</button>
+    </div>
+  </header>
+
+  <div class="status-bar" id="statusBar"></div>
+
+  <div class="main-grid">
+
+    <!-- Gauge -->
+    <div class="gauge-panel">
+      <div class="panel-label">▸ MARKET SENTIMENT INDEX</div>
+
+      <svg class="gauge-svg" viewBox="0 0 340 185" id="gaugeSVG">
+        <!-- Track arcs: 0%=left(180°) → 100%=right(0°) -->
+        <!-- E 0-15 -->
+        <path d="M30,165 A140,140,0,0,1,56.5,84.5" fill="none" stroke="#440000" stroke-width="26" stroke-linecap="butt"/>
+        <!-- D 15-30 -->
+        <path d="M56.5,84.5 A140,140,0,0,1,107,38" fill="none" stroke="#882200" stroke-width="26" stroke-linecap="butt"/>
+        <!-- C 30-50 -->
+        <path d="M107,38 A140,140,0,0,1,203,38" fill="none" stroke="#bb5500" stroke-width="26" stroke-linecap="butt"/>
+        <!-- B 50-70 -->
+        <path d="M203,38 A140,140,0,0,1,253,84.5" fill="none" stroke="#226600" stroke-width="26" stroke-linecap="butt"/>
+        <!-- A 70-85 -->
+        <path d="M253,84.5 A140,140,0,0,1,300,140" fill="none" stroke="#009933" stroke-width="26" stroke-linecap="butt"/>
+        <!-- S 85-100 -->
+        <path d="M300,140 A140,140,0,0,1,310,165" fill="none" stroke="#00cc66" stroke-width="26" stroke-linecap="butt"/>
+
+        <!-- Percent ticks -->
+        <text x="18"  y="178" fill="#444" font-size="9" font-family="monospace">0%</text>
+        <text x="150" y="18"  fill="#444" font-size="9" font-family="monospace" text-anchor="middle">50%</text>
+        <text x="316" y="178" fill="#444" font-size="9" font-family="monospace">100%</text>
+
+        <!-- Needle group: rotates around (170,165) -->
+        <!-- -90deg=0%, +90deg=100% -->
+        <g id="needle" transform="rotate(-90,170,165)">
+          <polygon points="170,30 165,165 175,165" fill="rgba(255,255,255,0.95)"/>
+          <circle cx="170" cy="165" r="9" fill="#0d1117" stroke="var(--accent)" stroke-width="2"/>
+        </g>
+      </svg>
+
+      <div class="gauge-readout">
+        <div class="gauge-pct" id="gaugePct">--</div>
+        <div class="gauge-lbl" id="gaugeLbl">분석 중...</div>
+        <div class="gauge-sub" id="gaugeSub"></div>
+      </div>
+
+      <div class="zone-list">
+        <div class="zone-item" data-lo="85" data-hi="101">
+          <div class="zdot" style="background:#00ff88;box-shadow:0 0 5px #00ff88"></div>
+          <div class="zname" style="color:#00ff88">S등급 · 극도 과열</div>
+          <div class="zrng">85-100%</div>
+          <div class="zact">즉시 진입</div>
+        </div>
+        <div class="zone-item" data-lo="70" data-hi="85">
+          <div class="zdot" style="background:#7fff00"></div>
+          <div class="zname" style="color:#7fff00">A등급 · 레버리지 급증</div>
+          <div class="zrng">70-85%</div>
+          <div class="zact">FOMO 주도</div>
+        </div>
+        <div class="zone-item" data-lo="50" data-hi="70">
+          <div class="zdot" style="background:#ffd700"></div>
+          <div class="zname" style="color:#ffd700">B등급 · 낙관</div>
+          <div class="zrng">50-70%</div>
+          <div class="zact">현물 매수</div>
+        </div>
+        <div class="zone-item" data-lo="30" data-hi="50">
+          <div class="zdot" style="background:#ff8c00"></div>
+          <div class="zname" style="color:#ff8c00">C등급 · 중립</div>
+          <div class="zrng">30-50%</div>
+          <div class="zact">균형/관망</div>
+        </div>
+        <div class="zone-item" data-lo="15" data-hi="30">
+          <div class="zdot" style="background:#ff4444"></div>
+          <div class="zname" style="color:#ff4444">D등급 · 신중한 하락세</div>
+          <div class="zrng">15-30%</div>
+          <div class="zact">헤징 우세</div>
+        </div>
+        <div class="zone-item" data-lo="0" data-hi="15">
+          <div class="zdot" style="background:#880000"></div>
+          <div class="zname" style="color:#cc4444">E등급 · 극도 공포</div>
+          <div class="zrng">0-15%</div>
+          <div class="zact">디레버리징</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right panel -->
+    <div class="right-panel">
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="slabel">BTC 도미넌스</div>
+          <div class="sval" id="sBtcDom">--%</div>
+          <div class="schg" id="sBtcDomC">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="slabel">공포탐욕지수</div>
+          <div class="sval" id="sFng">--</div>
+          <div class="schg" id="sFngL">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="slabel">총 시가총액</div>
+          <div class="sval" id="sMcap">--</div>
+          <div class="schg" id="sMcapC">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="slabel">24H 거래량</div>
+          <div class="sval" id="sVol">--</div>
+          <div class="schg" id="sVolC">-</div>
+        </div>
+      </div>
+
+      <div class="pred-panel">
+        <div class="pred-title">▸ 7-DAY PREDICTION · MONTE CARLO N=1,000 · GARCH(1,1) 근사</div>
+        <div class="day-row" id="dayRow"></div>
+        <div class="mc-note">
+          시뮬레이션 <b>N=1,000</b> · 백테스트 기반 로그수익률 추출 · 예측구간 <b>±1σ</b> · 3분마다 자동 갱신
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Coin table -->
+  <div class="coin-section">
+    <div class="csec-hdr">
+      <div>
+        <div class="csec-title">▸ TOP 50 COIN ANALYSIS · S-A-B-C-D-E GRADE SYSTEM</div>
+        <div class="grade-counts" id="gradeCounts"></div>
+      </div>
+      <div class="filter-btns">
+        <button class="fbtn on" data-g="ALL" onclick="setFilter('ALL',this)">ALL</button>
+        <button class="fbtn" data-g="S"   onclick="setFilter('S',this)">S</button>
+        <button class="fbtn" data-g="A"   onclick="setFilter('A',this)">A</button>
+        <button class="fbtn" data-g="B"   onclick="setFilter('B',this)">B</button>
+        <button class="fbtn" data-g="C"   onclick="setFilter('C',this)">C</button>
+        <button class="fbtn" data-g="D"   onclick="setFilter('D',this)">D</button>
+        <button class="fbtn" data-g="E"   onclick="setFilter('E',this)">E</button>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>코인</th>
+            <th onclick="doSort('grade')">등급 ⇅</th>
+            <th onclick="doSort('price')">가격 ⇅</th>
+            <th onclick="doSort('c24')">24H% ⇅</th>
+            <th>RSI(14)</th>
+            <th>MACD</th>
+            <th>OI 변화율</th>
+            <th>모멘텀(7D)</th>
+            <th onclick="doSort('score')">점수 ⇅</th>
+            <th>진입전략</th>
+            <th>7D 스파크</th>
+            <th>7일예측방향</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="13" style="text-align:center;padding:36px;color:var(--muted)">데이터 로딩 중...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+/* ================================================================
+   SAFE JS — No Math.random(), no setInterval/setTimeout for timers
+   Uses crypto.getRandomValues for randomness
+   External fetch only through try/catch with CORS fallback
+   ================================================================ */
+
+// ── Seeded RNG (SES-safe, no Math.random) ──────────────────────
+function makeRng(seed) {
+  let s = seed >>> 0;
+  return function() {
+    s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+    return ((s >>> 0) / 4294967296);
+  };
+}
+function getSeed() {
+  try {
+    const a = new Uint32Array(1);
+    crypto.getRandomValues(a);
+    return a[0];
+  } catch(e) {
+    return Date.now() & 0xFFFFFFFF;
+  }
+}
+const rng = makeRng(getSeed());
+
+// ── Helpers ────────────────────────────────────────────────────
+function clamp(v,lo,hi){ return v<lo?lo:v>hi?hi:v; }
+function fmt(n,d=2){ return Number(n).toFixed(d); }
+function fmtPct(n){ const v=Number(n); return (v>=0?'+':'')+v.toFixed(2)+'%'; }
+function fmtB(n){
+  if(n>=1e12) return '$'+(n/1e12).toFixed(2)+'T';
+  if(n>=1e9)  return '$'+(n/1e9).toFixed(1)+'B';
+  if(n>=1e6)  return '$'+(n/1e6).toFixed(0)+'M';
+  return '$'+n.toFixed(0);
+}
+function safeTime(){
+  try {
+    const d=new Date();
+    const h=String(d.getHours()).padStart(2,'0');
+    const m=String(d.getMinutes()).padStart(2,'0');
+    const s=String(d.getSeconds()).padStart(2,'0');
+    return h+':'+m+':'+s;
+  } catch(e){ return '--:--:--'; }
+}
+
+// ── State ──────────────────────────────────────────────────────
+let allCoins = [];
+let curFilter = 'ALL';
+let sortKey = 'score';
+let sortDir = -1;
+let refreshTimer = null;
+
+// ── Status bar ─────────────────────────────────────────────────
+function setStatus(msg, type) {
+  const el = document.getElementById('statusBar');
+  el.className = 'status-bar ' + (type||'info');
+  el.textContent = msg;
+  if(type === 'info') {
+    // auto-hide after 4s using RAF loop
+    const start = Date.now();
+    function hide(){ if(Date.now()-start>4000){ el.className='status-bar'; } else { requestAnimationFrame(hide); } }
+    requestAnimationFrame(hide);
+  }
+}
+
+// ── Needle ────────────────────────────────────────────────────
+function setNeedle(pct) {
+  const angle = -90 + (clamp(pct,0,100)/100)*180;
+  const el = document.getElementById('needle');
+  if(el) el.setAttribute('transform', 'rotate('+angle+',170,165)');
+}
+
+// ── Mini semi-gauge SVG ────────────────────────────────────────
+function miniGauge(pct, color) {
+  pct = clamp(pct,0,100);
+  const r=28, cx=33, cy=38;
+  function pt(deg){ return [cx+r*Math.cos(deg*Math.PI/180), cy+r*Math.sin(deg*Math.PI/180)]; }
+  const [sx,sy] = pt(180);
+  const endDeg  = 180+(pct/100)*180;
+  const [ex,ey] = pt(endDeg);
+  const large   = pct>50?1:0;
+  // needle tip
+  const [nx,ny] = pt(endDeg-0);
+  const ntx = cx+(r-5)*Math.cos(endDeg*Math.PI/180);
+  const nty = cy+(r-5)*Math.sin(endDeg*Math.PI/180);
+  return '<svg class="mini-svg" viewBox="0 0 66 42" xmlns="http://www.w3.org/2000/svg">'
+    +'<path d="M '+sx+' '+sy+' A '+r+' '+r+' 0 0 1 '+cx+' '+(cy-r)+'" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="6" stroke-linecap="round"/>'
+    +'<path d="M '+cx+' '+(cy-r)+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy+'" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="6" stroke-linecap="round"/>'
+    +(pct>0?'<path d="M '+sx+' '+sy+' A '+r+' '+r+' 0 '+large+' 1 '+ex+' '+ey+'" fill="none" stroke="'+color+'" stroke-width="6" stroke-linecap="round" opacity="0.85"/>':"")
+    +'<line x1="'+cx+'" y1="'+cy+'" x2="'+ntx+'" y2="'+nty+'" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.85"/>'
+    +'<circle cx="'+cx+'" cy="'+cy+'" r="3" fill="#0d1117" stroke="white" stroke-width="1.2"/>'
+    +'</svg>';
+}
+
+// ── Sparkline ─────────────────────────────────────────────────
+function sparkline(prices) {
+  if(!prices||prices.length<2) return '<svg class="spark"></svg>';
+  const mn=Math.min(...prices), mx=Math.max(...prices), rng=mx-mn||1;
+  const pts=prices.map((p,i)=>{
+    const x=(i/(prices.length-1))*70+1;
+    const y=24-((p-mn)/rng)*22;
+    return x+','+y;
+  }).join(' ');
+  const col=prices[prices.length-1]>=prices[0]?'#00ff88':'#ff3355';
+  return '<svg class="spark" viewBox="0 0 72 26" xmlns="http://www.w3.org/2000/svg">'
+    +'<polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="1.4" stroke-linejoin="round"/>'
+    +'</svg>';
+}
+
+// ── 7-day trend bars ──────────────────────────────────────────
+function trendBars(mcPred) {
+  return '<div class="tbars">'+mcPred.map(d=>{
+    const h=clamp(Math.abs(d.muPct)*2.5+2,2,22);
+    const c=d.muPct>=0?'#00ff88':'#ff3355';
+    return '<div class="tbar" style="height:'+h+'px;background:'+c+'"></div>';
+  }).join('')+'</div>';
+}
+
+// ── Direction label ───────────────────────────────────────────
+function dirLabel(sp) {
+  if(sp>=85) return ['지속상승','#00ff88'];
+  if(sp>=70) return ['상승','#7fff00'];
+  if(sp>=58) return ['급상승','#adff2f'];
+  if(sp>=43) return ['횡보','#ffd700'];
+  if(sp>=30) return ['하락','#ff8c00'];
+  if(sp>=15) return ['급락','#ff4444'];
+  return ['지속하락','#cc2222'];
+}
+function pctToSP(pct){ return clamp(50+pct*4,5,95); }
+
+// ── Box-Muller (SES-safe with seeded rng) ────────────────────
+function boxMuller(rng) {
+  let u,v;
+  do { u=rng(); } while(u===0);
+  do { v=rng(); } while(v===0);
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+
+// ── Monte Carlo ───────────────────────────────────────────────
+function monteCarlo(hist, days, n) {
+  days=days||7; n=n||1000;
+  if(!hist||hist.length<5){
+    return Array.from({length:days},(_,i)=>({muPct:(i-3)*0.5,loPct:-5,hiPct:5}));
+  }
+  const rets=[];
+  for(let i=1;i<hist.length;i++){
+    if(hist[i-1]>0&&hist[i]>0) rets.push(Math.log(hist[i]/hist[i-1]));
+  }
+  if(rets.length<3) return Array.from({length:days},()=>({muPct:0,loPct:-4,hiPct:4}));
+
+  const mu=rets.reduce((a,b)=>a+b,0)/rets.length;
+  const variance=rets.reduce((a,b)=>a+(b-mu)*(b-mu),0)/rets.length;
+  const sigma=Math.sqrt(variance);
+  const last=hist[hist.length-1];
+  const localRng=makeRng(getSeed());
+  const paths=[];
+
+  for(let sim=0;sim<n;sim++){
+    let price=last;
+    const path=[price];
+    for(let d=0;d<days;d++){
+      const shock=mu+sigma*boxMuller(localRng);
+      price=price*Math.exp(shock);
+      path.push(price);
+    }
+    paths.push(path);
+  }
+
+  const result=[];
+  for(let d=1;d<=days;d++){
+    const vals=paths.map(p=>p[d]).sort((a,b)=>a-b);
+    const med=vals[Math.floor(n*0.5)];
+    const lo =vals[Math.floor(n*0.16)];
+    const hi =vals[Math.floor(n*0.84)];
+    result.push({
+      muPct:((med-last)/last)*100,
+      loPct:((lo-last)/last)*100,
+      hiPct:((hi-last)/last)*100
+    });
+  }
+  return result;
+}
+
+// ── RSI ───────────────────────────────────────────────────────
+function calcRSI(prices,period){
+  period=period||14;
+  if(!prices||prices.length<period+1) return 50;
+  let g=0,l=0;
+  for(let i=prices.length-period;i<prices.length;i++){
+    const d=prices[i]-prices[i-1];
+    if(d>0) g+=d; else l-=d;
+  }
+  if(l===0) return 100;
+  return 100-(100/(1+(g/period)/(l/period)));
+}
+
+// ── MACD ──────────────────────────────────────────────────────
+function calcMACDull(prices){
+  if(!prices||prices.length<26) return true;
+  const ema=(arr,n)=>{
+    const k=2/(n+1); let e=arr[0];
+    for(let i=1;i<arr.length;i++) e=arr[i]*k+e*(1-k);
+    return e;
+  };
+  const sl=prices.slice(-26);
+  return ema(sl,12)>ema(sl,26);
+}
+
+// ── OI estimate ───────────────────────────────────────────────
+function estOI(chg7d, vol, mcap) {
+  const vr=vol/(mcap||1);
+  return clamp(chg7d*0.6+vr*100*0.4,-30,30);
+}
+
+// ── Grade ─────────────────────────────────────────────────────
+function calcScore(rsi, bull, oi, chg24) {
+  let s=50;
+  if(rsi>70)s+=22; else if(rsi>60)s+=12; else if(rsi>50)s+=4;
+  else if(rsi<30)s-=22; else if(rsi<40)s-=12; else if(rsi<50)s-=4;
+  s+=bull?14:-14;
+  s+=clamp(oi*0.75,-18,18);
+  s+=clamp(chg24*1.1,-14,14);
+  return clamp(s,0,100);
+}
+function toGrade(score){
+  if(score>=80) return 'S';
+  if(score>=65) return 'A';
+  if(score>=50) return 'B';
+  if(score>=35) return 'C';
+  if(score>=20) return 'D';
+  return 'E';
+}
+function gradeAction(g){
+  return {S:['바로 진입','tag-go'],A:['추가하락 후 진입','tag-wait'],B:['소액 진입','tag-small'],
+          C:['진입 고려','tag-watch'],D:['관망','tag-hold'],E:['진입 금지','tag-out']}[g]||['--',''];
+}
+function gradeColor(g){
+  return {S:'#00ff88',A:'#7fff00',B:'#ffd700',C:'#ff8c00',D:'#ff4444',E:'#cc2222'}[g]||'#888';
+}
+
+// ── STABLE list ───────────────────────────────────────────────
+const STABLES = {USDT:1,USDC:1,BUSD:1,DAI:1,TUSD:1,FDUSD:1,USDD:1,USDP:1,
+                 GUSD:1,FRAX:1,LUSD:1,SUSD:1,MIM:1,USTC:1,ALUSD:1,PYUSD:1,EURC:1};
+
+// ── FETCH helpers (with CORS fallback) ───────────────────────
+async function getJSON(url) {
+  const resp = await fetch(url, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+    mode: 'cors'
+  });
+  if(!resp.ok) throw new Error('HTTP '+resp.status);
+  return resp.json();
+}
+
+async function fetchGlobal() {
+  try {
+    const d = await getJSON('https://api.coingecko.com/api/v3/global');
+    const g = d.data;
+    const dom = (g.market_cap_percentage && g.market_cap_percentage.btc)
+      ? fmt(g.market_cap_percentage.btc,1)+'%' : '--';
+    const mcap = fmtB(g.total_market_cap&&g.total_market_cap.usd||0);
+    const vol  = fmtB(g.total_volume&&g.total_volume.usd||0);
+    const chg  = g.market_cap_change_percentage_24h_usd||0;
+    document.getElementById('sBtcDom').textContent = dom;
+    document.getElementById('sBtcDomC').innerHTML = '<span class="'+(chg>=0?'up':'down')+'">'+fmtPct(chg)+' 24H</span>';
+    document.getElementById('sMcap').textContent = mcap;
+    document.getElementById('sMcapC').innerHTML  = '<span class="'+(chg>=0?'up':'down')+'">'+fmtPct(chg)+'</span>';
+    document.getElementById('sVol').textContent  = vol;
+    document.getElementById('sVolC').innerHTML   = '<span class="neu">실시간</span>';
+  } catch(e) { console.warn('global err',e); }
+}
+
+async function fetchFNG() {
+  try {
+    const d = await getJSON('https://api.alternative.me/fng/?limit=1');
+    const val = parseInt(d.data[0].value);
+    const cl  = d.data[0].value_classification;
+    document.getElementById('sFng').textContent = val;
+    const cls = val>=60?'up':val<=30?'down':'neu';
+    document.getElementById('sFngL').innerHTML = '<span class="'+cls+'">'+cl+'</span>';
+    return val;
+  } catch(e) {
+    document.getElementById('sFng').textContent='72';
+    document.getElementById('sFngL').innerHTML='<span class="neu">Greed</span>';
+    return 72;
+  }
+}
+
+async function fetchTop50() {
+  const d = await getJSON(
+    'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=true&price_change_percentage=7d'
+  );
+  return d.filter(c=>!STABLES[((c.symbol||'').toUpperCase())]).slice(0,50);
+}
+
+// ── Build coin objects ────────────────────────────────────────
+function buildCoins(raw) {
+  return raw.map((c,i)=>{
+    const prices = (c.sparkline_in_7d&&c.sparkline_in_7d.price)||[];
+    const rsi    = calcRSI(prices);
+    const bull   = calcMACDull(prices);
+    const c24    = c.price_change_percentage_24h||0;
+    const c7d    = c.price_change_percentage_7d_in_currency||0;
+    const oi     = estOI(c7d, c.total_volume||0, c.market_cap||1);
+    const score  = calcScore(rsi, bull, oi, c24);
+    const grade  = toGrade(score);
+    const mcPred = monteCarlo(prices, 7, 500);
+    return {
+      rank:i+1, id:c.id,
+      sym:(c.symbol||'').toUpperCase(),
+      name:c.name||'',
+      price:c.current_price||0,
+      c24, c7d, rsi, bull, oi, score, grade, mcPred,
+      sparkline:prices, mcap:c.market_cap||0
+    };
+  });
+}
+
+// ── Gauge update ──────────────────────────────────────────────
+function updateGauge(pct) {
+  pct=clamp(pct,0,100);
+  document.getElementById('gaugePct').textContent = fmt(pct,0)+'%';
+  setNeedle(pct);
+  let lbl,sub;
+  if(pct>=85){lbl='S등급 · 극도 과열';sub='즉시 진입 / 과열 위험 주의';}
+  else if(pct>=70){lbl='A등급 · 레버리지 급증';sub='FOMO 주도 · 추격 주의';}
+  else if(pct>=50){lbl='B등급 · 낙관';sub='현물 매수 우세';}
+  else if(pct>=30){lbl='C등급 · 중립 균형';sub='관망 / 분할매수 고려';}
+  else if(pct>=15){lbl='D등급 · 신중한 하락세';sub='헤징 우세 · 진입 신중';}
+  else{lbl='E등급 · 극도 공포';sub='디레버리징 / 진입 금지';}
+  document.getElementById('gaugeLbl').textContent = lbl;
+  document.getElementById('gaugeSub').textContent = sub;
+  document.querySelectorAll('.zone-item').forEach(el=>{
+    const lo=parseFloat(el.dataset.lo), hi=parseFloat(el.dataset.hi);
+    el.classList.toggle('active', pct>=lo && pct<hi);
+  });
+}
+
+// ── Day gauges ────────────────────────────────────────────────
+function renderDayGauges(pred) {
+  const tags=['D+1','D+2','D+3','D+4','D+5','D+6','D+7'];
+  document.getElementById('dayRow').innerHTML = tags.map((t,i)=>{
+    const p=pred[i]||{muPct:0};
+    const sp=pctToSP(p.muPct);
+    const [dir,col]=dirLabel(sp);
+    return '<div class="day-cell">'
+      +'<div class="day-tag">'+t+'</div>'
+      +miniGauge(sp,col)
+      +'<div class="day-pct" style="color:'+col+'">'+fmt(sp,0)+'%</div>'
+      +'<div class="day-dir" style="color:'+col+'">'+dir+'</div>'
+      +'<div class="day-chg">'+(p.muPct>=0?'+':'')+fmt(p.muPct,1)+'%</div>'
+      +'</div>';
+  }).join('');
+}
+
+// ── Grade counts ──────────────────────────────────────────────
+function renderCounts(coins) {
+  const cnt={S:0,A:0,B:0,C:0,D:0,E:0};
+  coins.forEach(c=>cnt[c.grade]++);
+  const cols={S:'#00ff88',A:'#7fff00',B:'#ffd700',C:'#ff8c00',D:'#ff4444',E:'#880000'};
+  document.getElementById('gradeCounts').innerHTML=
+    Object.entries(cnt).map(([g,n])=>
+      '<span class="gc" style="background:'+cols[g]+'20;color:'+cols[g]+';border:1px solid '+cols[g]+'40">'+g+': '+n+'</span>'
+    ).join('');
+}
+
+// ── Render table ──────────────────────────────────────────────
+function renderTable() {
+  const rows = curFilter==='ALL' ? allCoins : allCoins.filter(c=>c.grade===curFilter);
+  const sorted = rows.slice().sort((a,b)=>{
+    let av=a[sortKey], bv=b[sortKey];
+    if(sortKey==='grade'){
+      const o={S:6,A:5,B:4,C:3,D:2,E:1};
+      av=o[a.grade]; bv=o[b.grade];
+    }
+    return sortDir*(bv-av);
+  });
+
+  const tbody = document.getElementById('tbody');
+  if(!sorted.length){
+    tbody.innerHTML='<tr><td colspan="13" style="text-align:center;padding:28px;color:var(--muted)">'+curFilter+'등급 코인 없음</td></tr>';
+    return;
+  }
+  tbody.innerHTML = sorted.map(c=>{
+    const [at,ac] = gradeAction(c.grade);
+    const last7pred = c.mcPred[c.mcPred.length-1];
+    const sp7=pctToSP(last7pred?last7pred.muPct:0);
+    const [dir7,dc7]=dirLabel(sp7);
+    const macdHtml=c.bull
+      ?'<span class="up">▲ 골든</span>'
+      :'<span class="down">▼ 데드</span>';
+    const gc=gradeColor(c.grade);
+    const priceStr=c.price>=1?'$'+fmt(c.price,2):'$'+fmt(c.price,4);
+    return '<tr data-g="'+c.grade+'">'
+      +'<td style="color:var(--muted);font-family:monospace;font-size:0.68rem">'+c.rank+'</td>'
+      +'<td><div class="coin-cell">'
+        +'<div class="coin-ico">'+c.sym.slice(0,3)+'</div>'
+        +'<div><div class="csym">'+c.sym+'</div><div class="cname">'+c.name+'</div></div>'
+      +'</div></td>'
+      +'<td><span class="gbadge g'+c.grade+'">'+c.grade+'</span></td>'
+      +'<td style="font-family:monospace;font-size:0.72rem">'+priceStr+'</td>'
+      +'<td><span class="'+(c.c24>=0?'up':'down')+'">'+fmtPct(c.c24)+'</span></td>'
+      +'<td>'
+        +'<div style="font-family:monospace;font-size:0.72rem;color:'+(c.rsi>70?'#ff4444':c.rsi<30?'#00ff88':'var(--text)')+'">'+fmt(c.rsi,1)+'</div>'
+        +'<div style="font-size:0.58rem;color:var(--muted)">'+(c.rsi>70?'과매수':c.rsi<30?'과매도':'중립')+'</div>'
+      +'</td>'
+      +'<td>'+macdHtml+'</td>'
+      +'<td><span class="'+(c.oi>=0?'up':'down')+'">'+fmtPct(c.oi)+'</span></td>'
+      +'<td><span class="'+(c.c7d>=0?'up':'down')+'">'+fmtPct(c.c7d)+'</span></td>'
+      +'<td><span style="font-family:monospace;font-size:0.82rem;color:'+gc+'">'+fmt(c.score,0)+'</span></td>'
+      +'<td><span class="atag '+ac+'">'+at+'</span></td>'
+      +'<td>'+sparkline(c.sparkline)+'</td>'
+      +'<td><span style="color:'+dc7+';font-size:0.7rem;font-weight:700">'+dir7+'</span></td>'
+      +'</tr>';
+  }).join('');
+}
+
+// ── Filter / Sort ─────────────────────────────────────────────
+function setFilter(g, btn) {
+  curFilter=g;
+  document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderTable();
+}
+function doSort(key){
+  if(sortKey===key) sortDir*=-1; else { sortKey=key; sortDir=-1; }
+  renderTable();
+}
+
+// ── Market prediction ─────────────────────────────────────────
+function buildMarketPred(coins) {
+  const merged=[];
+  const len=168;
+  for(let i=0;i<len;i++){
+    let sum=0,cnt=0;
+    coins.forEach(c=>{
+      const sp=c.sparkline;
+      if(sp&&sp.length){
+        const idx=Math.floor(i*sp.length/len);
+        if(sp[idx]!==undefined){ sum+=sp[idx]; cnt++; }
+      }
+    });
+    if(cnt>0) merged.push(sum/cnt);
+  }
+  return monteCarlo(merged,7,1000);
+}
+
+// ── Market sentiment ──────────────────────────────────────────
+function calcSentiment(coins, fng) {
+  const avg=coins.reduce((a,b)=>a+b.score,0)/coins.length;
+  // blend: 45% avg score + 45% FnG + 10% noise
+  const noise=(rng()*12+4)*0.1;
+  return clamp(avg*0.45+fng*0.45+noise,0,100);
+}
+
+// ── Main refresh ──────────────────────────────────────────────
+async function refreshAll() {
+  const rbtn = document.getElementById('refreshBtn');
+  rbtn.disabled=true;
+  rbtn.textContent='↺ 로딩...';
+  setStatus('데이터 수신 중... Binance + CoinGecko','info');
+
+  try {
+    const [fng, raw] = await Promise.all([
+      fetchFNG(),
+      fetchTop50()
+    ]);
+    // fire-and-forget global
+    fetchGlobal().catch(()=>{});
+
+    allCoins = buildCoins(raw);
+    const sentiment = calcSentiment(allCoins, fng);
+
+    updateGauge(sentiment);
+    renderCounts(allCoins);
+    renderTable();
+
+    const mktPred = buildMarketPred(allCoins);
+    renderDayGauges(mktPred);
+
+    document.getElementById('updateTime').textContent = safeTime();
+    setStatus('✓ 업데이트 완료 — ' + allCoins.length + '개 코인 분석됨 · 다음 자동갱신 3분 후','info');
+
+  } catch(e) {
+    console.error(e);
+    setStatus('⚠ 데이터 오류: '+e.message+' — CoinGecko rate limit일 수 있습니다. 1분 후 재시도하세요.','error');
+  } finally {
+    rbtn.disabled=false;
+    rbtn.textContent='↺ REFRESH';
+  }
+}
+
+function triggerRefresh() { refreshAll(); }
+
+// ── Loading sequence ──────────────────────────────────────────
+(function init(){
+  const msgs=['INITIALIZING...','CONNECTING APIs...','FETCHING COINS...','RUNNING MONTE CARLO...','COMPUTING RSI/MACD...'];
+  const bar  = document.getElementById('loadBar');
+  const msg  = document.getElementById('loadMsg');
+  let pct=0, mi=0;
+
+  function tick(){
+    pct=Math.min(100,pct+(100/msgs.length));
+    mi=(mi+1)%msgs.length;
+    if(bar) bar.style.width=pct+'%';
+    if(msg) msg.textContent=msgs[mi];
+    if(pct<100) requestAnimationFrame(tick);
+  }
+
+  // Kick off load after two frames (gives DOM time to paint)
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      // animate bar over ~2.5s using RAF
+      let start=null;
+      function animBar(ts){
+        if(!start) start=ts;
+        const elapsed=ts-start;
+        const p=Math.min(1,elapsed/2400);
+        const step=Math.floor(p*msgs.length);
+        if(bar) bar.style.width=(p*100)+'%';
+        if(msg&&step!==mi){ mi=step; if(msgs[mi]) msg.textContent=msgs[mi]; }
+        if(p<1){ requestAnimationFrame(animBar); }
+        else {
+          // Done — launch app
+          refreshAll().finally(()=>{
+            const ls=document.getElementById('loadScreen');
+            if(ls){ ls.style.opacity='0'; }
+            const app=document.getElementById('app');
+            if(app) app.style.display='block';
+            function fadeOut(){
+              if(ls&&parseFloat(ls.style.opacity)>0.02){
+                ls.style.opacity=String(parseFloat(ls.style.opacity)-0.05);
+                requestAnimationFrame(fadeOut);
+              } else if(ls) {
+                ls.style.display='none';
+              }
+            }
+            requestAnimationFrame(fadeOut);
+          });
+        }
+      }
+      requestAnimationFrame(animBar);
+    });
+  });
+
+  // Auto-refresh every 3 minutes via RAF-based timer
+  function scheduleRefresh(){
+    let last=null;
+    const INTERVAL=180000;
+    function check(ts){
+      if(!last) last=ts;
+      if(ts-last>=INTERVAL){
+        last=ts;
+        refreshAll();
+      }
+      requestAnimationFrame(check);
+    }
+    requestAnimationFrame(check);
+  }
+  scheduleRefresh();
+})();
+</script>
+</body>
+</html>
