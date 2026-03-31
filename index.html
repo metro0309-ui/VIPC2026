@@ -137,8 +137,8 @@ header h1 {
   margin-bottom: 14px;
 }
 
-/* SVG gauge */
-.gauge-svg { width: 100%; max-width: 340px; overflow: visible; }
+/* SVG gauge — OKX style */
+.gauge-svg { width: 100%; max-width: 360px; overflow: visible; display: block; margin: 0 auto; }
 
 .gauge-readout { text-align: center; margin-top: 2px; }
 .gauge-pct {
@@ -435,32 +435,120 @@ tr:hover td { background:rgba(255,255,255,0.018); }
     <div class="gauge-panel">
       <div class="panel-label">▸ MARKET SENTIMENT INDEX</div>
 
-      <svg class="gauge-svg" viewBox="0 0 340 185" id="gaugeSVG">
-        <!-- Track arcs: 0%=left(180°) → 100%=right(0°) -->
-        <!-- E 0-15 -->
-        <path d="M30,165 A140,140,0,0,1,56.5,84.5" fill="none" stroke="#440000" stroke-width="26" stroke-linecap="butt"/>
-        <!-- D 15-30 -->
-        <path d="M56.5,84.5 A140,140,0,0,1,107,38" fill="none" stroke="#882200" stroke-width="26" stroke-linecap="butt"/>
-        <!-- C 30-50 -->
-        <path d="M107,38 A140,140,0,0,1,203,38" fill="none" stroke="#bb5500" stroke-width="26" stroke-linecap="butt"/>
-        <!-- B 50-70 -->
-        <path d="M203,38 A140,140,0,0,1,253,84.5" fill="none" stroke="#226600" stroke-width="26" stroke-linecap="butt"/>
-        <!-- A 70-85 -->
-        <path d="M253,84.5 A140,140,0,0,1,300,140" fill="none" stroke="#009933" stroke-width="26" stroke-linecap="butt"/>
-        <!-- S 85-100 -->
-        <path d="M300,140 A140,140,0,0,1,310,165" fill="none" stroke="#00cc66" stroke-width="26" stroke-linecap="butt"/>
+      <!-- OKX-style gauge -->
+      <svg class="gauge-svg" viewBox="0 0 360 210" id="gaugeSVG" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <!-- Zone gradients -->
+          <linearGradient id="gE" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#5c0000"/>
+            <stop offset="100%" stop-color="#b31010"/>
+          </linearGradient>
+          <linearGradient id="gD" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#b31010"/>
+            <stop offset="100%" stop-color="#e05500"/>
+          </linearGradient>
+          <linearGradient id="gC" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#e05500"/>
+            <stop offset="100%" stop-color="#e0a800"/>
+          </linearGradient>
+          <linearGradient id="gB" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#e0a800"/>
+            <stop offset="100%" stop-color="#28a845"/>
+          </linearGradient>
+          <linearGradient id="gA" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#28a845"/>
+            <stop offset="100%" stop-color="#00cc55"/>
+          </linearGradient>
+          <linearGradient id="gS" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#00cc55"/>
+            <stop offset="100%" stop-color="#00ff88"/>
+          </linearGradient>
 
-        <!-- Percent ticks -->
-        <text x="18"  y="178" fill="#444" font-size="9" font-family="monospace">0%</text>
-        <text x="150" y="18"  fill="#444" font-size="9" font-family="monospace" text-anchor="middle">50%</text>
-        <text x="316" y="178" fill="#444" font-size="9" font-family="monospace">100%</text>
+          <!-- Glow filters -->
+          <filter id="glowRed" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <filter id="glowGreen" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <filter id="needleGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2.5" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
 
-        <!-- Needle group: rotates around (170,165) -->
-        <!-- -90deg=0%, +90deg=100% -->
-        <g id="needle" transform="rotate(-90,170,165)">
-          <polygon points="170,30 165,165 175,165" fill="rgba(255,255,255,0.95)"/>
-          <circle cx="170" cy="165" r="9" fill="#0d1117" stroke="var(--accent)" stroke-width="2"/>
+        <!-- ── 외곽 링 (OKX 특징: 얇은 테두리 링) ── -->
+        <path d="M22,182 A158,158,0,0,1,338,182" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
+
+        <!-- ── 베이스 트랙 (어두운 배경 아크) ── -->
+        <path d="M32,182 A148,148,0,0,1,328,182" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="22" stroke-linecap="round"/>
+
+        <!-- ── 컬러 존 아크 (OKX: 굵고 선명한 그라데이션 밴드) ── -->
+        <!-- E: 0-15% -->
+        <path d="M32,182 A148,148,0,0,1,59,93" fill="none" stroke="url(#gE)" stroke-width="18" stroke-linecap="butt" opacity="0.9"/>
+        <!-- D: 15-30% -->
+        <path d="M59,93 A148,148,0,0,1,112,37" fill="none" stroke="url(#gD)" stroke-width="18" stroke-linecap="butt" opacity="0.9"/>
+        <!-- C: 30-50% -->
+        <path d="M112,37 A148,148,0,0,1,214,34" fill="none" stroke="url(#gC)" stroke-width="18" stroke-linecap="butt" opacity="0.9"/>
+        <!-- B: 50-70% -->
+        <path d="M214,34 A148,148,0,0,1,268,90" fill="none" stroke="url(#gB)" stroke-width="18" stroke-linecap="butt" opacity="0.9"/>
+        <!-- A: 70-85% -->
+        <path d="M268,90 A148,148,0,0,1,312,155" fill="none" stroke="url(#gA)" stroke-width="18" stroke-linecap="butt" opacity="0.9"/>
+        <!-- S: 85-100% -->
+        <path d="M312,155 A148,148,0,0,1,328,182" fill="none" stroke="url(#gS)" stroke-width="18" stroke-linecap="butt" opacity="0.9"/>
+
+        <!-- ── 구분선 (OKX: 존 경계 흰 틱) ── -->
+        <line x1="57" y1="87"  x2="61" y2="99"  stroke="rgba(0,0,0,0.8)" stroke-width="3"/>
+        <line x1="110" y1="31" x2="114" y2="43" stroke="rgba(0,0,0,0.8)" stroke-width="3"/>
+        <line x1="211" y1="28" x2="215" y2="40" stroke="rgba(0,0,0,0.8)" stroke-width="3"/>
+        <line x1="265" y1="84" x2="270" y2="96" stroke="rgba(0,0,0,0.8)" stroke-width="3"/>
+        <line x1="309" y1="149" x2="315" y2="161" stroke="rgba(0,0,0,0.8)" stroke-width="3"/>
+
+        <!-- ── 틱마크 (OKX: 바깥쪽 눈금) ── -->
+        <!-- 0% -->
+        <line x1="18" y1="182" x2="30" y2="182" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+        <!-- 25% -->
+        <line x1="61" y1="48"  x2="69" y2="57"  stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+        <!-- 50% -->
+        <line x1="180" y1="16" x2="180" y2="28" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+        <!-- 75% -->
+        <line x1="299" y1="48" x2="291" y2="57" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+        <!-- 100% -->
+        <line x1="342" y1="182" x2="330" y2="182" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+
+        <!-- ── 퍼센트 라벨 ── -->
+        <text x="14"  y="200" fill="rgba(255,255,255,0.25)" font-size="9" font-family="monospace" text-anchor="middle">0</text>
+        <text x="180" y="12"  fill="rgba(255,255,255,0.25)" font-size="9" font-family="monospace" text-anchor="middle">50</text>
+        <text x="346" y="200" fill="rgba(255,255,255,0.25)" font-size="9" font-family="monospace" text-anchor="middle">100</text>
+
+        <!-- ── 등급 라벨 (아크 위) ── -->
+        <text x="36"  y="148" fill="#b31010" font-size="8" font-family="Orbitron,monospace" font-weight="700" text-anchor="middle" transform="rotate(-72,36,148)">E</text>
+        <text x="76"  y="58"  fill="#e05500" font-size="8" font-family="Orbitron,monospace" font-weight="700" text-anchor="middle" transform="rotate(-45,76,58)">D</text>
+        <text x="152" y="22"  fill="#e0a800" font-size="8" font-family="Orbitron,monospace" font-weight="700" text-anchor="middle">C</text>
+        <text x="242" y="42"  fill="#28c85a" font-size="8" font-family="Orbitron,monospace" font-weight="700" text-anchor="middle" transform="rotate(30,242,42)">B</text>
+        <text x="298" y="100" fill="#00cc55" font-size="8" font-family="Orbitron,monospace" font-weight="700" text-anchor="middle" transform="rotate(55,298,100)">A</text>
+        <text x="326" y="160" fill="#00ff88" font-size="8" font-family="Orbitron,monospace" font-weight="700" text-anchor="middle" transform="rotate(75,326,160)">S</text>
+
+        <!-- ── 중앙 장식 원 (OKX 특징) ── -->
+        <circle cx="180" cy="182" r="52" fill="rgba(0,0,0,0)" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+        <circle cx="180" cy="182" r="44" fill="rgba(13,17,23,0.95)" stroke="rgba(0,229,255,0.12)" stroke-width="1.5"/>
+
+        <!-- ── 바늘 (OKX: 얇고 날카로운 화살) ── -->
+        <!-- 회전 중심: (180, 182), -90deg=0%, +90deg=100% -->
+        <g id="needle" transform="rotate(-90,180,182)" filter="url(#needleGlow)">
+          <!-- 바늘 몸통 -->
+          <polygon points="180,42 177,182 183,182" fill="white" opacity="0.95"/>
+          <!-- 바늘 강조선 -->
+          <line x1="180" y1="42" x2="180" y2="140" stroke="var(--accent)" stroke-width="1" opacity="0.6"/>
+          <!-- 중심 허브 -->
+          <circle cx="180" cy="182" r="7"  fill="rgba(0,229,255,0.15)" stroke="var(--accent)" stroke-width="1.5"/>
+          <circle cx="180" cy="182" r="3.5" fill="var(--accent)"/>
         </g>
+
+        <!-- ── 활성 아크 오버레이 (현재 값 강조, JS로 업데이트) ── -->
+        <path id="activeArc" d="M32,182 A148,148,0,0,1,32,182" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="18" stroke-linecap="round"/>
       </svg>
 
       <div class="gauge-readout">
@@ -659,28 +747,49 @@ function setStatus(msg, type) {
 function setNeedle(pct) {
   const angle = -90 + (clamp(pct,0,100)/100)*180;
   const el = document.getElementById('needle');
-  if(el) el.setAttribute('transform', 'rotate('+angle+',170,165)');
+  if(el) el.setAttribute('transform', 'rotate('+angle+',180,182)');
+
+  // 활성 아크 업데이트 (현재 값까지 밝게)
+  const arcEl = document.getElementById('activeArc');
+  if(arcEl && pct > 1) {
+    const r=148, cx=180, cy=182;
+    const startRad = Math.PI;
+    const endRad   = Math.PI - (pct/100)*Math.PI;
+    const x1 = cx + r*Math.cos(startRad);
+    const y1 = cy + r*Math.sin(startRad);
+    const x2 = cx + r*Math.cos(endRad);
+    const y2 = cy + r*Math.sin(endRad);
+    const large = pct > 50 ? 1 : 0;
+    arcEl.setAttribute('d','M '+x1+','+y1+' A '+r+','+r+',0,'+large+',1,'+x2+','+y2);
+  }
 }
 
-// ── Mini semi-gauge SVG ────────────────────────────────────────
+// ── Mini semi-gauge SVG — OKX style ───────────────────────────
 function miniGauge(pct, color) {
   pct = clamp(pct,0,100);
-  const r=28, cx=33, cy=38;
+  const r=26, cx=33, cy=38;
   function pt(deg){ return [cx+r*Math.cos(deg*Math.PI/180), cy+r*Math.sin(deg*Math.PI/180)]; }
   const [sx,sy] = pt(180);
   const endDeg  = 180+(pct/100)*180;
   const [ex,ey] = pt(endDeg);
   const large   = pct>50?1:0;
-  // needle tip
-  const [nx,ny] = pt(endDeg-0);
-  const ntx = cx+(r-5)*Math.cos(endDeg*Math.PI/180);
-  const nty = cy+(r-5)*Math.sin(endDeg*Math.PI/180);
+  // 바늘 끝
+  const ntx = cx+(r-4)*Math.cos(endDeg*Math.PI/180);
+  const nty = cy+(r-4)*Math.sin(endDeg*Math.PI/180);
+  // 색상별 글로우
+  const isGreen = pct >= 50;
   return '<svg class="mini-svg" viewBox="0 0 66 42" xmlns="http://www.w3.org/2000/svg">'
-    +'<path d="M '+sx+' '+sy+' A '+r+' '+r+' 0 0 1 '+cx+' '+(cy-r)+'" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="6" stroke-linecap="round"/>'
-    +'<path d="M '+cx+' '+(cy-r)+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy+'" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="6" stroke-linecap="round"/>'
-    +(pct>0?'<path d="M '+sx+' '+sy+' A '+r+' '+r+' 0 '+large+' 1 '+ex+' '+ey+'" fill="none" stroke="'+color+'" stroke-width="6" stroke-linecap="round" opacity="0.85"/>':"")
-    +'<line x1="'+cx+'" y1="'+cy+'" x2="'+ntx+'" y2="'+nty+'" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.85"/>'
-    +'<circle cx="'+cx+'" cy="'+cy+'" r="3" fill="#0d1117" stroke="white" stroke-width="1.2"/>'
+    // 베이스 트랙
+    +'<path d="M '+sx+' '+sy+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy+'" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="7" stroke-linecap="round"/>'
+    // 활성 아크
+    +(pct>0?'<path d="M '+sx+' '+sy+' A '+r+' '+r+' 0 '+large+' 1 '+ex+' '+ey+'" fill="none" stroke="'+color+'" stroke-width="5" stroke-linecap="round" opacity="0.9"/>':"")
+    // 외곽 링
+    +'<path d="M '+(sx-2)+' '+sy+' A '+(r+2)+' '+(r+2)+' 0 0 1 '+(cx+r+2)+' '+cy+'" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>'
+    // 바늘
+    +'<line x1="'+cx+'" y1="'+cy+'" x2="'+ntx+'" y2="'+nty+'" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.9"/>'
+    // 허브
+    +'<circle cx="'+cx+'" cy="'+cy+'" r="3.5" fill="rgba(13,17,23,0.95)" stroke="'+color+'" stroke-width="1.2"/>'
+    +'<circle cx="'+cx+'" cy="'+cy+'" r="1.5" fill="'+color+'" opacity="0.9"/>'
     +'</svg>';
 }
 
