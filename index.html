@@ -426,9 +426,12 @@ function fmt(n,d=2){return Number(n).toFixed(d);}
 function fmtPct(n){const v=Number(n);return(v>=0?'+':'')+v.toFixed(2)+'%';}
 function fmtB(n){if(n>=1e12)return'$'+(n/1e12).toFixed(2)+'T';if(n>=1e9)return'$'+(n/1e9).toFixed(1)+'B';if(n>=1e6)return'$'+(n/1e6).toFixed(0)+'M';return'$'+n.toFixed(0);}
 function safeTime(){try{const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');}catch(e){return'--:--:--;'}}
+// [수정] XSS 방어: 외부 API(CoinGecko) 응답값을 innerHTML에 직접 삽입 시 이스케이프 적용
+function esc(str){return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
 /* ── 상태 ── */
 let allCoins=[],curFilter='ALL',sortKey='score',sortDir=-1;
+let isRefreshing=false; // [수정] Race Condition 방어 플래그
 
 /* ── 상태바 ── */
 function setStatus(msg,type){
@@ -625,22 +628,28 @@ function monteCarloBootstrap(hist,days,n){
   if(!hist||hist.length<10)return Array.from({length:days},(_,i)=>({muPct:(i-3)*0.3,loPct:-6,hiPct:6}));
   const rets=[];
   for(let i=1;i<hist.length;i++){if(hist[i-1]>0&&hist[i]>0)rets.push(Math.log(hist[i]/hist[i-1]));}
-  if(rets.length<5)return Array.from({length:days},()=>({muPct:0,loPct:-5,hiPct:5}));
+  // [수정] bs=5 기준으로 rets.length < bs+1이면 블록 선택 시 si=0 고정 → MC 다양성 0
+  // + rets.length < bs면 while 루프에서 blk가 빈 배열 → done 증가 안됨 → 무한루프
+  if(rets.length<6)return Array.from({length:days},()=>({muPct:0,loPct:-5,hiPct:5}));
   const last=hist[hist.length-1];
   const lr=makeRng(getSeed());
   const bs=5,paths=[];
+  const maxStart=Math.max(1,rets.length-bs); // [수정] 최소 1 보장
   for(let sim=0;sim<n;sim++){
     let price=last;const path=[price];let done=0;
-    while(done<days){
-      const si=Math.floor(lr()*(rets.length-bs));
+    let guard=0; // [수정] 무한루프 안전장치
+    while(done<days&&guard<days*10){
+      guard++;
+      const si=Math.floor(lr()*maxStart);
       const blk=rets.slice(si,si+bs);
+      if(blk.length===0)continue; // [수정] 빈 블록 skip
       for(let b=0;b<blk.length&&done<days;b++){price*=Math.exp(blk[b]);path.push(price);done++;}
     }
     paths.push(path);
   }
   const res=[];
   for(let d=1;d<=days;d++){
-    const v=paths.map(p=>p[d]).sort((a,b)=>a-b);
+    const v=paths.map(p=>p[d]??last).sort((a,b)=>a-b); // [수정] undefined 방어
     res.push({muPct:((v[Math.floor(n*0.5)]-last)/last)*100,loPct:((v[Math.floor(n*0.16)]-last)/last)*100,hiPct:((v[Math.floor(n*0.84)]-last)/last)*100});
   }
   return res;
@@ -746,59 +755,35 @@ function calcLSBias(c){
    신규 고급 지표 함수들
 ══════════════════════════════════════════════════════════════ */
 
-// 1. Regime Detection (ADX 기반 추세/횡보 구분)
+// 1. Regime Detection — 선형회귀 기울기 + 변동성 기반
+// [수정] CoinGecko sparkline은 close만 제공. High/Low 없음.
+// 기존 ADX 구현은 highs=lows=closes=prices로 대입해 TR=0이 되는 치명적 오류.
+// → 선형회귀 기울기(추세방향) + CV(변동성)으로 대체.
 function detectRegime(prices){
-  if(!prices||prices.length<14)return{regime:'unknown',strength:0};
-  
-  const highs=prices;
-  const lows=prices;
-  const closes=prices;
-  
-  // TR, +DM, -DM 계산
-  let tr=[],pdm=[],mdm=[];
-  for(let i=1;i<prices.length;i++){
-    const h=highs[i]-lows[i];
-    const l1=Math.abs(highs[i]-closes[i-1]);
-    const l2=Math.abs(lows[i]-closes[i-1]);
-    tr.push(Math.max(h,l1,l2));
-    
-    const up=highs[i]-highs[i-1];
-    const down=lows[i-1]-lows[i];
-    pdm.push(up>down&&up>0?up:0);
-    mdm.push(down>up&&down>0?down:0);
-  }
-  
-  // 14-period smoothed
-  const smooth=(arr)=>{
-    let sum=arr.slice(0,14).reduce((a,b)=>a+b,0);
-    const res=[sum];
-    for(let i=14;i<arr.length;i++){
-      sum=sum-res[res.length-1]/14+arr[i];
-      res.push(sum);
-    }
-    return res;
-  };
-  
-  const atr=smooth(tr);
-  const pdi=smooth(pdm).map((v,i)=>(v/atr[i])*100);
-  const mdi=smooth(mdm).map((v,i)=>(v/atr[i])*100);
-  
-  // ADX 계산
-  const dx=pdi.map((p,i)=>Math.abs(p-mdi[i])/(p+mdi[i])*100);
-  const adx=smooth(dx);
-  
-  const lastADX=adx[adx.length-1]||0;
-  const lastPDI=pdi[pdi.length-1]||0;
-  const lastMDI=mdi[mdi.length-1]||0;
-  
-  if(lastADX>25){
+  if(!prices||prices.length<20)return{regime:'unknown',strength:0};
+  const n=Math.min(prices.length,30);
+  const slice=prices.slice(-n);
+  // 선형회귀 기울기 계산
+  let sumX=0,sumY=0,sumXY=0,sumX2=0;
+  for(let i=0;i<n;i++){sumX+=i;sumY+=slice[i];sumXY+=i*slice[i];sumX2+=i*i;}
+  const denom=(n*sumX2-sumX*sumX);
+  if(denom===0)return{regime:'ranging',strength:0};
+  const slope=(n*sumXY-sumX*sumY)/denom;
+  const mean=sumY/n;
+  if(mean===0)return{regime:'ranging',strength:0};
+  // 기울기를 평균 대비 % 비율로 정규화
+  const slopePct=(slope/mean)*100;
+  // 표준편차 / 평균 = 변동계수(CV) → 추세강도 proxy
+  const std=Math.sqrt(slice.reduce((a,b)=>a+Math.pow(b-mean,2),0)/n);
+  const strength=clamp(Math.abs(slopePct)*10,0,100);
+  if(Math.abs(slopePct)>0.5){
     return{
-      regime:lastPDI>lastMDI?'trending_up':'trending_down',
-      strength:lastADX,
-      direction:lastPDI>lastMDI?'up':'down'
+      regime:slopePct>0?'trending_up':'trending_down',
+      strength,
+      direction:slopePct>0?'up':'down'
     };
   }
-  return{regime:'ranging',strength:lastADX};
+  return{regime:'ranging',strength};
 }
 
 // 2. Bollinger Band Squeeze (변동성 수축 감지)
@@ -818,27 +803,35 @@ function calcBBSqueeze(prices){
   const bandwidth=(upper-lower)/sma*100;
   
   // 과거 평균 대비
+  // [수정] prices.length === period 일 때 allBW 빈 배열 → avgBW=NaN/0 → strength=Infinity 방어
   const allBW=[];
   for(let i=period;i<prices.length;i++){
     const slice=prices.slice(i-period,i);
     const m=slice.reduce((a,b)=>a+b,0)/period;
+    if(m===0)continue; // 평균이 0이면 skip
     const s=Math.sqrt(slice.reduce((a,b)=>a+Math.pow(b-m,2),0)/period);
     allBW.push((2*s)/m*100);
   }
-  const avgBW=allBW.reduce((a,b)=>a+b,0)/allBW.length;
+  // allBW가 비어있으면 현재 bandwidth 자체를 기준으로 사용 → 스퀴즈 아님 처리
+  const avgBW=allBW.length>0?allBW.reduce((a,b)=>a+b,0)/allBW.length:bandwidth;
   
-  const squeeze=bandwidth<avgBW*0.6; // 평균 대비 60% 이하면 스퀴즈
-  const strength=1-(bandwidth/avgBW);
+  const squeeze=avgBW>0&&bandwidth<avgBW*0.6; // 평균 대비 60% 이하면 스퀴즈
+  const strength=avgBW>0?clamp((1-(bandwidth/avgBW))*100,0,100):0;
   
-  return{squeeze,strength:clamp(strength*100,0,100),bandwidth};
+  return{squeeze,strength,bandwidth};
 }
 
 // 3. Volume Profile POC (가격대별 거래량 집중 구간)
+// [수정] volumes 빈 배열 또는 더미 데이터 시 nearPOC:false 반환으로 별점 오염 방지
 function calcVolumePOC(prices,volumes){
-  if(!prices||!volumes||prices.length<50)return{poc:prices[prices.length-1],distance:0};
+  const currentPrice=prices&&prices.length?prices[prices.length-1]:0;
+  if(!prices||!volumes||volumes.length<50||prices.length<50)
+    return{poc:currentPrice,distance:0,nearPOC:false};
   
   const priceMin=Math.min(...prices);
   const priceMax=Math.max(...prices);
+  // [수정] priceMin===priceMax → binSize=0 → 무한루프/NaN 방어
+  if(priceMax===priceMin)return{poc:currentPrice,distance:0,nearPOC:false};
   const bins=20;
   const binSize=(priceMax-priceMin)/bins;
   
@@ -855,7 +848,6 @@ function calcVolumePOC(prices,volumes){
   }
   
   const poc=priceMin+(maxVolIdx+0.5)*binSize;
-  const currentPrice=prices[prices.length-1];
   const distance=(currentPrice-poc)/poc*100;
   
   return{poc,distance,nearPOC:Math.abs(distance)<2}; // 2% 이내면 POC 근처
@@ -1089,30 +1081,29 @@ async function fetchLeverageMetrics(){
     const avgFunding=frRaw.length?frRaw.reduce((a,b)=>a+b.capped,0)/frRaw.length:0;
 
     // ── 4. 롱/숏 스퀴즈 신호 감지 ───────────────────────────
-    // 숏 스퀴즈: 시장이 숏 포지션 많은데 펀딩비가 음수로 깊음
-    //   → 갑작스러운 상승 시 숏 강제 청산 → 추가 상승 가속
-    // 롱 스퀴즈: 시장이 롱 포지션 많은데 펀딩비가 극양수
-    //   → 하락 시 롱 강제 청산 → 추가 하락 가속
+    // [수정] 기존 코드: long_squeeze_risk(lsr>=1.4)가 short_squeeze(lsr<=0.75)보다 먼저 체크되어
+    // 동일 frBTCVal 범위에서 short_squeeze 도달 불가 + 주석이 신호 의미와 반전된 오류 수정.
+    // 조건 우선순위: 과열(양수FR+롱과다) → 롱캐스케이드(양수FR+숏과다) → 숏스퀴즈(음수FR+숏과다) → 롱스퀴즈위험(음수FR+롱과다)
     let squeezeSignal='none', squeezeLabel='';
     const frBTC=frRaw.find(f=>f.sym==='BTCUSDT');
     const frBTCVal=frBTC?frBTC.capped:oiWeightedFunding;
 
-    if(frBTCVal<=-0.0005&&lsr>=1.4){
-      // 펀딩비 ≤ -0.05%, 롱 비율 높음 → 롱 포지션 과다 + 음수 펀딩비 = 이상 신호
-      squeezeSignal='long_squeeze_risk';
-      squeezeLabel='⚠ 롱과다+음수펀딩 → 롱스퀴즈 주의';
-    } else if(frBTCVal<=-0.0005&&lsr<=0.75){
-      // 펀딩비 깊은 음수, 숏 비율 높음 → 숏 스퀴즈 가능성
-      squeezeSignal='short_squeeze';
-      squeezeLabel='🚀 음수펀딩+숏우세 → 숏스퀴즈 가능';
+    if(frBTCVal>=0.001&&lsr>=1.5){
+      // 극양수 펀딩 + 롱 과다 → 과열, 단기 조정 가능
+      squeezeSignal='overheat';
+      squeezeLabel='⚡ 극단과열 → 단기 조정 주의';
     } else if(frBTCVal>=0.001&&lsr<=0.7){
       // 펀딩비 극양수, 숏 비율 높음 → 롱 스퀴즈(청산 캐스케이드)
       squeezeSignal='long_cascade';
       squeezeLabel='🔥 양수펀딩+숏우세 → 롱 청산 캐스케이드';
-    } else if(frBTCVal>=0.001&&lsr>=1.5){
-      // 극양수 펀딩 + 롱 과다 → 과열, 단기 조정 가능
-      squeezeSignal='overheat';
-      squeezeLabel='⚡ 극단과열 → 단기 조정 주의';
+    } else if(frBTCVal<=-0.0005&&lsr<=0.75){
+      // 펀딩비 깊은 음수 + 숏 비율 높음 → 반등 시 숏 강제청산 → 숏 스퀴즈 가능성
+      squeezeSignal='short_squeeze';
+      squeezeLabel='🚀 음수펀딩+숏우세 → 숏스퀴즈 가능';
+    } else if(frBTCVal<=-0.0005&&lsr>=1.4){
+      // 음수 펀딩 + 롱 과다 → 롱 포지션 추가 청산 위험
+      squeezeSignal='long_squeeze_risk';
+      squeezeLabel='⚠ 롱과다+음수펀딩 → 롱스퀴즈 주의';
     } else if(Math.abs(frBTCVal)<0.0001&&lsr>=0.9&&lsr<=1.1){
       squeezeSignal='neutral';
       squeezeLabel='→ 균형 상태 (포지션 중립)';
@@ -1157,7 +1148,10 @@ async function fetchLeverageMetrics(){
 function buildCoins(raw){
   return raw.map((c,i)=>{
     const prices=(c.sparkline_in_7d?.price)||[];
-    const volumes=prices.map(()=>c.total_volume||0); // 간소화: 실제론 시간별 볼륨 필요
+    // [수정] CoinGecko sparkline은 시간별 볼륨 미제공.
+    // 동일 볼륨으로 채우면 volumeProfile이 균등해져 POC=항상 최저가 bin → nearPOC 오염.
+    // → volumes를 빈 배열로 전달하여 calcVolumePOC가 nearPOC:false 반환하도록 처리.
+    const volumes=[];
     
     const rsi=calcRSI(prices),bull=calcMACDbull(prices);
     const c24=c.price_change_percentage_24h||0,c7d=c.price_change_percentage_7d_in_currency||0;
@@ -1293,7 +1287,7 @@ function renderCoins(){
     const starDetail='<div style="font-size:0.5rem;color:var(--muted);margin-top:2px">'+c.rating.conditions+'</div>';
     
     return'<div class="coin-card">'
-      +'<div class="coin-left"><div class="coin-ico">'+c.sym.slice(0,3)+'</div><div><div class="csym">'+c.sym+'</div><div class="cname">'+c.name.slice(0,12)+'</div>'+starBadge+'</div></div>'
+      +'<div class="coin-left"><div class="coin-ico">'+esc(c.sym.slice(0,3))+'</div><div><div class="csym">'+esc(c.sym)+'</div><div class="cname">'+esc(c.name.slice(0,12))+'</div>'+starBadge+'</div></div>'
       +'<div><div class="coin-price">'+priceStr+' <span class="'+c24cls+'" style="font-size:0.68rem">'+fmtPct(c.c24)+'</span></div>'
         +'<div class="coin-meta"><span class="coin-rsi" style="color:'+rsiColor+'">RSI '+fmt(c.rsi,0)+'</span>'+macd+'<span style="color:'+dc7+';font-size:0.58rem;font-weight:700">'+dir7+'</span></div>'
         +starDetail
@@ -1404,6 +1398,9 @@ function calcSentiment(coins,fng,lev){
 
 /* ── 메인 리프레시 ── */
 async function refreshAll(){
+  // [수정] 중복 호출(검색 디바운스 + 자동갱신 동시 실행) 방어
+  if(isRefreshing)return;
+  isRefreshing=true;
   const rbtn=document.getElementById('refreshBtn');
   rbtn.disabled=true;rbtn.textContent='...';
   setStatus('데이터 수신 중... Binance + CoinGecko + F&G','info');
@@ -1439,8 +1436,11 @@ async function refreshAll(){
   }catch(e){
     console.error(e);
     setStatus('⚠ '+e.message,'error');
+    // [수정] 실패해도 기존 데이터가 있으면 렌더 유지 (빈 화면 방지)
+    if(allCoins.length)renderCoins();
   }finally{
     rbtn.disabled=false;rbtn.textContent='↺ 갱신';
+    isRefreshing=false; // [수정] 항상 플래그 해제
   }
 }
 function triggerRefresh(){refreshAll();}
@@ -1478,16 +1478,18 @@ function triggerRefresh(){refreshAll();}
     });
   });
 
-  /* 1분 자동갱신 — RAF 기반 (setInterval 미사용, SES-safe) */
+  /* [수정] 1분 자동갱신 — setInterval + visibilitychange 기반
+     기존 RAF 루프는 탭이 숨겨져도 ~1fps로 계속 실행되어 배터리 낭비.
+     setInterval은 탭 비활성 시 브라우저가 최소화하고, visibilitychange로 복귀 즉시 갱신. */
   function scheduleRefresh(){
-    let last=null;
-    const INTERVAL=60000; // 60초
-    function check(ts){
-      if(!last)last=ts;
-      if(ts-last>=INTERVAL){last=ts;refreshAll();}
-      requestAnimationFrame(check);
-    }
-    requestAnimationFrame(check);
+    const INTERVAL=60000;
+    let autoTimer=setInterval(()=>{
+      if(!document.hidden)refreshAll();
+    },INTERVAL);
+    // 탭 복귀 시 즉시 갱신 (오래된 데이터 표시 방지)
+    document.addEventListener('visibilitychange',()=>{
+      if(!document.hidden)refreshAll();
+    });
   }
   scheduleRefresh();
 })();
