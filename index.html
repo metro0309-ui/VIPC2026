@@ -142,6 +142,29 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
 .grade-counts{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:7px;}
 .gc{padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:700;font-family:'Orbitron',monospace;}
 .filter-btns{display:flex;gap:4px;flex-wrap:wrap;}
+
+/* ── 코인 검색 ── */
+.search-wrap{position:relative;margin-bottom:7px;}
+.search-input{width:100%;background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.2);border-radius:7px;padding:7px 12px 7px 32px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:0.75rem;outline:none;transition:border-color 0.2s;}
+.search-input:focus{border-color:var(--accent);background:rgba(0,229,255,0.07);}
+.search-input::placeholder{color:var(--muted);}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:0.75rem;color:var(--muted);pointer-events:none;}
+.search-clear{position:absolute;right:9px;top:50%;transform:translateY(-50%);font-size:0.7rem;color:var(--muted);cursor:pointer;display:none;background:none;border:none;color:var(--accent);}
+.search-result-info{font-size:0.6rem;color:var(--muted);margin-bottom:5px;display:none;}
+
+/* ── 점수 분해 툴팁 ── */
+.score-breakdown{font-size:0.52rem;color:var(--muted);line-height:1.6;margin-top:3px;text-align:right;}
+.score-breakdown span{display:inline-block;}
+
+/* ── 예측 범위 바 ── */
+.pred-range{position:absolute;top:0;bottom:0;background:rgba(255,255,255,0.08);border-radius:7px;transition:all 0.5s ease;}
+.pred-mu{position:absolute;top:0;bottom:0;width:3px;border-radius:2px;transform:translateX(-50%);transition:left 0.5s ease;z-index:2;}
+
+/* ── 점수 공식 안내 ── */
+.formula-box{margin-top:8px;padding:8px 10px;background:rgba(0,229,255,0.03);border:1px solid rgba(0,229,255,0.1);border-radius:6px;font-size:0.57rem;color:var(--muted);line-height:1.7;}
+.formula-box b{color:var(--accent);}
+.formula-box .frow{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;}
+.formula-box .ftag{background:rgba(255,255,255,0.05);border-radius:4px;padding:2px 6px;font-family:'Orbitron',monospace;font-size:0.5rem;}
 .fbtn{padding:4px 8px;border-radius:4px;font-size:0.6rem;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--muted);font-family:'Orbitron',monospace;min-height:28px;}
 .fbtn.on{color:#000;}
 .fbtn[data-g="ALL"].on{background:var(--accent);border-color:var(--accent);}
@@ -289,14 +312,30 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
 
   <!-- ④ 7일 예측 -->
   <div class="panel pred-panel">
-    <div class="pred-title" id="predTitle">▸ 7-DAY PREDICTION · BOOTSTRAP MC N=800</div>
+    <div class="pred-title" id="predTitle">▸ 7-DAY PREDICTION · BOOTSTRAP MC N=800 · 범위 = ±1σ</div>
     <div class="day-row" id="dayRow"></div>
     <div class="mc-note" id="mcNote">Bootstrap Resampling <b>N=800</b> · 블록크기 5 · fat-tail 반영 · <b>1분</b>마다 자동갱신</div>
+    <div class="formula-box" style="margin-top:8px">
+      <b>▸ 예측 모델 공식</b><br>
+      Bootstrap MC: 과거 7일 시계열에서 길이-5 블록 800회 리샘플링 → 각 일의 50th(중앙값) / 16th·84th 백분위수(±1σ 범위) 추출<br>
+      <div class="frow" style="margin-top:4px">
+        <span class="ftag">mu = median(800 paths)</span>
+        <span class="ftag">lo = 16th pct</span>
+        <span class="ftag">hi = 84th pct</span>
+        <span class="ftag">fat-tail: block=5</span>
+      </div>
+    </div>
   </div>
 
   <!-- ⑤ 코인 카드 -->
   <div class="coin-section">
     <div class="csec-hdr">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" id="coinSearch" type="text" placeholder="코인 검색 (BTC, ETH, SOL...)" oninput="onSearch(this.value)">
+        <button class="search-clear" id="searchClear" onclick="clearSearch()">✕</button>
+      </div>
+      <div class="search-result-info" id="searchInfo"></div>
       <div class="csec-title">▸ TOP 50 COIN · S-A-B-C-D-E GRADE</div>
       <div class="grade-counts" id="gradeCounts"></div>
       <div class="filter-btns">
@@ -311,6 +350,23 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
     </div>
     <div class="coin-list" id="coinList">
       <div style="text-align:center;padding:32px;color:var(--muted);font-size:0.8rem">로딩 중...</div>
+    </div>
+  </div>
+
+  <!-- ⑥ 등급 산출 공식 -->
+  <div class="panel" style="padding:12px 14px;margin-bottom:10px;">
+    <div class="pnl-label" style="margin-bottom:8px">▸ 등급 산출 공식 · SCORE FORMULA</div>
+    <div class="formula-box" style="margin-top:0">
+      <b>기본값 50점</b>에서 아래 4가지 지표를 더하고 빼서 0~100점 산출 후 등급 결정<br><br>
+      <div class="frow">
+        <span class="ftag">RSI &gt;70 → +22 / &lt;30 → -22</span>
+        <span class="ftag">MACD 골든 → +14 / 데드 → -14</span>
+        <span class="ftag">OI(추정) × 0.75 → ±18 max</span>
+        <span class="ftag">24H변동 × 1.1 → ±14 max</span>
+      </div><br>
+      <b>등급 기준:</b> S≥80 · A≥65 · B≥50 · C≥35 · D≥20 · E&lt;20<br>
+      <b>OI 추정:</b> 7일변동×0.6 + (거래량/시총)×100×0.4<br>
+      <span style="color:rgba(255,255,255,0.3)">⚠ 이 점수는 기술적 신호의 단순 합산이며, 투자 판단의 보조 참고용입니다.</span>
     </div>
   </div>
 
@@ -455,13 +511,20 @@ function pctToSP(pct){return clamp(50+pct*4,5,95);}
 function renderDayGauges(pred){
   const tags=['D+1','D+2','D+3','D+4','D+5','D+6','D+7'];
   document.getElementById('dayRow').innerHTML=tags.map((t,i)=>{
-    const p=pred[i]||{muPct:0};
+    const p=pred[i]||{muPct:0,loPct:-5,hiPct:5};
     const sp=pctToSP(p.muPct);
+    const spLo=pctToSP(p.loPct||p.muPct-3);
+    const spHi=pctToSP(p.hiPct||p.muPct+3);
     const[dir,col]=dirLabel(sp);
     const chg=(p.muPct>=0?'+':'')+fmt(p.muPct,1)+'%';
+    const rangeLeft=Math.min(spLo,spHi);
+    const rangeW=Math.max(1,Math.abs(spHi-spLo));
     return '<div class="day-item">'
       +'<div class="day-tag">'+t+'</div>'
-      +'<div class="mini-bar-wrap"><div class="mini-bar-fill" style="width:'+sp+'%;background:'+col+'"></div></div>'
+      +'<div class="mini-bar-wrap">'
+        +'<div class="pred-range" style="left:'+rangeLeft+'%;width:'+rangeW+'%"></div>'
+        +'<div class="pred-mu" style="left:'+sp+'%;background:'+col+'"></div>'
+      +'</div>'
       +'<div class="day-dir" style="color:'+col+'">'+dir+'</div>'
       +'<div class="day-chg" style="color:'+col+'">'+chg+'</div>'
       +'</div>';
@@ -603,6 +666,23 @@ function buildCoins(raw){
   });
 }
 
+/* ── 코인 검색 ── */
+let searchQuery='';
+function onSearch(val){
+  searchQuery=val.trim().toLowerCase();
+  const clearBtn=document.getElementById('searchClear');
+  if(clearBtn) clearBtn.style.display=searchQuery?'block':'none';
+  renderCoins();
+}
+function clearSearch(){
+  searchQuery='';
+  const inp=document.getElementById('coinSearch');
+  const clearBtn=document.getElementById('searchClear');
+  if(inp) inp.value='';
+  if(clearBtn) clearBtn.style.display='none';
+  renderCoins();
+}
+
 /* ── 코인 렌더 ── */
 function renderCounts(coins){
   const cnt={S:0,A:0,B:0,C:0,D:0,E:0};
@@ -612,14 +692,31 @@ function renderCounts(coins){
 }
 
 function renderCoins(){
-  const rows=curFilter==='ALL'?allCoins:allCoins.filter(c=>c.grade===curFilter);
+  let rows=curFilter==='ALL'?allCoins:allCoins.filter(c=>c.grade===curFilter);
+  // 검색 필터
+  if(searchQuery){
+    rows=rows.filter(c=>
+      c.sym.toLowerCase().includes(searchQuery)||
+      c.name.toLowerCase().includes(searchQuery)
+    );
+  }
+  // 검색 결과 안내
+  const info=document.getElementById('searchInfo');
+  if(info){
+    if(searchQuery){
+      info.style.display='block';
+      info.textContent=rows.length?'검색결과 '+rows.length+'개':'검색 결과 없음';
+    } else {
+      info.style.display='none';
+    }
+  }
   const sorted=rows.slice().sort((a,b)=>{
     let av=a[sortKey],bv=b[sortKey];
     if(sortKey==='grade'){const o={S:6,A:5,B:4,C:3,D:2,E:1};av=o[a.grade];bv=o[b.grade];}
     return sortDir*(bv-av);
   });
   const list=document.getElementById('coinList');
-  if(!sorted.length){list.innerHTML='<div style="text-align:center;padding:28px;color:var(--muted);font-size:0.78rem">'+curFilter+'등급 코인 없음</div>';return;}
+  if(!sorted.length){list.innerHTML='<div style="text-align:center;padding:28px;color:var(--muted);font-size:0.78rem">'+(searchQuery?'"'+searchQuery+'" 검색 결과 없음':curFilter+'등급 코인 없음')+'</div>';return;}
   list.innerHTML=sorted.map(c=>{
     const[at,ac]=gradeAction(c.grade);
     const last7=c.mcPred[c.mcPred.length-1];
@@ -630,13 +727,20 @@ function renderCoins(){
     const c24cls=c.c24>=0?'up':'down';
     const macd=c.bull?'<span class="up">▲골든</span>':'<span class="down">▼데드</span>';
     const rsiColor=c.rsi>70?'#ff4444':c.rsi<30?'#00ff88':'var(--muted)';
+    // 점수 분해: RSI기여, MACD기여, OI기여, C24기여
+    const rsiC=c.rsi>70?'+22':c.rsi>60?'+12':c.rsi>50?'+4':c.rsi<30?'-22':c.rsi<40?'-12':'-4';
+    const macdC=c.bull?'+14':'-14';
+    const oiC=(c.oi>=0?'+':'')+fmt(Math.min(Math.max(c.oi*0.75,-18),18),0);
+    const c24C=(c.c24>=0?'+':'')+fmt(Math.min(Math.max(c.c24*1.1,-14),14),0);
     return'<div class="coin-card">'
       +'<div class="coin-left"><div class="coin-ico">'+c.sym.slice(0,3)+'</div><div><div class="csym">'+c.sym+'</div><div class="cname">'+c.name.slice(0,12)+'</div></div></div>'
       +'<div><div class="coin-price">'+priceStr+' <span class="'+c24cls+'" style="font-size:0.68rem">'+fmtPct(c.c24)+'</span></div>'
         +'<div class="coin-meta"><span class="coin-rsi" style="color:'+rsiColor+'">RSI '+fmt(c.rsi,0)+'</span>'+macd+'<span style="color:'+dc7+';font-size:0.58rem;font-weight:700">'+dir7+'</span></div>'
         +'<div class="cpb-track"><div class="cpb-fill" style="width:'+sp7+'%;background:'+dc7+'"></div></div>'
       +'</div>'
-      +'<div class="coin-right"><span class="gbadge g'+c.grade+'">'+c.grade+'</span><span class="score-val" style="color:'+gc+'">'+fmt(c.score,0)+'</span><span class="atag '+ac+'">'+at+'</span>'+sparkline(c.sparkline)+'</div>'
+      +'<div class="coin-right"><span class="gbadge g'+c.grade+'">'+c.grade+'</span><span class="score-val" style="color:'+gc+'">'+fmt(c.score,0)+'</span><span class="atag '+ac+'">'+at+'</span>'
+      +'<div class="score-breakdown">RSI<span style="color:'+(rsiC[0]==='-'?'var(--red)':'var(--green)')+'">'+rsiC+'</span> MACD<span style="color:'+(macdC[0]==='-'?'var(--red)':'var(--green)')+'">'+macdC+'</span> OI<span style="color:'+(oiC[0]==='-'?'var(--red)':'var(--green)')+'">'+oiC+'</span></div>'
+      +sparkline(c.sparkline)+'</div>'
       +'</div>';
   }).join('');
 }
