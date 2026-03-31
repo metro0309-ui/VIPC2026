@@ -375,6 +375,11 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
         <button class="fbtn" data-g="D" onclick="setFilter('D',this)">D</button>
         <button class="fbtn" data-g="E" onclick="setFilter('E',this)">E</button>
       </div>
+      <div style="display:flex;gap:6px;margin-top:8px;padding:0 4px">
+        <button class="btn" style="font-size:0.56rem;padding:4px 10px;min-height:28px" onclick="sortKey='stars';sortDir=-1;renderCoins()">⭐ 별점순</button>
+        <button class="btn" style="font-size:0.56rem;padding:4px 10px;min-height:28px" onclick="sortKey='score';sortDir=-1;renderCoins()">점수순</button>
+        <button class="btn" style="font-size:0.56rem;padding:4px 10px;min-height:28px" onclick="sortKey='c24';sortDir=-1;renderCoins()">24H↓</button>
+      </div>
     </div>
     <div class="coin-list" id="coinList">
       <div style="text-align:center;padding:32px;color:var(--muted);font-size:0.8rem">로딩 중...</div>
@@ -737,6 +742,200 @@ function calcLSBias(c){
   return{bias,label,color,detail,score:w};
 }
 
+/* ══════════════════════════════════════════════════════════════
+   신규 고급 지표 함수들
+══════════════════════════════════════════════════════════════ */
+
+// 1. Regime Detection (ADX 기반 추세/횡보 구분)
+function detectRegime(prices){
+  if(!prices||prices.length<14)return{regime:'unknown',strength:0};
+  
+  const highs=prices;
+  const lows=prices;
+  const closes=prices;
+  
+  // TR, +DM, -DM 계산
+  let tr=[],pdm=[],mdm=[];
+  for(let i=1;i<prices.length;i++){
+    const h=highs[i]-lows[i];
+    const l1=Math.abs(highs[i]-closes[i-1]);
+    const l2=Math.abs(lows[i]-closes[i-1]);
+    tr.push(Math.max(h,l1,l2));
+    
+    const up=highs[i]-highs[i-1];
+    const down=lows[i-1]-lows[i];
+    pdm.push(up>down&&up>0?up:0);
+    mdm.push(down>up&&down>0?down:0);
+  }
+  
+  // 14-period smoothed
+  const smooth=(arr)=>{
+    let sum=arr.slice(0,14).reduce((a,b)=>a+b,0);
+    const res=[sum];
+    for(let i=14;i<arr.length;i++){
+      sum=sum-res[res.length-1]/14+arr[i];
+      res.push(sum);
+    }
+    return res;
+  };
+  
+  const atr=smooth(tr);
+  const pdi=smooth(pdm).map((v,i)=>(v/atr[i])*100);
+  const mdi=smooth(mdm).map((v,i)=>(v/atr[i])*100);
+  
+  // ADX 계산
+  const dx=pdi.map((p,i)=>Math.abs(p-mdi[i])/(p+mdi[i])*100);
+  const adx=smooth(dx);
+  
+  const lastADX=adx[adx.length-1]||0;
+  const lastPDI=pdi[pdi.length-1]||0;
+  const lastMDI=mdi[mdi.length-1]||0;
+  
+  if(lastADX>25){
+    return{
+      regime:lastPDI>lastMDI?'trending_up':'trending_down',
+      strength:lastADX,
+      direction:lastPDI>lastMDI?'up':'down'
+    };
+  }
+  return{regime:'ranging',strength:lastADX};
+}
+
+// 2. Bollinger Band Squeeze (변동성 수축 감지)
+function calcBBSqueeze(prices){
+  if(!prices||prices.length<20)return{squeeze:false,strength:0};
+  
+  const period=20;
+  const recent=prices.slice(-period);
+  const sma=recent.reduce((a,b)=>a+b,0)/period;
+  
+  // 표준편차
+  const variance=recent.reduce((a,b)=>a+Math.pow(b-sma,2),0)/period;
+  const std=Math.sqrt(variance);
+  
+  const upper=sma+2*std;
+  const lower=sma-2*std;
+  const bandwidth=(upper-lower)/sma*100;
+  
+  // 과거 평균 대비
+  const allBW=[];
+  for(let i=period;i<prices.length;i++){
+    const slice=prices.slice(i-period,i);
+    const m=slice.reduce((a,b)=>a+b,0)/period;
+    const s=Math.sqrt(slice.reduce((a,b)=>a+Math.pow(b-m,2),0)/period);
+    allBW.push((2*s)/m*100);
+  }
+  const avgBW=allBW.reduce((a,b)=>a+b,0)/allBW.length;
+  
+  const squeeze=bandwidth<avgBW*0.6; // 평균 대비 60% 이하면 스퀴즈
+  const strength=1-(bandwidth/avgBW);
+  
+  return{squeeze,strength:clamp(strength*100,0,100),bandwidth};
+}
+
+// 3. Volume Profile POC (가격대별 거래량 집중 구간)
+function calcVolumePOC(prices,volumes){
+  if(!prices||!volumes||prices.length<50)return{poc:prices[prices.length-1],distance:0};
+  
+  const priceMin=Math.min(...prices);
+  const priceMax=Math.max(...prices);
+  const bins=20;
+  const binSize=(priceMax-priceMin)/bins;
+  
+  const volumeProfile=new Array(bins).fill(0);
+  
+  for(let i=0;i<prices.length;i++){
+    const binIdx=Math.min(bins-1,Math.floor((prices[i]-priceMin)/binSize));
+    volumeProfile[binIdx]+=volumes[i]||1;
+  }
+  
+  let maxVolIdx=0;
+  for(let i=1;i<bins;i++){
+    if(volumeProfile[i]>volumeProfile[maxVolIdx])maxVolIdx=i;
+  }
+  
+  const poc=priceMin+(maxVolIdx+0.5)*binSize;
+  const currentPrice=prices[prices.length-1];
+  const distance=(currentPrice-poc)/poc*100;
+  
+  return{poc,distance,nearPOC:Math.abs(distance)<2}; // 2% 이내면 POC 근처
+}
+
+// 4. MTF (Multi-Time Frame) 확인
+// 간소화: sparkline 데이터로 단기/중기 추세 확인
+function calcMTF(prices){
+  if(!prices||prices.length<50)return{score:0,signals:[]};
+  
+  const signals=[];
+  
+  // 단기: 최근 7일
+  const short=prices.slice(-7);
+  const shortTrend=short[short.length-1]>short[0];
+  if(shortTrend)signals.push('7d↑');
+  else signals.push('7d↓');
+  
+  // 중기: 최근 30일
+  const mid=prices.slice(-30);
+  const midTrend=mid[mid.length-1]>mid[0];
+  if(midTrend)signals.push('30d↑');
+  else signals.push('30d↓');
+  
+  // 전체: 전체 기간
+  const longTrend=prices[prices.length-1]>prices[0];
+  if(longTrend)signals.push('60d↑');
+  else signals.push('60d↓');
+  
+  // 일치도 점수
+  const bullCount=signals.filter(s=>s.includes('↑')).length;
+  const score=bullCount>=2?bullCount:0; // 2개 이상 일치해야 점수
+  
+  return{score,signals,aligned:bullCount>=2||bullCount===0};
+}
+
+/* ══════════════════════════════════════════════════════════════
+   별점 계산 (⭐⭐⭐ / ⭐⭐ / ⭐)
+   
+   조건:
+   1. Regime = Trending + OI 증가 + BB Squeeze
+   2. Volume Profile POC 근처 (±2%)
+   3. MTF 2개 이상 일치
+   
+   ⭐⭐⭐ = 3개 조건 충족
+   ⭐⭐ = 2개 조건 충족
+   ⭐ = 1개 이하
+══════════════════════════════════════════════════════════════ */
+function calcStarRating(coin,regime,bbsqueeze,vpoc,mtf){
+  let points=0;
+  const conditions=[];
+  
+  // 조건 1: Regime Trending + OI 증가 + BB Squeeze
+  const cond1=(regime.regime.includes('trending')&&coin.oi>5&&bbsqueeze.squeeze);
+  if(cond1){
+    points++;
+    conditions.push('추세+OI+BB스퀴즈');
+  }
+  
+  // 조건 2: Volume POC 근처
+  const cond2=vpoc.nearPOC;
+  if(cond2){
+    points++;
+    conditions.push('POC근처');
+  }
+  
+  // 조건 3: MTF 2개 이상 일치
+  const cond3=mtf.aligned;
+  if(cond3){
+    points++;
+    conditions.push('MTF일치');
+  }
+  
+  let stars='⭐';
+  if(points>=3)stars='⭐⭐⭐';
+  else if(points>=2)stars='⭐⭐';
+  
+  return{stars,points,conditions:conditions.join(' · ')||'조건 미충족'};
+}
+
 // ── 스테이블코인 / 래핑토큰 / ETF 완전 제외 목록 ──────────────
 // Binance 캡 적용 대상 메이저만 남기고 스테이블·래핑·ETF 전부 차단
 const STABLES=new Set([
@@ -745,20 +944,24 @@ const STABLES=new Set([
   'LUSD','SUSD','MIM','ALUSD','PYUSD','EURC','CRVUSD','USDE','USDX',
   'USDS','USDJ','ZUSD','CUSD','AGEUR','EURS','VEUR','EURT','USDM','DOLA',
   'USDZ','UUSD','OUSD','HUSD','MUSD','RUSD','FXUSD','GHO','CUSD','USDK',
+  'FRAX','USDV','USDB','FXUSD','USDH','USDN','USDX','USDY',
   // 래핑 토큰
   'WBTC','WETH','WBNB','WMATIC','WAVAX','WSOL','WFTM','WONE',
   'STETH','WSTETH','CBETH','RETH','SETH2','ANKRETH','FRXETH','SFRXETH',
-  'WEETH','EZETH','PUFETH','RSETH','SWETH','METH','WBETH',
+  'WEETH','EZETH','PUFETH','RSETH','SWETH','METH','WBETH','EETH',
   // 합성·파생
-  'RENBTC','SBTC','TBTC','HBTC','FBTC',
+  'RENBTC','SBTC','TBTC','HBTC','FBTC','BBTC',
   // 가격지수 ETF류
-  'XAUT','PAXG','CACHE',
+  'XAUT','PAXG','CACHE','GOLD',
 ]);
 
 // 이름으로도 걸러낼 키워드 (소문자)
 const STABLE_NAME_KW=['usd coin','tether','binance usd','dai ','true usd','frax','wrapped bitcoin',
   'wrapped ether','staked ether','wrapped staked','staked eth','restaked','rocket pool eth',
-  'pax gold','tether gold'];
+  'pax gold','tether gold','usd+','usd0','first digital usd','gemini dollar','liquity usd',
+  'magic internet money','alchemix usd','fei usd','origin dollar','neutrino usd','terra usd',
+  'wrapped btc','wrapped bnb','wrapped matic','wrapped avax','wrapped sol','wrapped ftm',
+  'wrapped one','coinbase wrapped','liquid staked','staked sol','wrapped beacon'];
 
 function isStableOrWrapped(coin){
   const sym=(coin.symbol||'').toUpperCase();
@@ -803,11 +1006,13 @@ async function fetchFNG(){
 }
 
 async function fetchTop50(){
-  // per_page=150으로 많이 받아 스테이블·래핑 제거 후 상위 50개 선별
+  // per_page=250으로 충분히 받아서 스테이블·래핑 제거 후 상위 50개 확보
   const d=await getJSON(
-    'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=150&page=1&sparkline=true&price_change_percentage=7d'
+    'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=true&price_change_percentage=7d'
   );
-  return d.filter(c=>!isStableOrWrapped(c)).slice(0,50);
+  const filtered=d.filter(c=>!isStableOrWrapped(c));
+  console.log('Filtered coins:',filtered.length,'from',d.length);
+  return filtered.slice(0,50);
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -952,12 +1157,29 @@ async function fetchLeverageMetrics(){
 function buildCoins(raw){
   return raw.map((c,i)=>{
     const prices=(c.sparkline_in_7d?.price)||[];
+    const volumes=prices.map(()=>c.total_volume||0); // 간소화: 실제론 시간별 볼륨 필요
+    
     const rsi=calcRSI(prices),bull=calcMACDbull(prices);
     const c24=c.price_change_percentage_24h||0,c7d=c.price_change_percentage_7d_in_currency||0;
     const oi=estOI(c7d,c.total_volume||0,c.market_cap||1);
     const score=calcScore(rsi,bull,oi,c24),grade=toGrade(score);
     const mcPred=monteCarloBootstrap(prices,7,300);// 모바일 성능 고려
-    return{rank:i+1,id:c.id,sym:(c.symbol||'').toUpperCase(),name:c.name||'',price:c.current_price||0,c24,c7d,rsi,bull,oi,score,grade,mcPred,sparkline:prices,mcap:c.market_cap||0};
+    
+    // 고급 지표 계산
+    const regime=detectRegime(prices);
+    const bbsqueeze=calcBBSqueeze(prices);
+    const vpoc=calcVolumePOC(prices,volumes);
+    const mtf=calcMTF(prices);
+    
+    // 별점 계산
+    const rating=calcStarRating({oi},regime,bbsqueeze,vpoc,mtf);
+    
+    return{
+      rank:i+1,id:c.id,sym:(c.symbol||'').toUpperCase(),name:c.name||'',
+      price:c.current_price||0,c24,c7d,rsi,bull,oi,score,grade,mcPred,
+      sparkline:prices,mcap:c.market_cap||0,
+      regime,bbsqueeze,vpoc,mtf,rating // 새 지표 추가
+    };
   });
 }
 
@@ -1021,6 +1243,7 @@ function renderCoins(){
   const sorted=rows.slice().sort((a,b)=>{
     let av=a[sortKey],bv=b[sortKey];
     if(sortKey==='grade'){const o={S:6,A:5,B:4,C:3,D:2,E:1};av=o[a.grade];bv=o[b.grade];}
+    if(sortKey==='stars'){av=a.rating?.points||0;bv=b.rating?.points||0;} // 별점 정렬
     return sortDir*(bv-av);
   });
   const list=document.getElementById('coinList');
@@ -1055,10 +1278,20 @@ function renderCoins(){
     const lsb=calcLSBias(c);
     const lsBadge='<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:0.56rem;font-weight:700;background:'+lsb.color+'22;color:'+lsb.color+';border:1px solid '+lsb.color+'44;margin-top:2px">'+lsb.label+'</span>'
       +(lsb.detail?'<span style="font-size:0.52rem;color:var(--muted);margin-left:4px">'+lsb.detail+'</span>':'');
+    
+    // ── 별점 표시 ──
+    const starColor=c.rating.points>=3?'#ffd700':c.rating.points>=2?'#ff8c00':'#666';
+    const starBadge='<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 7px;background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.25);border-radius:5px;margin-top:4px">'
+      +'<span style="font-size:0.9rem;line-height:1">'+c.rating.stars+'</span>'
+      +'<span style="font-size:0.54rem;color:'+starColor+';font-weight:700">'+c.rating.points+'조건</span>'
+      +'</div>';
+    const starDetail='<div style="font-size:0.5rem;color:var(--muted);margin-top:2px">'+c.rating.conditions+'</div>';
+    
     return'<div class="coin-card">'
-      +'<div class="coin-left"><div class="coin-ico">'+c.sym.slice(0,3)+'</div><div><div class="csym">'+c.sym+'</div><div class="cname">'+c.name.slice(0,12)+'</div></div></div>'
+      +'<div class="coin-left"><div class="coin-ico">'+c.sym.slice(0,3)+'</div><div><div class="csym">'+c.sym+'</div><div class="cname">'+c.name.slice(0,12)+'</div>'+starBadge+'</div></div>'
       +'<div><div class="coin-price">'+priceStr+' <span class="'+c24cls+'" style="font-size:0.68rem">'+fmtPct(c.c24)+'</span></div>'
         +'<div class="coin-meta"><span class="coin-rsi" style="color:'+rsiColor+'">RSI '+fmt(c.rsi,0)+'</span>'+macd+'<span style="color:'+dc7+';font-size:0.58rem;font-weight:700">'+dir7+'</span></div>'
+        +starDetail
         +'<div style="margin-top:3px">'+lsBadge+'</div>'
         +'<div class="cpb-track"><div class="cpb-fill" style="width:'+sp7+'%;background:'+dc7+'"></div></div>'
         +(riskHtml?'<div style="margin-top:4px">'+riskHtml+'</div>':'')
