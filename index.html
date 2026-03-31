@@ -314,7 +314,7 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
   <div class="panel pred-panel">
     <div class="pred-title" id="predTitle">▸ 7-DAY PREDICTION · BOOTSTRAP MC N=800 · 범위 = ±1σ</div>
     <div class="day-row" id="dayRow"></div>
-    <div class="mc-note" id="mcNote">Bootstrap Resampling <b>N=800</b> · 블록크기 5 · fat-tail 반영 · <b>1분</b>마다 자동갱신</div>
+    <div class="mc-note" id="mcNote">Bootstrap Resampling <b>N=800</b> · 블록크기 5 · fat-tail 반영 · <b>수동갱신</b></div>
     <div class="formula-box" style="margin-top:8px">
       <b>▸ 예측 모델 공식</b><br>
       Bootstrap MC: 과거 7일 시계열에서 길이-5 블록 800회 리샘플링 → 각 일의 50th(중앙값) / 16th·84th 백분위수(±1σ 범위) 추출<br>
@@ -668,11 +668,24 @@ function buildCoins(raw){
 
 /* ── 코인 검색 ── */
 let searchQuery='';
+let searchRefreshTimer=null;
 function onSearch(val){
   searchQuery=val.trim().toLowerCase();
   const clearBtn=document.getElementById('searchClear');
   if(clearBtn) clearBtn.style.display=searchQuery?'block':'none';
-  renderCoins();
+  // 검색어가 있으면 300ms 디바운스 후 전체 갱신
+  if(searchQuery){
+    clearTimeout(searchRefreshTimer);
+    const inp=document.getElementById('coinSearch');
+    if(inp){inp.style.borderColor='var(--yellow)';}
+    searchRefreshTimer=setTimeout(async()=>{
+      await refreshAll();
+      // refreshAll 안에서 renderCoins()가 호출되므로 추가 불필요
+      if(inp){inp.style.borderColor='';}
+    },300);
+  } else {
+    renderCoins();
+  }
 }
 function clearSearch(){
   searchQuery='';
@@ -748,14 +761,37 @@ function renderCoins(){
 function setFilter(g,btn){curFilter=g;document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');renderCoins();}
 
 /* ── 시장 예측 + 센티먼트 ── */
-function buildMarketPred(coins){
+function buildMarketPred(coins, lev){
   const merged=[],len=168;
   for(let i=0;i<len;i++){
     let sum=0,cnt=0;
     coins.forEach(c=>{const sp=c.sparkline;if(sp&&sp.length){const idx=Math.floor(i*sp.length/len);if(sp[idx]!==undefined){sum+=sp[idx];cnt++;}}});
     if(cnt>0)merged.push(sum/cnt);
   }
-  return monteCarloBootstrap(merged,7,800);
+  const rawPred=monteCarloBootstrap(merged,7,800);
+
+  // 롱/숏 비율로 예측값에 방향성 바이어스 적용
+  // lsr > 1 → 롱 우세 → 상승 편향 가산
+  // lsr < 1 → 숏 우세 → 하락 편향 가산
+  const lsr=(lev&&lev.longShortRatio!=null)?lev.longShortRatio:1.0;
+  const fr=(lev&&lev.avgFunding!=null)?lev.avgFunding:0;
+  // 바이어스: L/S 1.0 기준, ±0.5 범위에서 최대 ±1.5% 편향 (일별 감쇠)
+  const lsBias=clamp((lsr-1.0)*3,-1.5,1.5);
+  // 펀딩비 양수면 롱 과열 → 단기 상승 후 반전 가능성, 음수면 숏 과열
+  const frBias=clamp(fr*2000,-1.0,1.0);
+  const totalBias=lsBias+frBias;
+
+  return rawPred.map((p,i)=>{
+    // 시간이 지날수록 바이어스 감쇠 (D+1에 최대, D+7에 30%)
+    const decay=1/(1+i*0.2);
+    const adj=totalBias*decay;
+    return{
+      muPct:p.muPct+adj,
+      loPct:p.loPct+adj,
+      hiPct:p.hiPct+adj,
+      bias:adj  // 디버그용
+    };
+  });
 }
 
 function calcSentiment(coins,fng,lev){
@@ -782,15 +818,20 @@ async function refreshAll(){
     updateLSGauge(lev.longShortRatio,lev.avgFunding,lev.levScore);
     renderCounts(allCoins);
     renderCoins();
-    const mktPred=buildMarketPred(allCoins);
+    const mktPred=buildMarketPred(allCoins,lev);
     renderDayGauges(mktPred);
     // 노트 업데이트
     const fp=(lev.avgFunding*100).toFixed(4);
     const fc=lev.avgFunding>0?'up':lev.avgFunding<0?'down':'neu';
+    const lsBias=clamp((lev.longShortRatio-1.0)*3,-1.5,1.5);
+    const frBias=clamp(lev.avgFunding*2000,-1.0,1.0);
+    const totalBias=lsBias+frBias;
+    const biasDir=totalBias>0.1?'▲롱편향':totalBias<-0.1?'▼숏편향':'→중립';
+    const biasCol=totalBias>0.1?'up':totalBias<-0.1?'down':'neu';
     const noteEl=document.getElementById('mcNote');
-    if(noteEl)noteEl.innerHTML='Bootstrap MC <b>N=800</b> · 블록5 · fat-tail · 펀딩비 <b><span class="'+fc+'">'+fp+'%</span></b> · L/S <b>'+fmt(lev.longShortRatio,3)+'</b> · <b>1분</b> 자동갱신';
+    if(noteEl)noteEl.innerHTML='Bootstrap MC <b>N=800</b> · 블록5 · fat-tail · 펀딩비 <b><span class="'+fc+'">'+fp+'%</span></b> · L/S <b>'+fmt(lev.longShortRatio,3)+'</b> · 방향편향 <b><span class="'+biasCol+'">'+biasDir+'</span></b> · <b>수동갱신</b>';
     document.getElementById('updateTime').textContent=safeTime();
-    setStatus('✓ '+allCoins.length+'개 분석 | 센티먼트 '+fmt(sent,0)+'% | 레버 '+fmt(lev.levScore,0)+'pts | 1분 후 갱신','info');
+    setStatus('✓ '+allCoins.length+'개 분석 | 센티먼트 '+fmt(sent,0)+'% | 레버 '+fmt(lev.levScore,0)+'pts | ↺ 버튼으로 수동 갱신','info');
   }catch(e){
     console.error(e);
     setStatus('⚠ '+e.message,'error');
@@ -833,18 +874,7 @@ function triggerRefresh(){refreshAll();}
     });
   });
 
-  /* 1분 자동갱신 — RAF 기반 (setInterval 미사용) */
-  function scheduleRefresh(){
-    let last=null;
-    const INTERVAL=60000; /* 60초 */
-    function check(ts){
-      if(!last)last=ts;
-      if(ts-last>=INTERVAL){last=ts;refreshAll();}
-      requestAnimationFrame(check);
-    }
-    requestAnimationFrame(check);
-  }
-  scheduleRefresh();
+  /* 자동갱신 없음 — 수동 갱신만 사용 */
 })();
 </script>
 </body>
