@@ -261,43 +261,137 @@ header h1{font-family:'Orbitron',monospace;font-size:0.66rem;color:var(--accent)
 .whale-acc{background:rgba(0,255,136,0.08);color:#00ff88;border:1px solid rgba(0,255,136,0.22);}
 @keyframes whalePulse{0%,100%{box-shadow:0 0 0 0 rgba(255,0,200,0.28);}50%{box-shadow:0 0 0 4px rgba(255,0,200,0);}}
 
-/* ══════════════════
-   코인 상세 모달
-══════════════════ */
+/* ══════════════════════════════════════
+   코인 상세 모달 v14 — 5탭 강화판
+══════════════════════════════════════ */
 #coinModal{position:fixed;inset:0;z-index:500;display:none;align-items:flex-end;justify-content:center;}
 #coinModal.open{display:flex;}
-.modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);}
+.modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);}
 .modal-sheet{
   position:relative;z-index:1;background:var(--panel);
-  border:1px solid rgba(255,255,255,0.1);border-radius:18px 18px 0 0;
-  width:100%;max-width:620px;max-height:92vh;overflow-y:auto;padding:0 0 32px;
-  transform:translateY(100%);transition:transform 0.35s cubic-bezier(.32,1,.4,1);
+  border:1px solid rgba(0,229,255,0.15);border-radius:20px 20px 0 0;
+  width:100%;max-width:640px;max-height:94vh;
+  display:flex;flex-direction:column;
+  transform:translateY(100%);transition:transform 0.38s cubic-bezier(.32,1,.4,1);
 }
 #coinModal.open .modal-sheet{transform:translateY(0);}
-.modal-handle{width:36px;height:4px;background:rgba(255,255,255,0.12);border-radius:2px;margin:10px auto 0;}
-.modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 10px;}
-.modal-title{font-family:'Orbitron',monospace;font-size:0.95rem;font-weight:900;color:var(--accent);}
-.modal-close{background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:6px;}
-.modal-close:active{background:rgba(255,255,255,0.05);}
-.modal-body{padding:0 16px;}
+.modal-handle{width:36px;height:4px;background:rgba(255,255,255,0.14);border-radius:2px;margin:10px auto 0;flex-shrink:0;}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:12px 18px 8px;flex-shrink:0;}
+.modal-title{font-family:'Orbitron',monospace;font-size:0.9rem;font-weight:900;color:var(--accent);letter-spacing:1px;}
+.modal-subtitle{font-size:0.52rem;color:var(--muted);margin-top:2px;}
+.modal-close{background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:6px;transition:background 0.15s;}
+.modal-close:active{background:rgba(255,255,255,0.08);}
+
+/* ── 탭 네비게이션 ── */
+.modal-tabs{display:flex;gap:2px;padding:0 14px 0;flex-shrink:0;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;}
+.modal-tabs::-webkit-scrollbar{display:none;}
+.mtab{
+  background:none;border:none;border-bottom:2px solid transparent;
+  color:var(--muted);font-family:'Orbitron',monospace;font-size:0.48rem;letter-spacing:1px;
+  padding:8px 10px;cursor:pointer;white-space:nowrap;transition:all 0.2s;flex-shrink:0;
+}
+.mtab:hover{color:var(--text);}
+.mtab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+/* ── 탭 패널 ── */
+.modal-body{flex:1;overflow-y:auto;padding:14px 16px 32px;overscroll-behavior:contain;}
+.modal-body::-webkit-scrollbar{width:3px;}
+.modal-body::-webkit-scrollbar-track{background:transparent;}
+.modal-body::-webkit-scrollbar-thumb{background:rgba(0,229,255,0.2);border-radius:2px;}
+.tab-panel{display:none;animation:tabFadeIn 0.22s ease;}
+.tab-panel.active{display:block;}
+@keyframes tabFadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+/* ── 공통 섹션 ── */
 .ms{margin-bottom:14px;}
-.ms-title{font-family:'Orbitron',monospace;font-size:0.48rem;letter-spacing:2px;color:var(--muted);margin-bottom:7px;}
+.ms-title{font-family:'Orbitron',monospace;font-size:0.46rem;letter-spacing:2px;color:var(--muted);margin-bottom:7px;display:flex;align-items:center;gap:6px;}
+.ms-title::after{content:'';flex:1;height:1px;background:var(--border);}
 .ms-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
 .ms-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;}
-.ms-card{background:rgba(255,255,255,0.025);border:1px solid var(--border);border-radius:9px;padding:9px 11px;}
-.ms-lbl{font-size:0.48rem;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:0.5px;}
-.ms-val{font-family:'Orbitron',monospace;font-size:0.88rem;font-weight:700;}
-.ms-sub{font-size:0.48rem;color:var(--muted);margin-top:2px;}
+.ms-grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;}
+.ms-card{background:rgba(255,255,255,0.025);border:1px solid var(--border);border-radius:9px;padding:9px 11px;transition:border-color 0.2s;}
+.ms-card:hover{border-color:rgba(0,229,255,0.3);}
+.ms-lbl{font-size:0.46rem;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:0.5px;}
+.ms-val{font-family:'Orbitron',monospace;font-size:0.84rem;font-weight:700;}
+.ms-sub{font-size:0.46rem;color:var(--muted);margin-top:2px;}
+
+/* ── MC 예측 바 ── */
 .modal-pred-row{display:flex;flex-direction:column;gap:5px;}
 .modal-pred-item{display:grid;grid-template-columns:32px 1fr 48px 44px;align-items:center;gap:7px;font-size:0.57rem;}
 .modal-pred-tag{font-family:'Orbitron',monospace;font-size:0.48rem;color:var(--muted);text-align:right;}
 .modal-mini-bar{position:relative;height:12px;border-radius:6px;overflow:hidden;background:rgba(255,255,255,0.05);}
+
+/* ── 세력 섹션 ── */
 .whale-section{background:rgba(255,0,200,0.03);border:1px solid rgba(255,0,200,0.14);border-radius:10px;padding:11px 13px;margin-bottom:14px;}
 .whale-section-title{font-family:'Orbitron',monospace;font-size:0.48rem;letter-spacing:2px;color:#ff00cc;margin-bottom:8px;}
 .whale-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.6rem;}
 .whale-row:last-child{border-bottom:none;}
 .whale-key{color:var(--muted);}
 .whale-val{font-family:'Orbitron',monospace;font-size:0.6rem;font-weight:700;}
+
+/* ── WebGL 미니 게이지 ── */
+.webgl-gauge-wrap{position:relative;width:100%;height:140px;border-radius:12px;overflow:hidden;background:rgba(0,0,0,0.3);border:1px solid var(--border);}
+#webglGaugeCanvas{width:100%;height:100%;display:block;}
+.webgl-gauge-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:16px;pointer-events:none;}
+.webgl-gauge-val{font-family:'Orbitron',monospace;font-size:1.6rem;font-weight:900;text-shadow:0 0 20px currentColor;}
+.webgl-gauge-lbl{font-size:0.5rem;color:var(--muted);letter-spacing:2px;margin-top:2px;}
+
+/* ── Orderbook 히트맵 ── */
+.ob-heatmap-wrap{border-radius:10px;overflow:hidden;border:1px solid var(--border);}
+.ob-canvas{width:100%;height:160px;display:block;}
+.ob-legend{display:flex;justify-content:space-between;padding:4px 8px;font-size:0.48rem;color:var(--muted);}
+
+/* ── 백테스팅 ── */
+.bt-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;}
+.bt-card{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;}
+.bt-card-val{font-family:'Orbitron',monospace;font-size:0.8rem;font-weight:700;margin-bottom:2px;}
+.bt-card-lbl{font-size:0.44rem;color:var(--muted);text-transform:uppercase;}
+.bt-equity-wrap{height:80px;border-radius:8px;overflow:hidden;background:rgba(0,0,0,0.2);border:1px solid var(--border);margin-bottom:8px;}
+.bt-trades-table{width:100%;border-collapse:collapse;font-size:0.52rem;}
+.bt-trades-table th{color:var(--muted);font-size:0.44rem;text-transform:uppercase;padding:4px 6px;border-bottom:1px solid var(--border);text-align:right;}
+.bt-trades-table th:first-child{text-align:left;}
+.bt-trades-table td{padding:4px 6px;border-bottom:1px solid rgba(255,255,255,0.03);text-align:right;font-family:'Orbitron',monospace;}
+.bt-trades-table td:first-child{text-align:left;font-family:inherit;color:var(--text);}
+.bt-run-btn{width:100%;padding:8px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.2);border-radius:8px;color:var(--accent);font-family:'Orbitron',monospace;font-size:0.58rem;cursor:pointer;transition:all 0.2s;margin-bottom:10px;}
+.bt-run-btn:hover{background:rgba(0,229,255,0.16);}
+.bt-run-btn:disabled{opacity:0.4;cursor:not-allowed;}
+.bt-param-row{display:flex;gap:8px;margin-bottom:8px;align-items:center;}
+.bt-param-lbl{font-size:0.5rem;color:var(--muted);min-width:60px;}
+.bt-param-input{flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.6rem;padding:4px 8px;outline:none;}
+.bt-param-input:focus{border-color:var(--accent);}
+
+/* ── AI 이상감지 ── */
+.anomaly-score-ring{display:flex;flex-direction:column;align-items:center;margin-bottom:12px;}
+.anomaly-ring-svg{overflow:visible;}
+.anomaly-signals{display:flex;flex-direction:column;gap:5px;}
+.anomaly-signal-row{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:0.56rem;}
+.anomaly-signal-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.anomaly-signal-name{flex:1;color:var(--muted);}
+.anomaly-signal-val{font-family:'Orbitron',monospace;font-size:0.56rem;font-weight:700;}
+
+/* ── 포트폴리오 시뮬레이터 ── */
+.sim-result-chart{height:100px;border-radius:8px;overflow:hidden;background:rgba(0,0,0,0.2);border:1px solid var(--border);margin-bottom:10px;}
+.sim-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px;}
+.sim-run-btn{width:100%;padding:8px;background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.2);border-radius:8px;color:#00ff88;font-family:'Orbitron',monospace;font-size:0.58rem;cursor:pointer;transition:all 0.2s;margin-bottom:10px;}
+.sim-run-btn:hover{background:rgba(0,255,136,0.12);}
+.sim-input-row{display:flex;gap:8px;margin-bottom:8px;align-items:center;}
+.sim-lbl{font-size:0.5rem;color:var(--muted);min-width:72px;}
+.sim-input{flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.6rem;padding:4px 8px;outline:none;}
+.sim-input:focus{border-color:#00ff88;}
+
+/* ── 상관관계 매트릭스 ── */
+.corr-matrix-wrap{overflow-x:auto;}
+.corr-matrix{border-collapse:collapse;font-size:0.44rem;width:100%;}
+.corr-matrix th{padding:4px 6px;color:var(--muted);font-weight:600;text-align:center;font-size:0.42rem;}
+.corr-matrix td{padding:4px 5px;text-align:center;font-family:'Orbitron',monospace;font-size:0.5rem;font-weight:700;border-radius:3px;cursor:default;}
+.corr-loading{text-align:center;padding:24px;color:var(--muted);font-size:0.6rem;}
+
+/* ── 로딩 스피너 ── */
+.tab-spinner{display:flex;align-items:center;justify-content:center;padding:32px;gap:8px;color:var(--muted);font-size:0.6rem;}
+.spinner-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:spinBounce 1s ease-in-out infinite;}
+.spinner-dot:nth-child(2){animation-delay:0.16s;}
+.spinner-dot:nth-child(3){animation-delay:0.32s;}
+@keyframes spinBounce{0%,80%,100%{transform:scale(0.6);opacity:0.3;}40%{transform:scale(1);opacity:1;}}
 
 /* ── 정렬 버튼 ── */
 .sort-btn{
@@ -704,16 +798,34 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
 </div><!-- /wrap -->
 </div><!-- /app -->
 
-<!-- 코인 모달 -->
+<!-- 코인 상세 모달 v14 — 5탭 강화판 -->
 <div id="coinModal">
   <div class="modal-backdrop" onclick="closeModal()"></div>
   <div class="modal-sheet" id="modalSheet">
     <div class="modal-handle"></div>
     <div class="modal-header">
-      <div class="modal-title" id="modalTitle">--</div>
+      <div>
+        <div class="modal-title" id="modalTitle">--</div>
+        <div class="modal-subtitle" id="modalSubtitle"></div>
+      </div>
       <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
-    <div class="modal-body" id="modalBody"></div>
+    <!-- 탭 네비게이션 -->
+    <nav class="modal-tabs" id="modalTabs">
+      <button class="mtab active" data-tab="tech">📊 기술지표</button>
+      <button class="mtab" data-tab="whale">🐋 세력</button>
+      <button class="mtab" data-tab="heatmap">🔥 Heatmap</button>
+      <button class="mtab" data-tab="backtest">⚡ 백테스트</button>
+      <button class="mtab" data-tab="sim">💰 시뮬레이터</button>
+    </nav>
+    <!-- 탭 패널 컨테이너 -->
+    <div class="modal-body" id="modalBody">
+      <div class="tab-panel active" id="tab-tech"></div>
+      <div class="tab-panel" id="tab-whale"></div>
+      <div class="tab-panel" id="tab-heatmap"></div>
+      <div class="tab-panel" id="tab-backtest"></div>
+      <div class="tab-panel" id="tab-sim"></div>
+    </div>
   </div>
 </div>
 <script>
@@ -2403,90 +2515,188 @@ function calcSentiment(coins, fng, lev) {
 /* ══════════════════════════════════════════════════════════════
    코인 상세 모달
 ══════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════
+   v14 모달 엔진 — 5탭 강화판
+   탭: 기술지표 / 세력 / Heatmap(OB) / 백테스트 / 시뮬레이터
+   [v14-MODAL] DocumentFragment 렌더, Web Worker 연산, Canvas 시각화
+══════════════════════════════════════════════════════════════════ */
+
+/* ── 모달 상태 ── */
+let _modalSym = null;
+let _modalTab = 'tech';
+let _btWorker = null;       // 백테스트 Web Worker
+let _obWS = null;           // Orderbook WebSocket
+let _obRafId = null;        // OB 히트맵 rAF
+let _webglCtx = null;       // WebGL 컨텍스트
+let _simAbort = null;       // 시뮬레이터 AbortController
+
+/* ── 모달 열기 ── */
 function openCoinModal(sym) {
   const c = allCoins.find(x => x.sym === sym);
   if (!c) return;
+  _modalSym = sym;
+  _modalTab = 'tech';
+
   const mtEl = document.getElementById('modalTitle');
-  const mbEl = document.getElementById('modalBody');
+  const msEl = document.getElementById('modalSubtitle');
   if (mtEl) mtEl.textContent = esc(c.sym) + ' · ' + esc(c.name);
-  if (mbEl) mbEl.innerHTML = renderModalBody(c);
+  if (msEl) {
+    const priceStr = c.price >= 1 ? '$' + fmt(c.price, 2) : '$' + fmt(c.price, 6);
+    const chgStr = (c.c24 >= 0 ? '+' : '') + fmt(c.c24, 2) + '%';
+    msEl.innerHTML = `<span style="font-family:'Orbitron',monospace;font-size:0.7rem">${priceStr}</span> <span class="${c.c24 >= 0 ? 'up' : 'down'}" style="font-size:0.58rem">${chgStr}</span>`;
+  }
+
+  // 탭 리셋
+  document.querySelectorAll('.mtab').forEach(b => b.classList.toggle('active', b.dataset.tab === 'tech'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-tech'));
+
+  // 기술지표 탭 즉시 렌더 (DocumentFragment)
+  _renderTabTech(c);
+
   const modal = document.getElementById('coinModal');
   if (modal) modal.classList.add('open');
   document.body.style.overflow = 'hidden';
+
+  // 탭 이벤트 위임
+  const tabNav = document.getElementById('modalTabs');
+  if (tabNav && !tabNav._v14bound) {
+    tabNav._v14bound = true;
+    tabNav.addEventListener('click', e => {
+      const btn = e.target.closest('.mtab');
+      if (!btn) return;
+      const tab = btn.dataset.tab;
+      _switchModalTab(tab);
+    });
+  }
 }
 
 function closeModal() {
   const modal = document.getElementById('coinModal');
   if (modal) modal.classList.remove('open');
   document.body.style.overflow = '';
+  // 리소스 정리
+  if (_obWS) { try { _obWS.close(); } catch(e){} _obWS = null; }
+  if (_obRafId) { cancelAnimationFrame(_obRafId); _obRafId = null; }
+  if (_webglCtx) { _webglCtx = null; }
+  if (_simAbort) { _simAbort.abort(); _simAbort = null; }
+  _modalSym = null;
 }
 
-function renderModalBody(c) {
+/* ── 탭 전환 ── */
+function _switchModalTab(tab) {
+  if (_modalTab === tab) return;
+  _modalTab = tab;
+  const c = allCoins.find(x => x.sym === _modalSym);
+  if (!c) return;
+
+  document.querySelectorAll('.mtab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
+
+  // 이전 탭 리소스 해제
+  if (_obWS && tab !== 'heatmap') { try { _obWS.close(); } catch(e){} _obWS = null; }
+  if (_obRafId && tab !== 'heatmap') { cancelAnimationFrame(_obRafId); _obRafId = null; }
+
+  // 지연 렌더 (모달 바디 스크롤 상단)
+  const body = document.getElementById('modalBody');
+  if (body) body.scrollTop = 0;
+
+  switch (tab) {
+    case 'tech':     _renderTabTech(c); break;
+    case 'whale':    _renderTabWhale(c); break;
+    case 'heatmap':  _renderTabHeatmap(c); break;
+    case 'backtest': _renderTabBacktest(c); break;
+    case 'sim':      _renderTabSim(c); break;
+  }
+}
+
+/* ══════════════════════════════════════
+   탭1: 기술지표 (WebGL 미니 게이지 포함)
+══════════════════════════════════════ */
+function _renderTabTech(c) {
+  const el = document.getElementById('tab-tech');
+  if (!el) return;
+  const frag = document.createDocumentFragment();
+  const wrap = document.createElement('div');
+
   const priceStr = c.price >= 1 ? '$' + fmt(c.price, 2) : '$' + fmt(c.price, 6);
   const lsb = calcLSBias(c);
-  const wh = c.whale;
   const garchStr = c.garch ? `${fmt(c.garch.sigma * 100, 3)}%` : 'N/A';
+
+  // GARCH 예측 HTML
+  const garchForecastHtml = c.garch?.forecast?.length
+    ? `<div class="ms"><div class="ms-title">◈ GARCH(1,1) 변동성 예측</div><div style="display:flex;gap:4px;flex-wrap:wrap">${c.garch.forecast.map((s, i) => `<div style="text-align:center;padding:4px 8px;background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.12);border-radius:6px"><div style="font-size:0.44rem;color:var(--muted)">D+${i + 1}</div><div style="font-family:'Orbitron',monospace;font-size:0.7rem;color:${s > 0.035 ? '#ff4444' : s > 0.02 ? '#ffd700' : '#00ff88'};font-weight:700">${fmt(s * 100, 2)}%σ</div></div>`).join('')}</div></div>` : '';
+
   // Volume Profile HTML
   let vpHtml = '';
   if (c.volProfile) {
     const vp = c.volProfile;
-    vpHtml = `<div class="ms"><div class="ms-title">◈ VOLUME PROFILE</div>${vp.profile.slice(-5).reverse().map((b, i) => {
-      const isPOC = i === 0;
-      return `<div class="vol-profile-bar"><div class="vp-label">${fmt((b.lo + b.hi) / 2, c.price >= 1 ? 0 : 4)}</div><div class="vp-track"><div class="vp-fill" style="width:${b.pct}%;background:${b.pct > 60 ? '#00ff88' : b.pct > 30 ? '#ffd700' : '#ff4444'}"></div>${isPOC ? '<div class="vp-poc" style="left:' + b.pct + '%"></div>' : ''}</div></div>`;
-    }).join('')}<div style="font-size:0.52rem;color:var(--muted);margin-top:4px">POC ${c.price >= 1 ? '$' + fmt(vp.poc, 1) : '$' + fmt(vp.poc, 5)} · 현재가 대비 <span class="${vp.pocPct < 0 ? 'up' : 'down'}">${fmtPct(vp.pocPct)}</span></div></div>`;
+    vpHtml = `<div class="ms"><div class="ms-title">◈ VOLUME PROFILE</div>${vp.profile.slice(-5).reverse().map(b => `<div class="vol-profile-bar"><div class="vp-label">${fmt((b.lo + b.hi) / 2, c.price >= 1 ? 0 : 4)}</div><div class="vp-track"><div class="vp-fill" style="width:${b.pct}%;background:${b.pct > 60 ? '#00ff88' : b.pct > 30 ? '#ffd700' : '#ff4444'}"></div></div></div>`).join('')}<div style="font-size:0.52rem;color:var(--muted);margin-top:4px">POC ${c.price >= 1 ? '$' + fmt(vp.poc, 1) : '$' + fmt(vp.poc, 5)} · 대비 <span class="${vp.pocPct < 0 ? 'up' : 'down'}">${fmtPct(vp.pocPct)}</span></div></div>`;
   }
-  // GARCH 예측 바
-  const garchForecastHtml = c.garch?.forecast?.length
-    ? `<div class="ms"><div class="ms-title">◈ GARCH(1,1) 변동성 예측</div><div style="display:flex;gap:4px;flex-wrap:wrap">${c.garch.forecast.map((s, i) => `<div style="text-align:center;padding:4px 8px;background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.12);border-radius:6px"><div style="font-size:0.44rem;color:var(--muted)">D+${i + 1}</div><div style="font-family:'Orbitron',monospace;font-size:0.7rem;color:${s > 0.035 ? '#ff4444' : s > 0.02 ? '#ffd700' : '#00ff88'};font-weight:700">${fmt(s * 100, 2)}%σ</div></div>`).join('')}</div></div>` : '';
 
-  return `
-    <div class="ms-grid" style="margin-bottom:14px">
-      <div class="ms-card"><div class="ms-lbl">현재가</div><div class="ms-val">${priceStr}</div></div>
-      <div class="ms-card"><div class="ms-lbl">퀀트점수</div><div class="ms-val" style="color:${gradeColor(c.grade)}">${fmt(c.score, 0)} (${c.grade})</div></div>
-      <div class="ms-card"><div class="ms-lbl">RSI</div><div class="ms-val" style="color:${c.rsi > 70 ? '#ff4444' : c.rsi < 30 ? '#00ff88' : 'var(--text)'}">${fmt(c.rsi, 1)}</div></div>
-      <div class="ms-card"><div class="ms-lbl">MACD</div><div class="ms-val">${c.bull ? '<span class="up">▲ 골든크로스</span>' : '<span class="down">▼ 데드크로스</span>'}</div></div>
-      <div class="ms-card"><div class="ms-lbl">24H 변동</div><div class="ms-val"><span class="${c.c24 >= 0 ? 'up' : 'down'}">${fmtPct(c.c24)}</span></div></div>
-      <div class="ms-card"><div class="ms-lbl">7D 변동</div><div class="ms-val"><span class="${c.c7d >= 0 ? 'up' : 'down'}">${fmtPct(c.c7d)}</span></div></div>
-      <div class="ms-card"><div class="ms-lbl">OI Delta</div><div class="ms-val" style="color:${c.oiDelta != null ? (c.oiDelta > 0 ? 'var(--green)' : 'var(--red)') : 'var(--muted)'}">${c.oiDelta != null ? fmtPct(c.oiDelta) : '데이터없음'}</div></div>
-      <div class="ms-card"><div class="ms-lbl">GARCH σ</div><div class="ms-val" style="color:${c.garch?.sigma > 0.035 ? '#ff4444' : c.garch?.sigma > 0.02 ? '#ffd700' : '#00ff88'}">${garchStr}</div></div>
-    </div>
-    <div class="ms"><div class="ms-title">◈ 별점 조건 (${c.rating.stars} ${c.rating.points}조건)</div>
-      <div style="padding:8px 10px;background:rgba(255,215,0,0.04);border:1px solid rgba(255,215,0,0.15);border-radius:8px;font-size:0.6rem;color:var(--text)">${esc(c.rating.conditions)}</div>
-    </div>
-    <div class="ms"><div class="ms-title">◈ 레짐 + BB + MTF</div>
-      <div class="ms-grid-3">
-        <div class="ms-card"><div class="ms-lbl">추세 레짐</div><div class="ms-val" style="font-size:0.68rem">${esc(c.regime.regime)}</div><div class="ms-sub">강도 ${fmt(c.regime.strength, 0)}%</div></div>
-        <div class="ms-card"><div class="ms-lbl">BB 수축</div><div class="ms-val" style="color:${c.bbsqueeze.squeeze ? 'var(--green)' : 'var(--muted)'}">${c.bbsqueeze.squeeze ? '수축' : '정상'}</div><div class="ms-sub">강도 ${fmt(c.bbsqueeze.strength, 0)}%</div></div>
-        <div class="ms-card"><div class="ms-lbl">MTF 정렬</div><div class="ms-val" style="color:${c.mtf.bullCount >= 2 ? 'var(--green)' : 'var(--red)'}">${c.mtf.bullCount}↑/${c.mtf.bearCount}↓</div><div class="ms-sub">${c.mtf.signals?.join(' ') || '--'}</div></div>
+  // 상관관계 미니 매트릭스
+  const corrHtml = `<div class="ms"><div class="ms-title">◈ 상관관계 매트릭스 (Top 8 vs ${esc(c.sym)})</div><div id="corrMatrixWrap"><div class="corr-loading"><div class="tab-spinner"><div class="spinner-dot"></div><div class="spinner-dot"></div><div class="spinner-dot"></div></div></div></div></div>`;
+
+  wrap.innerHTML = `
+    <!-- WebGL 미니 퀀트 게이지 -->
+    <div class="ms">
+      <div class="ms-title">◈ QUANT SCORE GAUGE</div>
+      <div class="webgl-gauge-wrap">
+        <canvas id="webglGaugeCanvas"></canvas>
+        <div class="webgl-gauge-overlay">
+          <div class="webgl-gauge-val" id="webglGaugeVal" style="color:${gradeColor(c.grade)}">${fmt(c.score, 0)}</div>
+          <div class="webgl-gauge-lbl">${esc(c.grade)} GRADE · QUANT SCORE</div>
+        </div>
       </div>
     </div>
-    <div class="whale-section">
-      <div class="whale-section-title">◈ 세력 감지 신호 v3</div>
-      <div class="whale-row"><span class="whale-key">신호</span><span class="whale-val" style="color:${wh.color}">${wh.label}</span></div>
-      <div class="whale-row"><span class="whale-key">점수</span><span class="whale-val" style="color:${wh.color}">${fmt(wh.score, 0)}</span></div>
-      <div class="whale-row"><span class="whale-key">신뢰도</span><span class="whale-val">${wh.confidenceScore}%</span></div>
-      <div class="whale-row"><span class="whale-key">판단</span><span style="font-size:0.58rem;color:var(--muted)">${esc(wh.risk)}</span></div>
-      ${wh.detail.map(d => `<div class="whale-row"><span class="whale-key">•</span><span style="font-size:0.58rem;color:var(--text)">${esc(d)}</span></div>`).join('')}
-    </div>
+    <!-- 핵심 지표 그리드 -->
     <div class="ms">
-      <div class="ms-title">◈ L/S 바이어스</div>
-      <div style="padding:8px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px">
-        <div style="font-weight:700;color:${lsb.color};margin-bottom:4px">${lsb.label}</div>
+      <div class="ms-title">◈ 핵심 지표</div>
+      <div class="ms-grid">${[
+        ['현재가', priceStr, ''],
+        ['퀀트점수', `${fmt(c.score, 0)} (${c.grade})`, `color:${gradeColor(c.grade)}`],
+        ['RSI', fmt(c.rsi, 1), `color:${c.rsi > 70 ? '#ff4444' : c.rsi < 30 ? '#00ff88' : 'var(--text)'}`],
+        ['MACD', c.bull ? '골든크로스▲' : '데드크로스▼', `color:${c.bull ? 'var(--green)' : 'var(--red)'}`],
+        ['24H', (c.c24 >= 0 ? '+' : '') + fmt(c.c24, 2) + '%', `color:${c.c24 >= 0 ? 'var(--green)' : 'var(--red)'}`],
+        ['7D', (c.c7d >= 0 ? '+' : '') + fmt(c.c7d, 2) + '%', `color:${c.c7d >= 0 ? 'var(--green)' : 'var(--red)'}`],
+        ['OI Delta', c.oiDelta != null ? fmtPct(c.oiDelta) : 'N/A', `color:${c.oiDelta > 0 ? 'var(--green)' : 'var(--red)'}`],
+        ['GARCH σ', garchStr, `color:${c.garch?.sigma > 0.035 ? '#ff4444' : c.garch?.sigma > 0.02 ? '#ffd700' : '#00ff88'}`],
+      ].map(([l, v, s]) => `<div class="ms-card"><div class="ms-lbl">${l}</div><div class="ms-val" style="${s}">${v}</div></div>`).join('')}</div>
+    </div>
+    <!-- 레짐 + BB + MTF -->
+    <div class="ms">
+      <div class="ms-title">◈ 레짐 · BB Squeeze · MTF</div>
+      <div class="ms-grid-3">
+        <div class="ms-card"><div class="ms-lbl">추세 레짐</div><div class="ms-val" style="font-size:0.65rem">${esc(c.regime.regime)}</div><div class="ms-sub">강도 ${fmt(c.regime.strength, 0)}%</div></div>
+        <div class="ms-card"><div class="ms-lbl">BB Squeeze</div><div class="ms-val" style="color:${c.bbsqueeze.squeeze ? 'var(--green)' : 'var(--muted)'}">${c.bbsqueeze.squeeze ? '수축🔥' : '정상'}</div><div class="ms-sub">강도 ${fmt(c.bbsqueeze.strength, 0)}%</div></div>
+        <div class="ms-card"><div class="ms-lbl">MTF 정렬</div><div class="ms-val" style="color:${c.mtf.bullCount >= 2 ? 'var(--green)' : 'var(--red)'}">${c.mtf.bullCount}↑/${c.mtf.bearCount}↓</div><div class="ms-sub">${(c.mtf.signals || []).join(' ') || '--'}</div></div>
+      </div>
+    </div>
+    <!-- L/S 바이어스 -->
+    <div class="ms">
+      <div class="ms-title">◈ Long/Short 바이어스</div>
+      <div style="padding:10px 12px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px">
+        <div style="font-weight:700;color:${lsb.color};margin-bottom:4px;font-family:'Orbitron',monospace">${lsb.label}</div>
         <div style="font-size:0.58rem;color:var(--muted)">${esc(lsb.detail)}</div>
       </div>
     </div>
+    <!-- 별점 조건 -->
+    <div class="ms">
+      <div class="ms-title">◈ 별점 조건 (${c.rating.stars} · ${c.rating.points}조건)</div>
+      <div style="padding:8px 10px;background:rgba(255,215,0,0.04);border:1px solid rgba(255,215,0,0.15);border-radius:8px;font-size:0.6rem">${esc(c.rating.conditions)}</div>
+    </div>
     ${garchForecastHtml}
     ${vpHtml}
-    <div class="ms"><div class="ms-title">◈ 7일 MC 예측</div>
+    <!-- 7일 MC 예측 -->
+    <div class="ms"><div class="ms-title">◈ 7일 Monte-Carlo 예측 (GARCH 적응형 N)</div>
       <div class="modal-pred-row">${(c.mcPred || []).map((p, i) => {
         const mu = safeNum(p.muPct), lo = safeNum(p.loPct), hi = safeNum(p.hiPct);
         const sp = pctToSP(mu);
         const [dir, dc] = dirLabel(sp);
-        const rangeLo = pctToSP(lo), rangeHi = pctToSP(hi);
+        const rl = pctToSP(lo), rh = pctToSP(hi);
         return `<div class="modal-pred-item">
           <div class="modal-pred-tag">D+${i + 1}</div>
           <div class="modal-mini-bar">
-            <div class="pred-range" style="left:${Math.min(rangeLo, rangeHi)}%;width:${Math.abs(rangeHi - rangeLo)}%"></div>
+            <div class="pred-range" style="left:${Math.min(rl,rh)}%;width:${Math.abs(rh-rl)}%"></div>
             <div class="pred-mu" style="left:${sp}%;background:${dc}"></div>
           </div>
           <div style="color:${dc};font-weight:700">${dir}</div>
@@ -2494,8 +2704,992 @@ function renderModalBody(c) {
         </div>`;
       }).join('')}</div>
     </div>
-    <div style="padding:0 0 8px;display:flex;justify-content:center">${sparkline(c.sparkline)}</div>
+    <!-- 스파크라인 -->
+    <div style="padding:4px 0 8px;display:flex;justify-content:center">${sparkline(c.sparkline)}</div>
+    <!-- 상관관계 매트릭스 -->
+    ${corrHtml}
   `;
+
+  frag.appendChild(wrap);
+  el.innerHTML = '';
+  el.appendChild(frag);
+
+  // WebGL 게이지 초기화 (rAF로 지연)
+  requestAnimationFrame(() => _initWebGLGauge(c));
+  // 상관관계 비동기 계산
+  setTimeout(() => _renderCorrMatrix(c), 80);
+}
+
+/* ══════════════════════════════════════
+   WebGL 미니 게이지
+══════════════════════════════════════ */
+function _initWebGLGauge(c) {
+  const canvas = document.getElementById('webglGaugeCanvas');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.offsetWidth, h = canvas.offsetHeight;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+
+  // WebGL 미지원 시 Canvas2D fallback
+  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  if (!gl) { _drawGauge2D(canvas, c); return; }
+
+  // --- WebGL 아크 게이지 ---
+  const vsrc = `
+    attribute vec2 a_pos;
+    void main(){ gl_Position = vec4(a_pos, 0.0, 1.0); }
+  `;
+  const fsrc = `
+    precision mediump float;
+    uniform vec2 u_res;
+    uniform float u_score;
+    uniform vec3 u_color;
+    uniform float u_time;
+    const float PI = 3.14159265;
+    void main(){
+      vec2 uv = (gl_FragCoord.xy / u_res) * 2.0 - 1.0;
+      uv.x *= u_res.x / u_res.y;
+      float r = length(uv);
+      float angle = atan(uv.x, -uv.y); // -PI ~ PI, 0=top
+      float norm = (angle + PI) / (2.0 * PI);
+      // 아크 영역 (130° ~ 410° = 280° span)
+      float startA = -0.778; // -140deg in radians
+      float endA   =  0.778;
+      float aAngle = atan(uv.y, uv.x);
+      float span = PI * 1.556;
+      float arcAngle = atan(uv.y, uv.x) + PI;
+      // 원형 아크
+      float inner = 0.48, outer = 0.60;
+      bool inRing = r > inner && r < outer;
+      // 아크 커버리지 (0~280deg)
+      float arcStart = PI * 0.6;
+      float arcEnd   = PI * 2.4;
+      float theta = mod(atan(uv.y, uv.x) + PI * 2.0, PI * 2.0);
+      bool inArc = theta > arcStart && theta < arcEnd;
+      float fill = (theta - arcStart) / (arcEnd - arcStart);
+      float scoreNorm = u_score / 100.0;
+      if (inRing && inArc) {
+        float glow = exp(-abs(r - 0.54) * 30.0);
+        float onFill = step(fill, scoreNorm);
+        vec3 col = mix(vec3(0.12,0.12,0.16), u_color, onFill);
+        float pulse = onFill * (0.85 + 0.15 * sin(u_time * 2.0 + fill * 8.0));
+        gl_FragColor = vec4(col * pulse + col * glow * 0.3 * onFill, 1.0);
+      } else {
+        gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
+      }
+    }
+  `;
+
+  function compileShader(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, compileShader(gl.VERTEX_SHADER, vsrc));
+  gl.attachShader(prog, compileShader(gl.FRAGMENT_SHADER, fsrc));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    _drawGauge2D(canvas, c); return;
+  }
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+
+  const aPos = gl.getAttribLocation(prog, 'a_pos');
+  const uRes = gl.getUniformLocation(prog, 'u_res');
+  const uScore = gl.getUniformLocation(prog, 'u_score');
+  const uColor = gl.getUniformLocation(prog, 'u_color');
+  const uTime = gl.getUniformLocation(prog, 'u_time');
+
+  const gc = _hexToRgb(gradeColor(c.grade));
+  let start = null;
+
+  function draw(ts) {
+    if (!document.getElementById('webglGaugeCanvas')) return; // 모달 닫힘
+    if (!start) start = ts;
+    const t = (ts - start) / 1000;
+    const progress = Math.min(1, t / 1.2);
+    const displayScore = c.score * _easeOutCubic(progress);
+
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    gl.useProgram(prog);
+    gl.enableVertexAttribArray(aPos);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform2f(uRes, canvas.width, canvas.height);
+    gl.uniform1f(uScore, displayScore);
+    gl.uniform3f(uColor, gc.r, gc.g, gc.b);
+    gl.uniform1f(uTime, t);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    if (progress < 1 || document.getElementById('coinModal')?.classList.contains('open')) {
+      _webglCtx = requestAnimationFrame(draw);
+    }
+  }
+  _webglCtx = requestAnimationFrame(draw);
+}
+
+function _drawGauge2D(canvas, c) {
+  // Canvas2D fallback
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.width / dpr, H = canvas.height / dpr;
+  ctx.scale(dpr, dpr);
+  const cx = W / 2, cy = H * 0.62;
+  const R = Math.min(W, H) * 0.38;
+  const startAngle = Math.PI * 0.75, endAngle = Math.PI * 2.25;
+  ctx.clearRect(0, 0, W, H);
+  // 배경 아크
+  ctx.beginPath(); ctx.arc(cx, cy, R, startAngle, endAngle);
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 12; ctx.lineCap = 'round'; ctx.stroke();
+  // 점수 아크
+  const scoreAngle = startAngle + (endAngle - startAngle) * (c.score / 100);
+  const col = gradeColor(c.grade);
+  const grad = ctx.createLinearGradient(cx - R, cy, cx + R, cy);
+  grad.addColorStop(0, col + '88'); grad.addColorStop(1, col);
+  ctx.beginPath(); ctx.arc(cx, cy, R, startAngle, scoreAngle);
+  ctx.strokeStyle = grad; ctx.lineWidth = 12; ctx.lineCap = 'round'; ctx.stroke();
+  // 글로우
+  ctx.shadowColor = col; ctx.shadowBlur = 14;
+  ctx.beginPath(); ctx.arc(cx, cy, R, startAngle, scoreAngle);
+  ctx.strokeStyle = col + '44'; ctx.lineWidth = 20; ctx.stroke();
+  ctx.shadowBlur = 0;
+}
+
+function _hexToRgb(hex) {
+  const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return r ? { r: parseInt(r[1],16)/255, g: parseInt(r[2],16)/255, b: parseInt(r[3],16)/255 } : { r:0, g:0.9, b:1 };
+}
+function _easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+/* ══════════════════════════════════════
+   상관관계 미니 매트릭스
+══════════════════════════════════════ */
+function _renderCorrMatrix(c) {
+  const wrap = document.getElementById('corrMatrixWrap');
+  if (!wrap) return;
+
+  const peers = allCoins
+    .filter(x => x.sym !== c.sym && x.sparkline?.length >= 7)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 7);
+
+  if (!peers.length) { wrap.innerHTML = '<div style="font-size:0.54rem;color:var(--muted);padding:8px">데이터 부족</div>'; return; }
+
+  // 피어슨 상관계수 계산
+  function pearson(a, b) {
+    const n = Math.min(a.length, b.length);
+    if (n < 3) return 0;
+    const ax = a.slice(-n), bx = b.slice(-n);
+    const ma = ax.reduce((s,v) => s+v,0)/n, mb = bx.reduce((s,v) => s+v,0)/n;
+    let num=0, da=0, db=0;
+    for (let i=0;i<n;i++) { const ai=ax[i]-ma, bi=bx[i]-mb; num+=ai*bi; da+=ai*ai; db+=bi*bi; }
+    const denom = Math.sqrt(da*db);
+    return denom ? num/denom : 0;
+  }
+
+  const coins = [c, ...peers];
+  const frag = document.createDocumentFragment();
+  const tableWrap = document.createElement('div');
+  tableWrap.className = 'corr-matrix-wrap';
+
+  let html = '<table class="corr-matrix"><thead><tr><th></th>';
+  coins.forEach(x => { html += `<th>${esc(x.sym)}</th>`; });
+  html += '</tr></thead><tbody>';
+
+  coins.forEach(row => {
+    html += `<tr><th style="text-align:right;color:var(--text)">${esc(row.sym)}</th>`;
+    coins.forEach(col => {
+      if (row.sym === col.sym) {
+        html += `<td style="background:rgba(0,229,255,0.15);color:var(--accent)">1.00</td>`;
+      } else {
+        const r = pearson(row.sparkline, col.sparkline);
+        const ri = Math.round(r * 100);
+        const bg = r > 0.6 ? `rgba(0,255,136,${Math.abs(r)*0.3})` : r < -0.6 ? `rgba(255,51,85,${Math.abs(r)*0.3})` : `rgba(255,255,255,0.02)`;
+        const col2 = r > 0.6 ? '#00ff88' : r < -0.6 ? '#ff3355' : 'var(--muted)';
+        html += `<td style="background:${bg};color:${col2}">${r >= 0 ? '+' : ''}${fmt(r, 2)}</td>`;
+      }
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  tableWrap.innerHTML = html;
+  frag.appendChild(tableWrap);
+  wrap.innerHTML = '';
+  wrap.appendChild(frag);
+}
+
+/* ══════════════════════════════════════
+   탭2: 세력 감지
+══════════════════════════════════════ */
+function _renderTabWhale(c) {
+  const el = document.getElementById('tab-whale');
+  if (!el) return;
+  const wh = c.whale;
+  const frag = document.createDocumentFragment();
+  const wrap = document.createElement('div');
+
+  // AI 이상 감지 점수 (다변량 기반)
+  const anomaly = _calcAnomalyScore(c);
+
+  wrap.innerHTML = `
+    <!-- AI 이상 감지 -->
+    <div class="ms">
+      <div class="ms-title">◈ AI ANOMALY DETECTOR</div>
+      <div class="anomaly-score-ring">
+        ${_renderAnomalyRing(anomaly.score)}
+        <div style="font-family:'Orbitron',monospace;font-size:0.52rem;color:var(--muted);margin-top:6px">${esc(anomaly.label)}</div>
+      </div>
+      <div class="anomaly-signals">
+        ${anomaly.signals.map(s => `
+          <div class="anomaly-signal-row" style="background:rgba(${s.level > 0.6 ? '255,0,200' : s.level > 0.3 ? '255,215,0' : '100,116,139'},0.04)">
+            <div class="anomaly-signal-dot" style="background:${s.level > 0.6 ? '#ff00cc' : s.level > 0.3 ? '#ffd700' : '#64748b'}"></div>
+            <div class="anomaly-signal-name">${esc(s.name)}</div>
+            <div style="flex:1;height:4px;background:rgba(255,255,255,0.06);border-radius:2px;margin:0 8px">
+              <div style="height:100%;width:${Math.round(s.level*100)}%;background:${s.level > 0.6 ? '#ff00cc' : s.level > 0.3 ? '#ffd700' : '#64748b'};border-radius:2px;transition:width 0.6s"></div>
+            </div>
+            <div class="anomaly-signal-val" style="color:${s.level > 0.6 ? '#ff00cc' : s.level > 0.3 ? '#ffd700' : 'var(--muted)'}">${Math.round(s.level*100)}%</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    <!-- 세력 감지 v3 -->
+    <div class="whale-section">
+      <div class="whale-section-title">◈ 세력 감지 신호 v3</div>
+      <div class="whale-row"><span class="whale-key">신호</span><span class="whale-val" style="color:${wh.color}">${wh.label}</span></div>
+      <div class="whale-row"><span class="whale-key">종합 점수</span><span class="whale-val" style="color:${wh.color}">${fmt(wh.score, 0)} / 100</span></div>
+      <div class="whale-row"><span class="whale-key">신뢰도</span><span class="whale-val">${wh.confidenceScore}%</span></div>
+      <div class="whale-row"><span class="whale-key">판단</span><span style="font-size:0.58rem;color:var(--muted)">${esc(wh.risk)}</span></div>
+      ${wh.detail.map(d => `<div class="whale-row"><span class="whale-key" style="color:var(--accent)">•</span><span style="font-size:0.58rem;color:var(--text)">${esc(d)}</span></div>`).join('')}
+    </div>
+    <!-- 세력 메트릭 -->
+    <div class="ms">
+      <div class="ms-title">◈ 세력 메트릭 상세</div>
+      <div class="ms-grid">
+        <div class="ms-card"><div class="ms-lbl">펀딩률</div><div class="ms-val" style="color:${(c.funding||0)>0.01?'#ff4444':(c.funding||0)<-0.01?'#00ff88':'var(--muted)'}">${c.funding != null ? fmt(c.funding*100,4)+'%' : 'N/A'}</div></div>
+        <div class="ms-card"><div class="ms-lbl">OI 변화</div><div class="ms-val" style="color:${(c.oiDelta||0)>0?'var(--green)':'var(--red)'}">${c.oiDelta != null ? fmtPct(c.oiDelta) : 'N/A'}</div></div>
+        <div class="ms-card"><div class="ms-lbl">청산 압력</div><div class="ms-val" style="color:${wh.score > 60?'#ff00cc':'var(--muted)'}">${wh.score > 60 ? '🔴 고압' : wh.score > 30 ? '🟡 중압' : '🟢 저압'}</div></div>
+        <div class="ms-card"><div class="ms-lbl">CVD 추세</div><div class="ms-val" style="font-size:0.65rem">${cvdData.window.length > 0 ? (cvdData.window.slice(-3).reduce((a,b)=>a+b.delta,0) > 0 ? '▲매수우세' : '▼매도우세') : '데이터없음'}</div></div>
+      </div>
+    </div>
+    <!-- 청산 이벤트 로그 -->
+    <div class="ms">
+      <div class="ms-title">◈ 최근 청산 이벤트</div>
+      <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:8px;max-height:120px;overflow-y:auto;padding:6px">
+        ${_recentLiqsForSym(c.sym)}
+      </div>
+    </div>
+  `;
+
+  frag.appendChild(wrap);
+  el.innerHTML = '';
+  el.appendChild(frag);
+}
+
+/* AI 이상감지 점수 계산 */
+function _calcAnomalyScore(c) {
+  const signals = [];
+
+  // 1. RSI 이상
+  const rsiAnom = c.rsi > 80 ? 0.95 : c.rsi > 70 ? 0.7 : c.rsi < 20 ? 0.9 : c.rsi < 30 ? 0.65 : 0.1;
+  signals.push({ name: 'RSI 과매수/과매도', level: rsiAnom });
+
+  // 2. GARCH 변동성 급등
+  const garchAnom = c.garch ? Math.min(1, c.garch.sigma / 0.06) : 0.2;
+  signals.push({ name: 'GARCH 변동성 이상', level: garchAnom });
+
+  // 3. OI + 펀딩 괴리
+  const oiAnom = (c.oiDelta != null && c.funding != null) ? Math.min(1, Math.abs(c.oiDelta) / 0.1 + Math.abs(c.funding) / 0.02) : 0.1;
+  signals.push({ name: 'OI·펀딩률 괴리', level: Math.min(1, oiAnom) });
+
+  // 4. 가격 변동 vs Volume Profile 이탈
+  const vpAnom = c.volProfile ? Math.min(1, Math.abs(c.volProfile.pocPct) / 20) : 0.15;
+  signals.push({ name: 'Volume Profile 이탈', level: vpAnom });
+
+  // 5. 세력 점수
+  const whaleAnom = Math.min(1, (c.whale?.score || 0) / 100);
+  signals.push({ name: '세력 집중도', level: whaleAnom });
+
+  // 6. BB Squeeze + MTF 불일치
+  const mtfAnom = c.bbsqueeze?.squeeze && c.mtf ? Math.min(1, (c.mtf.bullCount + c.mtf.bearCount > 0 ? 0.5 : 0.1) + (c.bbsqueeze.strength || 0) / 200) : 0.05;
+  signals.push({ name: 'BB Squeeze + MTF 불일치', level: mtfAnom });
+
+  const total = signals.reduce((a, s) => a + s.level, 0) / signals.length;
+  const label = total > 0.7 ? '🔴 EXTREME ANOMALY' : total > 0.5 ? '🟡 MODERATE ANOMALY' : total > 0.3 ? '🔵 MILD SIGNAL' : '🟢 NORMAL';
+  return { score: Math.round(total * 100), label, signals };
+}
+
+function _renderAnomalyRing(score) {
+  const col = score > 70 ? '#ff00cc' : score > 50 ? '#ffd700' : score > 30 ? '#00e5ff' : '#00ff88';
+  const r = 44, cx = 60, cy = 60;
+  const circ = 2 * Math.PI * r;
+  const dash = (score / 100) * circ;
+  return `<svg class="anomaly-ring-svg" width="120" height="120" viewBox="0 0 120 120">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${col}" stroke-width="8" stroke-linecap="round"
+      stroke-dasharray="${dash} ${circ}" stroke-dashoffset="${circ * 0.25}"
+      style="filter:drop-shadow(0 0 6px ${col});transition:stroke-dasharray 0.8s ease"/>
+    <text x="${cx}" y="${cy + 5}" text-anchor="middle" font-family="Orbitron,monospace" font-size="18" font-weight="900" fill="${col}">${score}</text>
+    <text x="${cx}" y="${cy + 18}" text-anchor="middle" font-size="7" fill="rgba(255,255,255,0.4)">ANOMALY</text>
+  </svg>`;
+}
+
+function _recentLiqsForSym(sym) {
+  const base = sym.replace(/USDT$/i, '').toUpperCase();
+  const src = typeof liqHistory !== 'undefined' ? liqHistory : [];
+  const items = src.filter(l => l.sym && l.sym.toUpperCase().includes(base)).slice(-8).reverse();
+  if (!items.length) return '<div style="font-size:0.54rem;color:var(--muted);padding:4px">청산 이벤트 없음 (5분 윈도우)</div>';
+  return items.map(l => {
+    const side = l.side === 'BUY' ? '<span class="up">롱청산↑</span>' : '<span class="down">숏청산↓</span>';
+    const usd = l.usdSize >= 1e6 ? fmt(l.usdSize/1e6,2)+'M' : l.usdSize >= 1e3 ? fmt(l.usdSize/1e3,1)+'K' : fmt(l.usdSize,0);
+    const age = Date.now() - l.ts;
+    const ageStr = age < 60000 ? Math.round(age/1000)+'s ago' : Math.round(age/60000)+'m ago';
+    return `<div style="display:flex;justify-content:space-between;font-size:0.52rem;padding:3px 2px;border-bottom:1px solid rgba(255,255,255,0.03)">
+      <span>${side}</span>
+      <span style="color:var(--accent);font-family:'Orbitron',monospace">$${usd}</span>
+      <span style="color:var(--muted)">${ageStr}</span>
+    </div>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════════
+   탭3: Orderbook 히트맵
+══════════════════════════════════════ */
+function _renderTabHeatmap(c) {
+  const el = document.getElementById('tab-heatmap');
+  if (!el) return;
+
+  el.innerHTML = `
+    <div class="ms"><div class="ms-title">◈ ORDERBOOK HEATMAP (실시간)</div>
+      <div style="font-size:0.52rem;color:var(--muted);margin-bottom:8px">Binance Depth WebSocket · 매도(빨강) / 매수(초록) 누적 호가</div>
+      <div class="ob-heatmap-wrap">
+        <canvas id="obCanvas" class="ob-canvas"></canvas>
+      </div>
+      <div class="ob-legend">
+        <span>매도 압력 ■</span>
+        <span id="obMidPrice">가격 로딩 중...</span>
+        <span>■ 매수 압력</span>
+      </div>
+    </div>
+    <div class="ms"><div class="ms-title">◈ 호가 요약</div>
+      <div id="obSummary" class="ms-grid">
+        <div class="ms-card"><div class="ms-lbl">최우선 매수</div><div class="ms-val" id="obBestBid">--</div></div>
+        <div class="ms-card"><div class="ms-lbl">최우선 매도</div><div class="ms-val" id="obBestAsk">--</div></div>
+        <div class="ms-card"><div class="ms-lbl">스프레드</div><div class="ms-val" id="obSpread">--</div></div>
+        <div class="ms-card"><div class="ms-lbl">매수/매도 비율</div><div class="ms-val" id="obRatio">--</div></div>
+      </div>
+    </div>
+    <div class="ms"><div class="ms-title">◈ 누적 호가 차트</div>
+      <canvas id="obDepthCanvas" style="width:100%;height:100px;border-radius:8px;border:1px solid var(--border)"></canvas>
+    </div>
+  `;
+
+  // Orderbook WebSocket 연결
+  requestAnimationFrame(() => _connectOBWebSocket(c));
+}
+
+/* Orderbook 상태 */
+const _obState = { bids: new Map(), asks: new Map(), symbol: null };
+
+function _connectOBWebSocket(c) {
+  if (_obWS) { try { _obWS.close(); } catch(e){} }
+  _obState.bids.clear(); _obState.asks.clear();
+  _obState.symbol = c.sym;
+
+  const sym = (c.sym + 'USDT').toLowerCase().replace('usdtusdt', 'usdt');
+  const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@depth20@100ms`);
+  _obWS = ws;
+
+  ws.onmessage = e => {
+    try {
+      const d = JSON.parse(e.data);
+      if (_obState.symbol !== c.sym) return;
+      // 스냅샷 형태 (depth20)
+      const bids = d.bids || [];
+      const asks = d.asks || [];
+      _obState.bids.clear(); _obState.asks.clear();
+      bids.forEach(([p, q]) => { const pf = parseFloat(p); if (parseFloat(q) > 0) _obState.bids.set(pf, parseFloat(q)); });
+      asks.forEach(([p, q]) => { const pf = parseFloat(p); if (parseFloat(q) > 0) _obState.asks.set(pf, parseFloat(q)); });
+      // 호가 요약 업데이트
+      _updateOBSummary(c);
+    } catch(err) {}
+  };
+
+  ws.onerror = () => {
+    const canvas = document.getElementById('obCanvas');
+    if (canvas) { const ctx = canvas.getContext('2d'); if (ctx) { canvas.width=canvas.offsetWidth; canvas.height=160; ctx.fillStyle='rgba(255,255,255,0.1)'; ctx.font='11px monospace'; ctx.fillText('WebSocket 연결 실패 — Binance API 확인', 20, 80); } }
+  };
+
+  // 주기적 히트맵 렌더
+  function renderLoop() {
+    if (!document.getElementById('obCanvas') || _obState.symbol !== c.sym) return;
+    _drawOBHeatmap();
+    _obRafId = requestAnimationFrame(renderLoop);
+  }
+  // 50ms 디바운스
+  setTimeout(renderLoop, 200);
+}
+
+function _updateOBSummary(c) {
+  const bidArr = [..._obState.bids.entries()].sort((a,b)=>b[0]-a[0]);
+  const askArr = [..._obState.asks.entries()].sort((a,b)=>a[0]-b[0]);
+  const bestBid = bidArr[0]?.[0], bestAsk = askArr[0]?.[0];
+  const midPrice = bestBid && bestAsk ? (bestBid + bestAsk) / 2 : c.price;
+  const spread = bestBid && bestAsk ? ((bestAsk - bestBid) / midPrice * 100) : 0;
+  const totalBid = bidArr.reduce((s,[,q])=>s+q,0);
+  const totalAsk = askArr.reduce((s,[,q])=>s+q,0);
+  const ratio = totalAsk > 0 ? totalBid / totalAsk : 1;
+
+  const fmt2 = (v, d) => v != null ? fmt(v, d) : '--';
+  const upd = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  upd('obMidPrice', midPrice ? '$' + fmt2(midPrice, midPrice >= 1 ? 2 : 5) : '--');
+  upd('obBestBid', bestBid ? '$' + fmt2(bestBid, bestBid >= 1 ? 2 : 5) : '--');
+  upd('obBestAsk', bestAsk ? '$' + fmt2(bestAsk, bestAsk >= 1 ? 2 : 5) : '--');
+  upd('obSpread', spread ? fmt2(spread, 4) + '%' : '--');
+  const ratioEl = document.getElementById('obRatio');
+  if (ratioEl) { ratioEl.textContent = fmt2(ratio, 2); ratioEl.style.color = ratio > 1.2 ? '#00ff88' : ratio < 0.8 ? '#ff4444' : 'var(--text)'; }
+
+  // 뎁스 차트
+  _drawDepthChart(bidArr, askArr, midPrice);
+}
+
+function _drawOBHeatmap() {
+  const canvas = document.getElementById('obCanvas');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  if (!canvas._init) {
+    canvas.width = canvas.offsetWidth * dpr;
+    canvas.height = 160 * dpr;
+    canvas._init = true;
+  }
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const bidArr = [..._obState.bids.entries()].sort((a,b)=>b[0]-a[0]).slice(0,20);
+  const askArr = [..._obState.asks.entries()].sort((a,b)=>a[0]-b[0]).slice(0,20);
+  if (!bidArr.length && !askArr.length) return;
+
+  const allQty = [...bidArr, ...askArr].map(([,q])=>q);
+  const maxQ = Math.max(...allQty, 0.001);
+  const half = W / 2;
+  const rowH = H / 20;
+
+  // 매수 (좌측, 초록)
+  bidArr.forEach(([p, q], i) => {
+    const barW = (q / maxQ) * half * 0.9;
+    const intensity = q / maxQ;
+    ctx.fillStyle = `rgba(0,${Math.round(155 + 100*intensity)},${Math.round(100*intensity)},${0.15 + 0.5*intensity})`;
+    ctx.fillRect(half - barW, i * rowH, barW, rowH - 1);
+    ctx.fillStyle = `rgba(0,255,136,${0.5+0.5*intensity})`;
+    ctx.font = `${10*dpr}px monospace`;
+    ctx.fillText(p >= 1 ? fmt(p,1) : fmt(p,5), half - barW + 3*dpr, (i + 0.7) * rowH);
+  });
+
+  // 매도 (우측, 빨강)
+  askArr.forEach(([p, q], i) => {
+    const barW = (q / maxQ) * half * 0.9;
+    const intensity = q / maxQ;
+    ctx.fillStyle = `rgba(${Math.round(155+100*intensity)},${Math.round(30*intensity)},${Math.round(30*intensity)},${0.15 + 0.5*intensity})`;
+    ctx.fillRect(half, i * rowH, barW, rowH - 1);
+    ctx.fillStyle = `rgba(255,${Math.round(100*intensity)},${Math.round(51*intensity)},${0.5+0.5*intensity})`;
+    ctx.font = `${10*dpr}px monospace`;
+    ctx.fillText(p >= 1 ? fmt(p,1) : fmt(p,5), half + 3*dpr, (i + 0.7) * rowH);
+  });
+
+  // 중앙 구분선
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.fillRect(half - 1, 0, 2, H);
+}
+
+function _drawDepthChart(bidArr, askArr, mid) {
+  const canvas = document.getElementById('obDepthCanvas');
+  if (!canvas || !bidArr.length || !askArr.length) return;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = 100 * dpr;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // 누적 뎁스
+  const bCum = [], aCum = [];
+  let bs = 0, as = 0;
+  bidArr.slice(0,15).reverse().forEach(([p,q]) => { bs+=q; bCum.push([p,bs]); });
+  askArr.slice(0,15).forEach(([p,q]) => { as+=q; aCum.push([p,as]); });
+
+  const allPrices = [...bCum.map(x=>x[0]), ...aCum.map(x=>x[0])];
+  const allQties = [...bCum.map(x=>x[1]), ...aCum.map(x=>x[1])];
+  const minP = Math.min(...allPrices), maxP = Math.max(...allPrices);
+  const maxQ2 = Math.max(...allQties, 0.001);
+  const pxX = p => ((p - minP) / (maxP - minP + 0.001)) * W;
+  const pxY = q => H - (q / maxQ2) * H * 0.85 - H * 0.05;
+
+  // 매수 곡선
+  ctx.beginPath();
+  bCum.forEach(([p,q],i) => { i===0?ctx.moveTo(pxX(p),pxY(q)):ctx.lineTo(pxX(p),pxY(q)); });
+  ctx.lineTo(pxX(bCum[bCum.length-1]?.[0]||minP), H);
+  ctx.lineTo(pxX(minP), H);
+  ctx.closePath();
+  const bg = ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'rgba(0,255,136,0.35)'); bg.addColorStop(1,'rgba(0,255,136,0.02)');
+  ctx.fillStyle = bg; ctx.fill();
+  ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 1.5*dpr; ctx.stroke();
+
+  // 매도 곡선
+  ctx.beginPath();
+  aCum.forEach(([p,q],i) => { i===0?ctx.moveTo(pxX(p),pxY(q)):ctx.lineTo(pxX(p),pxY(q)); });
+  ctx.lineTo(pxX(aCum[aCum.length-1]?.[0]||maxP), H);
+  ctx.lineTo(pxX(aCum[0]?.[0]||mid), H);
+  ctx.closePath();
+  const ra = ctx.createLinearGradient(0,0,0,H);
+  ra.addColorStop(0,'rgba(255,51,85,0.35)'); ra.addColorStop(1,'rgba(255,51,85,0.02)');
+  ctx.fillStyle = ra; ctx.fill();
+  ctx.strokeStyle = '#ff3355'; ctx.lineWidth = 1.5*dpr; ctx.stroke();
+}
+
+/* ══════════════════════════════════════
+   탭4: Per-Coin 백테스팅 (Web Worker)
+══════════════════════════════════════ */
+function _renderTabBacktest(c) {
+  const el = document.getElementById('tab-backtest');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="ms"><div class="ms-title">◈ PER-COIN 백테스팅 엔진</div>
+      <div style="font-size:0.52rem;color:var(--muted);margin-bottom:10px">RSI+MACD+BB 조합 전략 · 7일 스파크라인 기반</div>
+      <!-- 파라미터 -->
+      <div class="bt-param-row">
+        <span class="bt-param-lbl">초기자금 $</span>
+        <input class="bt-param-input" id="btCapital" type="number" value="10000" min="100" max="1000000" step="100">
+      </div>
+      <div class="bt-param-row">
+        <span class="bt-param-lbl">레버리지</span>
+        <input class="bt-param-input" id="btLeverage" type="number" value="1" min="1" max="20" step="1">
+      </div>
+      <div class="bt-param-row">
+        <span class="bt-param-lbl">RSI 매수</span>
+        <input class="bt-param-input" id="btRsiBuy" type="number" value="35" min="10" max="50" step="1">
+      </div>
+      <div class="bt-param-row">
+        <span class="bt-param-lbl">RSI 매도</span>
+        <input class="bt-param-input" id="btRsiSell" type="number" value="65" min="50" max="90" step="1">
+      </div>
+      <button class="bt-run-btn" id="btRunBtn" onclick="_runBacktest('${esc(c.sym)}')">⚡ 백테스트 실행</button>
+      <!-- 결과 -->
+      <div id="btResults" style="display:none">
+        <div class="bt-summary" id="btSummary"></div>
+        <div class="ms-title" style="margin-top:10px">◈ 에쿼티 커브</div>
+        <div class="bt-equity-wrap"><canvas id="btEquityCanvas"></canvas></div>
+        <div class="ms-title" style="margin-top:10px">◈ 거래 로그</div>
+        <table class="bt-trades-table">
+          <thead><tr><th>날짜</th><th>방향</th><th>진입가</th><th>청산가</th><th>수익률</th></tr></thead>
+          <tbody id="btTradesBody"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function _runBacktest(sym) {
+  const c = allCoins.find(x => x.sym === sym);
+  if (!c || !c.sparkline?.length) return;
+
+  const btn = document.getElementById('btRunBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '계산 중...'; }
+
+  const capital = parseFloat(document.getElementById('btCapital')?.value || '10000');
+  const leverage = parseFloat(document.getElementById('btLeverage')?.value || '1');
+  const rsiBuy = parseFloat(document.getElementById('btRsiBuy')?.value || '35');
+  const rsiSell = parseFloat(document.getElementById('btRsiSell')?.value || '65');
+
+  // Web Worker Blob URL 패턴 (외부 파일 불필요)
+  const workerCode = `
+    self.onmessage = function(e) {
+      const { prices, capital, leverage, rsiBuy, rsiSell } = e.data;
+      // RSI 계산
+      function calcRSI(data, period) {
+        if (data.length < period + 1) return new Array(data.length).fill(50);
+        let gains = 0, losses = 0;
+        for (let i = 1; i <= period; i++) {
+          const d = data[i] - data[i-1];
+          if (d > 0) gains += d; else losses -= d;
+        }
+        let ag = gains/period, al = losses/period;
+        const rsi = [50];
+        for (let i = period + 1; i < data.length; i++) {
+          const d = data[i] - data[i-1];
+          ag = (ag*(period-1) + (d>0?d:0))/period;
+          al = (al*(period-1) + (d<0?-d:0))/period;
+          rsi.push(al===0 ? 100 : 100 - 100/(1 + ag/al));
+        }
+        return new Array(period).fill(50).concat(rsi);
+      }
+      // SMA
+      function sma(data, n) {
+        return data.map((_, i) => {
+          if (i < n-1) return null;
+          return data.slice(i-n+1, i+1).reduce((a,b)=>a+b,0)/n;
+        });
+      }
+      // 백테스트 실행
+      const n = prices.length;
+      const rsi = calcRSI(prices, Math.min(6, n-1));
+      const ma5 = sma(prices, Math.min(5, n-1));
+      const ma3 = sma(prices, Math.min(3, n-1));
+      let equity = capital, position = null;
+      const trades = [], equityCurve = [capital];
+      for (let i = 1; i < n; i++) {
+        const r = rsi[i], p = prices[i], pp = prices[i-1];
+        const bull = ma3[i] && ma5[i] && ma3[i] > ma5[i];
+        const bear = ma3[i] && ma5[i] && ma3[i] < ma5[i];
+        if (!position && r < rsiBuy && bull) {
+          position = { dir:'LONG', entry:p, size:equity*leverage/p, entryIdx:i };
+        } else if (!position && r > rsiSell && bear) {
+          position = { dir:'SHORT', entry:p, size:equity*leverage/p, entryIdx:i };
+        } else if (position) {
+          const exitCond = (position.dir==='LONG' && (r > rsiSell || bear)) ||
+                           (position.dir==='SHORT' && (r < rsiBuy || bull));
+          if (exitCond || i === n-1) {
+            const pnlPct = position.dir==='LONG' ? (p-position.entry)/position.entry : (position.entry-p)/position.entry;
+            const pnl = equity * leverage * pnlPct;
+            equity += pnl;
+            trades.push({ idx:i, dir:position.dir, entry:position.entry, exit:p, pnlPct:pnlPct*100, pnl });
+            position = null;
+          }
+        }
+        equityCurve.push(equity);
+      }
+      // 통계
+      const wins = trades.filter(t=>t.pnl>0).length;
+      const totalReturn = (equity-capital)/capital*100;
+      const maxDD = equityCurve.reduce((dd,v,i,arr)=>{
+        const peak = Math.max(...arr.slice(0,i+1));
+        return Math.max(dd, (peak-v)/peak*100);
+      }, 0);
+      const sharpe = trades.length > 1 ?
+        (() => { const rets = trades.map(t=>t.pnlPct); const mr = rets.reduce((a,b)=>a+b,0)/rets.length; const sd = Math.sqrt(rets.reduce((a,b)=>a+(b-mr)**2,0)/rets.length); return sd ? mr/sd*Math.sqrt(365) : 0; })() : 0;
+      self.postMessage({ equity, totalReturn, maxDD, trades, equityCurve, wins, sharpe });
+    };
+  `;
+
+  const blob = new Blob([workerCode], { type: 'application/javascript' });
+  const url = URL.createObjectURL(blob);
+  if (_btWorker) { _btWorker.terminate(); }
+  _btWorker = new Worker(url);
+
+  _btWorker.onmessage = e => {
+    URL.revokeObjectURL(url);
+    const r = e.data;
+    _displayBtResults(r, capital, c);
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ 백테스트 재실행'; }
+  };
+  _btWorker.onerror = () => {
+    URL.revokeObjectURL(url);
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ 재시도'; }
+  };
+
+  _btWorker.postMessage({ prices: c.sparkline, capital, leverage, rsiBuy, rsiSell });
+}
+
+function _displayBtResults(r, capital, c) {
+  const resEl = document.getElementById('btResults');
+  if (resEl) resEl.style.display = 'block';
+
+  // 요약 카드
+  const sumEl = document.getElementById('btSummary');
+  if (sumEl) {
+    const winRate = r.trades.length ? Math.round(r.wins / r.trades.length * 100) : 0;
+    sumEl.innerHTML = [
+      ['수익률', (r.totalReturn >= 0 ? '+' : '') + fmt(r.totalReturn, 2) + '%', r.totalReturn >= 0 ? '#00ff88' : '#ff4444'],
+      ['최종자산', '$' + fmt(r.equity, 0), r.equity >= capital ? '#00ff88' : '#ff4444'],
+      ['승률', winRate + '%', winRate > 55 ? '#00ff88' : winRate > 40 ? '#ffd700' : '#ff4444'],
+      ['최대낙폭', '-' + fmt(r.maxDD, 1) + '%', r.maxDD < 10 ? '#00ff88' : r.maxDD < 20 ? '#ffd700' : '#ff4444'],
+      ['거래횟수', r.trades.length + '회', 'var(--text)'],
+      ['샤프비율', fmt(r.sharpe, 2), r.sharpe > 1 ? '#00ff88' : r.sharpe > 0 ? '#ffd700' : '#ff4444'],
+      ['손익비', r.trades.filter(t=>t.pnl>0).length ? fmt(r.trades.filter(t=>t.pnl>0).reduce((s,t)=>s+t.pnlPct,0)/r.trades.filter(t=>t.pnl>0).length / Math.max(0.01, r.trades.filter(t=>t.pnl<=0).reduce((s,t)=>s+Math.abs(t.pnlPct),0)/Math.max(1,r.trades.filter(t=>t.pnl<=0).length)), 2) : '--', 'var(--muted)'],
+      ['레버리지', (parseFloat(document.getElementById('btLeverage')?.value || '1')) + 'x', 'var(--muted)'],
+    ].map(([l, v, col]) => `<div class="bt-card"><div class="bt-card-val" style="color:${col}">${v}</div><div class="bt-card-lbl">${l}</div></div>`).join('');
+  }
+
+  // 에쿼티 커브 Canvas
+  requestAnimationFrame(() => {
+    const cv = document.getElementById('btEquityCanvas');
+    if (!cv || !r.equityCurve.length) return;
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = cv.offsetWidth * dpr; cv.height = 80 * dpr;
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+    const minE = Math.min(...r.equityCurve), maxE = Math.max(...r.equityCurve);
+    const rng = maxE - minE || 1;
+    const px = (i) => (i / (r.equityCurve.length - 1)) * W;
+    const py = (v) => H - ((v - minE) / rng) * H * 0.85 - H * 0.08;
+    // 기준선
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, py(capital)); ctx.lineTo(W, py(capital)); ctx.stroke();
+    // 에쿼티 커브
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    const finalUp = r.equity >= capital;
+    grad.addColorStop(0, finalUp ? 'rgba(0,255,136,0.4)' : 'rgba(255,51,85,0.4)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.beginPath();
+    r.equityCurve.forEach((v, i) => { i===0?ctx.moveTo(px(i),py(v)):ctx.lineTo(px(i),py(v)); });
+    ctx.lineTo(px(r.equityCurve.length-1), H); ctx.lineTo(0, H); ctx.closePath();
+    ctx.fillStyle = grad; ctx.fill();
+    ctx.beginPath();
+    r.equityCurve.forEach((v, i) => { i===0?ctx.moveTo(px(i),py(v)):ctx.lineTo(px(i),py(v)); });
+    ctx.strokeStyle = finalUp ? '#00ff88' : '#ff4444'; ctx.lineWidth = 1.5*dpr; ctx.stroke();
+  });
+
+  // 거래 로그
+  const tbody = document.getElementById('btTradesBody');
+  if (tbody) {
+    const prec = c.price >= 1 ? 2 : 5;
+    tbody.innerHTML = r.trades.slice(-10).reverse().map((t, i) => `
+      <tr>
+        <td style="color:var(--muted)">T-${r.trades.length - i}</td>
+        <td style="color:${t.dir==='LONG'?'#00ff88':'#ff4444'};text-align:left">${t.dir==='LONG'?'▲롱':'▼숏'}</td>
+        <td>$${fmt(t.entry, prec)}</td>
+        <td>$${fmt(t.exit, prec)}</td>
+        <td style="color:${t.pnlPct>=0?'#00ff88':'#ff4444'}">${t.pnlPct>=0?'+':''}${fmt(t.pnlPct,2)}%</td>
+      </tr>
+    `).join('');
+  }
+}
+
+/* ══════════════════════════════════════
+   탭5: 포트폴리오 시뮬레이터
+══════════════════════════════════════ */
+function _renderTabSim(c) {
+  const el = document.getElementById('tab-sim');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="ms"><div class="ms-title">◈ 포트폴리오 시뮬레이터</div>
+      <div style="font-size:0.52rem;color:var(--muted);margin-bottom:10px">MC 기반 포트폴리오 성과 시뮬레이션 · GARCH 변동성 적용</div>
+      <!-- 입력 -->
+      <div class="sim-input-row">
+        <span class="sim-lbl">투자금 $</span>
+        <input class="sim-input" id="simCapital" type="number" value="10000" min="100" step="100">
+      </div>
+      <div class="sim-input-row">
+        <span class="sim-lbl">${esc(c.sym)} 비중 %</span>
+        <input class="sim-input" id="simCoinWeight" type="number" value="30" min="1" max="100" step="1">
+      </div>
+      <div class="sim-input-row">
+        <span class="sim-lbl">BTC 비중 %</span>
+        <input class="sim-input" id="simBtcWeight" type="number" value="40" min="0" max="100" step="1">
+      </div>
+      <div class="sim-input-row">
+        <span class="sim-lbl">ETH 비중 %</span>
+        <input class="sim-input" id="simEthWeight" type="number" value="30" min="0" max="100" step="1">
+      </div>
+      <div class="sim-input-row">
+        <span class="sim-lbl">시뮬기간 (일)</span>
+        <input class="sim-input" id="simDays" type="number" value="30" min="7" max="365" step="1">
+      </div>
+      <div class="sim-input-row">
+        <span class="sim-lbl">MC 경로 수</span>
+        <input class="sim-input" id="simPaths" type="number" value="500" min="100" max="2000" step="100">
+      </div>
+      <button class="sim-run-btn" id="simRunBtn" onclick="_runPortfolioSim('${esc(c.sym)}')">💰 시뮬레이션 실행</button>
+      <!-- 결과 -->
+      <div id="simResults" style="display:none">
+        <div class="ms-title">◈ MC 결과 분포</div>
+        <div class="sim-result-chart"><canvas id="simCanvas"></canvas></div>
+        <div class="sim-stats" id="simStats"></div>
+        <div class="ms-title" style="margin-top:4px">◈ 포지션 상세</div>
+        <div id="simPositions" class="ms-grid"></div>
+        <div style="font-size:0.5rem;color:var(--muted);margin-top:8px;padding:6px;background:rgba(255,255,255,0.02);border-radius:6px">
+          ⚠ 투자 조언 아님. 교육 목적 시뮬레이션. 과거 데이터 기반 미래 보장 불가.
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function _runPortfolioSim(sym) {
+  const c = allCoins.find(x => x.sym === sym);
+  const btc = allCoins.find(x => x.sym === 'BTC');
+  const eth = allCoins.find(x => x.sym === 'ETH');
+  if (!c) return;
+
+  const btn = document.getElementById('simRunBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '시뮬 중...'; }
+
+  const capital = parseFloat(document.getElementById('simCapital')?.value || '10000');
+  const wCoin = parseFloat(document.getElementById('simCoinWeight')?.value || '30') / 100;
+  const wBtc = parseFloat(document.getElementById('simBtcWeight')?.value || '40') / 100;
+  const wEth = parseFloat(document.getElementById('simEthWeight')?.value || '30') / 100;
+  const days = parseInt(document.getElementById('simDays')?.value || '30');
+  const paths = parseInt(document.getElementById('simPaths')?.value || '500');
+
+  // 비동기 MC (setTimeout으로 메인스레드 양보)
+  if (_simAbort) _simAbort.abort();
+  const abortCtrl = new AbortController();
+  _simAbort = abortCtrl;
+
+  setTimeout(() => {
+    if (abortCtrl.signal.aborted) return;
+
+    // 일별 수익률 추정 (GARCH sigma 활용)
+    function simAsset(coin, weight) {
+      const sigma = coin?.garch?.sigma || 0.025;
+      const mu = ((coin?.c24 || 0) / 100) / 365; // 일간 mu 추정
+      return { sigma, mu, weight, price: coin?.price || 1, sym: coin?.sym || '?' };
+    }
+
+    const assets = [
+      simAsset(c, wCoin),
+      simAsset(btc, wBtc),
+      simAsset(eth, wEth),
+    ];
+
+    // GBM 기반 MC
+    const finalValues = [];
+    const samplePaths = Math.min(20, paths);
+    const pathData = [];
+
+    for (let p = 0; p < paths; p++) {
+      if (abortCtrl.signal.aborted) return;
+      let portVal = capital;
+      const path = p < samplePaths ? [capital] : null;
+
+      for (let d = 0; d < days; d++) {
+        let dayReturn = 0;
+        assets.forEach(a => {
+          if (a.weight <= 0) return;
+          const z = _boxMuller();
+          const dr = a.mu + a.sigma * z;
+          dayReturn += a.weight * dr;
+        });
+        portVal *= (1 + dayReturn);
+        if (path) path.push(portVal);
+      }
+      finalValues.push(portVal);
+      if (path) pathData.push(path);
+    }
+
+    finalValues.sort((a, b) => a - b);
+    const mean = finalValues.reduce((s,v)=>s+v,0)/paths;
+    const p5 = finalValues[Math.floor(paths*0.05)];
+    const p25 = finalValues[Math.floor(paths*0.25)];
+    const p50 = finalValues[Math.floor(paths*0.5)];
+    const p75 = finalValues[Math.floor(paths*0.75)];
+    const p95 = finalValues[Math.floor(paths*0.95)];
+    const probProfit = finalValues.filter(v=>v>capital).length/paths*100;
+
+    if (!abortCtrl.signal.aborted) {
+      _displaySimResults({ mean, p5, p25, p50, p75, p95, probProfit, capital, paths, pathData, days, assets, finalValues });
+      if (btn) { btn.disabled = false; btn.textContent = '💰 재시뮬레이션'; }
+    }
+  }, 10);
+}
+
+function _boxMuller() {
+  let u = 0, v = 0;
+  while (!u) u = Math.random();
+  while (!v) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+function _displaySimResults(r) {
+  const resEl = document.getElementById('simResults');
+  if (resEl) resEl.style.display = 'block';
+
+  // 통계 카드
+  const statsEl = document.getElementById('simStats');
+  if (statsEl) {
+    statsEl.innerHTML = [
+      ['기대값', '$' + fmt(r.mean, 0), r.mean >= r.capital ? '#00ff88' : '#ff4444'],
+      ['수익확률', fmt(r.probProfit, 1) + '%', r.probProfit > 55 ? '#00ff88' : r.probProfit > 40 ? '#ffd700' : '#ff4444'],
+      ['P5 (최악)', '$' + fmt(r.p5, 0), '#ff4444'],
+      ['P50 (중위)', '$' + fmt(r.p50, 0), r.p50 >= r.capital ? '#00ff88' : '#ff4444'],
+      ['P95 (최선)', '$' + fmt(r.p95, 0), '#00ff88'],
+      ['기대수익률', fmt((r.mean - r.capital) / r.capital * 100, 2) + '%', r.mean >= r.capital ? '#00ff88' : '#ff4444'],
+    ].map(([l, v, col]) => `<div class="ms-card"><div class="ms-lbl">${l}</div><div class="ms-val" style="color:${col};font-size:0.75rem">${v}</div></div>`).join('');
+  }
+
+  // 포지션 상세
+  const posEl = document.getElementById('simPositions');
+  if (posEl) {
+    posEl.innerHTML = r.assets.map(a => `
+      <div class="ms-card">
+        <div class="ms-lbl">${esc(a.sym)}</div>
+        <div class="ms-val" style="font-size:0.7rem">${Math.round(a.weight*100)}%</div>
+        <div class="ms-sub">σ ${fmt(a.sigma*100,2)}%/일</div>
+      </div>
+    `).join('');
+  }
+
+  // MC 경로 시각화
+  requestAnimationFrame(() => {
+    const cv = document.getElementById('simCanvas');
+    if (!cv) return;
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = cv.offsetWidth * dpr; cv.height = 100 * dpr;
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+
+    // 샘플 경로 그리기
+    const allPts = r.pathData.flat();
+    const minV = Math.min(...allPts, r.p5) * 0.95;
+    const maxV = Math.max(...allPts, r.p95) * 1.05;
+    const rng = maxV - minV || 1;
+    const px = i => (i / r.days) * W;
+    const py = v => H - ((v - minV) / rng) * H * 0.85 - H * 0.05;
+
+    // 신뢰 구간 밴드 (P25~P75)
+    const bandY1 = py(r.p75), bandY2 = py(r.p25);
+    ctx.fillStyle = 'rgba(0,229,255,0.06)';
+    ctx.fillRect(0, bandY1, W, bandY2 - bandY1);
+
+    // 개별 경로
+    r.pathData.forEach(path => {
+      ctx.beginPath();
+      path.forEach((v, i) => { i===0?ctx.moveTo(px(i),py(v)):ctx.lineTo(px(i),py(v)); });
+      ctx.strokeStyle = 'rgba(0,229,255,0.12)'; ctx.lineWidth = 1; ctx.stroke();
+    });
+
+    // P50 중위
+    ctx.beginPath(); ctx.setLineDash([4*dpr, 4*dpr]);
+    ctx.moveTo(0, py(r.capital)); ctx.lineTo(W, py(r.capital));
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1*dpr; ctx.stroke();
+    ctx.setLineDash([]);
+
+    // P50 라인 (히스토그램 분포)
+    const buckets = 40;
+    const bw = (r.p95 - r.p5) / buckets;
+    const hist = new Array(buckets).fill(0);
+    r.finalValues.forEach(v => {
+      const bi = Math.floor((v - r.p5) / bw);
+      if (bi >= 0 && bi < buckets) hist[bi]++;
+    });
+    const maxH = Math.max(...hist, 1);
+    const histX = W * 0.85;
+    hist.forEach((h, i) => {
+      const barH = (h / maxH) * W * 0.12;
+      const barY = py(r.p5 + i * bw);
+      ctx.fillStyle = `rgba(0,229,255,${0.15 + (h/maxH)*0.45})`;
+      ctx.fillRect(histX, barY, barH, py(r.p5+(i+1)*bw) - barY);
+    });
+  });
+}
+
+/* ══════════════════════════════════════
+   기존 renderModalBody (하위 호환용)
+══════════════════════════════════════ */
+function renderModalBody(c) {
+  // v14에서는 탭별 렌더로 대체됨 — 직접 호출 시 기술지표 탭 내용 반환
+  return `<div style="padding:8px;font-size:0.6rem;color:var(--muted)">v14 탭 모달로 업그레이드됨</div>`;
 }
 
 /* ── 메인 리프레시 ── */
