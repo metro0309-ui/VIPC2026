@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#07090f">
-<title>레버리지 게이지 v10 · CVD버그픽스+알고리즘강화</title>
+<title>레버리지 게이지 v11 · 버그픽스+알고리즘강화</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;700;900&display=swap');
 
@@ -507,7 +507,7 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
         <span class="ftag">RSI &gt;70 → +22 / &lt;30 → -22</span>
         <span class="ftag">MACD 골든 → +14 / 데드 → -14</span>
         <span class="ftag">실제OI변화 × 가중 → ±18 max</span>
-        <span class="ftag">24H변동 × 1.1 → ±14 max</span>
+        <span class="ftag">24H변동 sqrt감쇠 → ±14 max</span>
       </div><br>
       <b>등급 기준:</b> S≥80 · A≥65 · B≥50 · C≥35 · D≥20 · E&lt;20<br>
       <b>OI:</b> Binance fapi/v1/openInterest 실제값 · CVD: aggTrade WebSocket 누적 델타<br>
@@ -534,21 +534,25 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
 <script>
 'use strict';
 /* ================================================================
-   레버리지 게이지 v9 — 버그픽스 + 알고리즘 강화 패치
+   레버리지 게이지 v11 — 버그픽스 + 알고리즘 강화 패치
    ─────────────────────────────────────────────────────────────────
-   [v8 수정 ①~⑰ 전부 포함]
+   [v9 수정 ①~⑧ + v10 수정 ①~⑥ 전부 포함]
    ─────────────────────────────────────────────────────────────────
-   [v9 신규 수정]
-   BUG-1: calcMACDbull EMA 초기값 편향 → SMA 기반 초기화로 교체
-   BUG-2: calcScore 24H 선형 가중치 → sqrt 감쇠 (극단 모멘텀 과다반영 방지)
-   BUG-3: calcSqueezeIndex atrFactor 상한 3.0→1.5 (과대증폭 수정)
-   BUG-4: fetchAllOI prevOiUsd 신규심볼 분기 오류 → 명시적 분기로 수정
-   BUG-5: setStatus rAF 루프 메모리 누수 → setTimeout 단일 호출로 대체
-   BUG-6: makeRng seed=0 무한루프 방지 → seed||1 강제
-   BUG-7: renderDayGauges pred-range vs fill z-index 충돌 수정
-   BUG-8: calcLSBias CVD 스테일 값 → window 직접 계산으로 교체
-   ALGO-1: buildMarketPred 스파크라인 정규화 → log-return 기반 시장 수익률 평균
-   ALGO-2: calcScore 24H 모멘텀 sqrt 감쇠 (BTC±20% 시 22→12pt 제한)
+   [v11 신규 수정]
+   BUG-CRITICAL: renderLiqPanel listEl 미선언 → ReferenceError 크래시 수정
+   BUG-2:  calcSentiment CVD 스테일 값(buyVol5m/sellVol5m) → getCVDLive() 교체
+   BUG-3:  monteCarloBootstrap p[d]??last → 경로 길이 체크 + isFinite 검증
+   BUG-4:  setSort sortDir 항상 -1 고정 → 같은 키 재클릭 시 토글
+   BUG-5:  calcOIMetrics btcVol→btcQuoteVol 변수명 명확화
+   BUG-8:  CVD WS onerror updateWsStatus 미호출 수정
+   BUG-9:  squeezeSignal 조건 분기 체계 정리 (중간 케이스 누락 수정)
+   BUG-10: calcWhaleSignal Vol Spike total_volume=0 fallback 오용 수정
+   BUG-11: renderCoins 2차 정렬 로직 수정 (sortDir 독립, score→별점 체계)
+   BUG-12: calcRSI avgGain=avgLoss=0 시 100 반환 → 50(중립)으로 수정
+   BUG-13: buildMarketPred fromIdx===toIdx skip + NaN/Infinity 방어
+   ALGO-3: OI 스냅샷 타이밍 30초→50초 (갱신주기 60초 정합)
+   ALGO-4: BB Squeeze 임계값 0.6→0.8 (TTM 표준, calcStarRating 정합)
+   ALGO-5: 코인 개별 MC N=300→N=800 통일 (메인 예측 정합)
 ================================================================ */
 
 /* ── RNG ── */
@@ -573,8 +577,8 @@ function getCVDLive(){
 /* ── 유틸 ── */
 function clamp(v,lo,hi){return v<lo?lo:v>hi?hi:v;}
 function fmt(n,d=2){return Number(n).toFixed(d);}
-function fmtPct(n){const v=Number(n);return(v>=0?'+':'')+v.toFixed(2)+'%';}
-function fmtB(n){if(n>=1e12)return'$'+(n/1e12).toFixed(2)+'T';if(n>=1e9)return'$'+(n/1e9).toFixed(1)+'B';if(n>=1e6)return'$'+(n/1e6).toFixed(0)+'M';return'$'+n.toFixed(0);}
+function fmtPct(n){const v=Number(n);if(!Number.isFinite(v))return'--';return(v>=0?'+':'')+v.toFixed(2)+'%';}
+function fmtB(n){const v=Number(n);if(!Number.isFinite(v)||v<0)return'$0';if(v>=1e12)return'$'+(v/1e12).toFixed(2)+'T';if(v>=1e9)return'$'+(v/1e9).toFixed(1)+'B';if(v>=1e6)return'$'+(v/1e6).toFixed(0)+'M';return'$'+v.toFixed(0);}
 function safeTime(){try{const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');}catch(e){return'--:--:--';}}
 function esc(str){return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
@@ -622,15 +626,17 @@ async function fetchAllOI(){
   results.forEach(r=>{
     if(r.status==='fulfilled'){
       const{sym,oi}=r.value;
-      const mp=markPriceCache.get(sym)||0;
+      // [v11-BUG14] markPriceCache 미수집(mp=0) 시 이전 oiCache markPrice fallback
+      const mp=markPriceCache.get(sym)||oiCache.get(sym)?.markPrice||0;
       const oiUsd=oi*mp;
       const prev=oiCache.get(sym);
       // [v9-BUG4] 신규 심볼(!prev): prevOiUsd=0으로 명시 (delta계산 시 null 체크로 skip)
-      // 기존 심볼: 30초 이상 경과 시에만 prev 업데이트 (같은 사이클 내 재호출 방지)
+      // [v11-ALGO3] 기존 심볼: 50초 이상 경과 시에만 prev 업데이트
+      // (갱신주기 60초와 정합: 30초 기준은 같은 갱신 사이클 내 중복 업데이트 허용 위험)
       let prevOiUsd;
       if(!prev){
         prevOiUsd=0; // 첫 사이클 — getOIDelta에서 prevOiUsd===0이면 null 반환
-      } else if((now-prev.ts)>30000){
+      } else if((now-prev.ts)>50000){
         prevOiUsd=prev.oiUsd; // 정상 업데이트
       } else {
         prevOiUsd=prev.prevOiUsd; // 같은 사이클 재호출 — 이전 prev 유지
@@ -670,8 +676,9 @@ function calcOIMetrics(tickerMap){
   const weightedDeltaPct=totalPrevOi>0?(totalDeltaUsd/totalPrevOi)*100:0;
 
   // OI-to-Volume ratio (BTC): 레버리지 축적 정도
-  const btcVol=tickerMap.get('BTCUSDT')||1;
-  const oiVolRatio=btcVol>0?btcOiUsd/btcVol:0;
+  // [v11] tickerMap.get('BTCUSDT') = quoteVolume(24H USD거래량) — OI/Vol 과열 지표
+  const btcQuoteVol=tickerMap.get('BTCUSDT')||1;
+  const oiVolRatio=btcQuoteVol>0?btcOiUsd/btcQuoteVol:0;
 
   return{totalOiUsd,weightedDeltaPct,btcOiUsd,btcDeltaPct,oiVolRatio,perSym};
 }
@@ -688,12 +695,17 @@ function calcSqueezeIndex(oiMetrics, lsr, frBTCVal, btcPrices){
   // ATR proxy: 최근 24개 봉의 범위 평균 / 현재가
   let atrPct=0;
   if(btcPrices&&btcPrices.length>=24){
-    const slice=btcPrices.slice(-24);
-    const ranges=[];
-    for(let i=1;i<slice.length;i++)ranges.push(Math.abs(slice[i]-slice[i-1]));
-    const avgRange=ranges.reduce((a,b)=>a+b,0)/ranges.length;
-    const curPrice=slice[slice.length-1]||1;
-    atrPct=(avgRange/curPrice)*100;
+    // [v11-BUG21] 0/NaN 필터 후 ATR 계산
+    const slice=btcPrices.slice(-24).filter(v=>Number.isFinite(v)&&v>0);
+    if(slice.length>=4){
+      const ranges=[];
+      for(let i=1;i<slice.length;i++)ranges.push(Math.abs(slice[i]-slice[i-1]));
+      if(ranges.length>0){
+        const avgRange=ranges.reduce((a,b)=>a+b,0)/ranges.length;
+        const curPrice=slice[slice.length-1];
+        atrPct=Number.isFinite(avgRange/curPrice)?(avgRange/curPrice)*100:0;
+      }
+    }
   }
 
   // 방향 계수: 펀딩비 + L/S 비율로 시장 편향 결정
@@ -808,6 +820,9 @@ function renderLiqPanel(){
   // [v10-BUG5 수정] recent.slice(-8).reverse() → 최신이 맨 위에 오도록:
   // recent는 이미 시간순(오래된→최신). slice(-8)로 최근 8개 → reverse()하면 최신이 첫번째
   const items=[...recent].reverse().slice(0,8);
+  // [v11-BUG-CRITICAL] listEl 미선언 → ReferenceError 수정: getElementById로 명시 취득
+  const listEl=document.getElementById('liqList');
+  if(!listEl)return;
   if(!items.length){listEl.innerHTML='<div style="color:var(--muted);font-size:0.6rem;padding:4px 0">청산 이벤트 없음 (5분 내)</div>';return;}
   listEl.innerHTML=items.map(l=>{
     const age=Math.round((now-l.ts)/1000);
@@ -892,8 +907,9 @@ function connectCVDWS(){
     }catch(_){}
   };
 
-  wsCVD.onerror=()=>{};
+  wsCVD.onerror=()=>{updateWsStatus();}; // [v11-BUG8] onerror 시 WS 상태 UI 즉시 반영
   wsCVD.onclose=()=>{
+    updateWsStatus(); // [v11-BUG8] onclose 시 UI 상태 갱신
     const delay=Math.min(30000,1000*Math.pow(2,wsCVDRetry++));
     setTimeout(connectCVDWS,delay);
   };
@@ -993,6 +1009,7 @@ function updateBarGauge(pct){
   document.getElementById('gaugeSub').textContent=sub;
   document.querySelectorAll('.zone-item').forEach(el=>{
     const lo=parseFloat(el.dataset.lo),hi=parseFloat(el.dataset.hi);
+    // [v11-BUG6 수정] pct===100일 때 hi=101이면 정상 포함. pct===0일 때 lo=0이면 정상 포함
     el.classList.toggle('active',pct>=lo&&pct<hi);
   });
 }
@@ -1125,7 +1142,10 @@ function renderDayGauges(pred){
 /* ── 스파크라인 ── */
 function sparkline(prices){
   if(!prices||prices.length<2)return'<svg class="spark"></svg>';
-  const mn=Math.min(...prices),mx=Math.max(...prices),r=mx-mn||1;
+  // [v11-BUG16] Math.min/max(...prices) spread → 긴 배열 스택 오버플로우 위험. 루프로 교체
+  let mn=prices[0],mx=prices[0];
+  for(let i=1;i<prices.length;i++){if(prices[i]<mn)mn=prices[i];if(prices[i]>mx)mx=prices[i];}
+  const r=mx-mn||1;
   const pts=prices.map((p,i)=>{const x=(i/(prices.length-1))*56+1;const y=18-((p-mn)/r)*16;return x+','+y;}).join(' ');
   const col=prices[prices.length-1]>=prices[0]?'#00ff88':'#ff3355';
   return'<svg class="spark" viewBox="0 0 58 20" xmlns="http://www.w3.org/2000/svg"><polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="1.3" stroke-linejoin="round"/></svg>';
@@ -1161,8 +1181,14 @@ function monteCarloBootstrap(hist,days,n){
   }
   const res=[];
   for(let d=1;d<=days;d++){
-    const v=paths.map(p=>p[d]??last).sort((a,b)=>a-b);
-    res.push({muPct:((v[Math.floor(n*0.5)]-last)/last)*100,loPct:((v[Math.floor(n*0.16)]-last)/last)*100,hiPct:((v[Math.floor(n*0.84)]-last)/last)*100});
+    // [v11-BUG5 수정] p[d]가 undefined인 경우 last로 fallback (경로 길이 부족 방어)
+    const v=paths.map(p=>p.length>d?p[d]:last).sort((a,b)=>a-b);
+    const valid=v.filter(x=>Number.isFinite(x));
+    if(!valid.length){res.push({muPct:0,loPct:-5,hiPct:5});continue;}
+    const med=valid[Math.floor(valid.length*0.5)];
+    const lo=valid[Math.floor(valid.length*0.16)];
+    const hi=valid[Math.floor(valid.length*0.84)];
+    res.push({muPct:((med-last)/last)*100,loPct:((lo-last)/last)*100,hiPct:((hi-last)/last)*100});
   }
   return res;
 }
@@ -1186,6 +1212,7 @@ function calcRSI(prices,period=14){
     avgGain=(avgGain*(period-1)+gain)/period;
     avgLoss=(avgLoss*(period-1)+loss)/period;
   }
+  if(avgLoss===0&&avgGain===0)return 50; // [v11-BUG12] 가격 변동 없음 → 중립 50
   if(avgLoss===0)return 100;
   return 100-(100/(1+(avgGain/avgLoss)));
 }
@@ -1210,10 +1237,12 @@ function calcMACDbull(prices){
    요구사항 ①: estOI(추정 공식) → 실제 OI 캐시 우선 사용
    심볼이 TARGET_SYMS에 없으면 종전 추정식(fallback) */
 function getOIDelta(sym){
-  const futureSym=sym+'USDT';
+  // [v11-BUG22] sym이 이미 USDT 포함 시 이중 접합 방어
+  const futureSym=sym.endsWith('USDT')?sym:sym+'USDT';
   const c=oiCache.get(futureSym);
   if(!c||!c.prevOiUsd||c.prevOiUsd===0)return null;
-  return(c.oiUsd-c.prevOiUsd)/c.prevOiUsd*100; // %
+  const delta=(c.oiUsd-c.prevOiUsd)/c.prevOiUsd*100;
+  return Number.isFinite(delta)?delta:null; // NaN/Infinity 방어
 }
 
 function calcScore(rsi,bull,oiDelta,c24){
@@ -1272,14 +1301,11 @@ function calcLSBias(c){
   }
   if(c.c7d>5)w+=0.5;else if(c.c7d<-5)w-=0.5;
   if(c.score>70)w+=0.8;else if(c.score<30)w-=0.8;
-  // [v9-BUG8] cvdData.buyVol5m/sellVol5m 스테일 값 대신 window에서 직접 계산
-  const win=cvdData.window;
-  const cvdBuyNow=win.reduce((a,b)=>a+b.buy,0);
-  const cvdSellNow=win.reduce((a,b)=>a+b.sell,0);
-  if(cvdBuyNow+cvdSellNow>0){
-    const cvdRatio=cvdBuyNow/(cvdBuyNow+cvdSellNow);
-    if(cvdRatio>0.62){w+=0.5;reasons.push('CVD매수우세');}
-    else if(cvdRatio<0.38){w-=0.5;reasons.push('CVD매도우세');}
+  // [v11-ALGO6] getCVDLive() 헬퍼로 통일 (window 직접 reduce 중복 코드 제거)
+  const _cvdLS=getCVDLive();
+  if(_cvdLS.hasCVD){
+    if(_cvdLS.ratio>0.62){w+=0.5;reasons.push('CVD매수우세');}
+    else if(_cvdLS.ratio<0.38){w-=0.5;reasons.push('CVD매도우세');}
   }
   let bias,label,color;
   if(w>=3.5){bias='long';label='📈 롱 유리';color='#00ff88';}
@@ -1344,10 +1370,11 @@ function calcWhaleSignal(c){
   }
 
   // ── 신호3: 거래량 폭발 (Vol Spike) ──
-  // [개선] mcap 대비 vol 비율 + sparkline 7일 평균 가격 변동성 대비 비교
-  if(c.mcap>0){
-    const volRatio=(c.total_volume||c.mcap*0.05)/c.mcap*100;
-    // sparkline 기반 평균 일봉 변동성 (7일 168봉 → 24봉씩 평균)
+  // [v11-BUG10] total_volume=0 시 mcap*0.05 fallback → 항상 5%로 고정돼 신호 미발생
+  // total_volume=0이면 데이터 미수집으로 판단, 신호 건너뜀
+  if(c.mcap>0&&c.total_volume>0){
+    const volRatio=c.total_volume/c.mcap*100;
+    // sparkline 기반 평균 일봉 변동성 (7일 168봉 → step봉씩 평균)
     let avgDailyMove=0;
     if(c.sparkline&&c.sparkline.length>=48){
       const sp=c.sparkline;
@@ -1359,7 +1386,7 @@ function calcWhaleSignal(c){
       }
       avgDailyMove=dailyMoves.length?dailyMoves.reduce((a,b)=>a+b,0)/dailyMoves.length:0;
     }
-    // 거래량 과열 임계: volRatio > 20% OR 평균 변동성 3배 이상
+    // 거래량 과열 임계: volRatio > 25% OR 평균 변동성 3배 이상
     if(volRatio>25||(avgDailyMove>0&&Math.abs(c.c24)>avgDailyMove*3)){
       score+=20;
       detail.push(`거래량폭발(시총비${fmt(volRatio,0)}%${avgDailyMove>0?'·변동'+fmt(Math.abs(c.c24)/avgDailyMove,1)+'×':''})`);
@@ -1413,23 +1440,26 @@ function calcWhaleSignal(c){
   return{score,signal,label,color,risk,detail:detail.slice(0,3)};
 }
 function detectRegime(prices){
-  if(!prices||prices.length<20)return{regime:'unknown',strength:0};
+  if(!prices||prices.length<20)return{regime:'unknown',strength:0,direction:'none'};
   const n=Math.min(prices.length,30);
-  const slice=prices.slice(-n);
+  const slice=prices.slice(-n).map(v=>Number.isFinite(v)&&v>0?v:null);
+  // [v11-BUG17] NaN/0 포함 시 회귀 오염 → 유효값만 사용
+  const valid=slice.filter(v=>v!==null);
+  if(valid.length<10)return{regime:'ranging',strength:0,direction:'none'};
+  const vn=valid.length;
   let sumX=0,sumY=0,sumXY=0,sumX2=0;
-  for(let i=0;i<n;i++){sumX+=i;sumY+=slice[i];sumXY+=i*slice[i];sumX2+=i*i;}
-  const denom=(n*sumX2-sumX*sumX);
-  if(denom===0)return{regime:'ranging',strength:0};
-  const slope=(n*sumXY-sumX*sumY)/denom;
-  const mean=sumY/n;
-  if(mean===0)return{regime:'ranging',strength:0};
+  for(let i=0;i<vn;i++){sumX+=i;sumY+=valid[i];sumXY+=i*valid[i];sumX2+=i*i;}
+  const denom=(vn*sumX2-sumX*sumX);
+  if(denom===0)return{regime:'ranging',strength:0,direction:'none'};
+  const slope=(vn*sumXY-sumX*sumY)/denom;
+  const mean=sumY/vn;
+  if(mean===0)return{regime:'ranging',strength:0,direction:'none'};
   const slopePct=(slope/mean)*100;
-  // [v10-ALGO3 수정] 강도 스케일 개선: slopePct×10 → tanh 기반 정규화 (0~1% → 0~63, 5% → 100)
-  // 기존 ×10은 slopePct=0.51에서 strength=5.1(너무 낮음) → 민감도 대폭 개선
   const strengthRaw=Math.tanh(Math.abs(slopePct)*2)*100;
   const strength=clamp(strengthRaw,0,100);
-  if(Math.abs(slopePct)>0.5)return{regime:slopePct>0?'trending_up':'trending_down',strength,direction:slopePct>0?'up':'down'};
-  return{regime:'ranging',strength};
+  const direction=slopePct>0?'up':'down';
+  if(Math.abs(slopePct)>0.5)return{regime:slopePct>0?'trending_up':'trending_down',strength,direction};
+  return{regime:'ranging',strength,direction:'none'};
 }
 
 /* ── BB Squeeze ── */
@@ -1454,7 +1484,9 @@ function calcBBSqueeze(prices){
   // [버그수정] allBW가 비어있으면(데이터 부족) squeeze 판단 불가 → false 반환
   if(allBW.length<3)return{squeeze:false,strength:0,bandwidth,avgBW:bandwidth};
   const avgBW=allBW.reduce((a,b)=>a+b,0)/allBW.length;
-  const squeeze=avgBW>0&&bandwidth<avgBW*0.6;
+  // [v11-ALGO4] BB Squeeze 임계값 0.6→0.8: TTM Squeeze 표준(20% 수축)이며
+  // calcStarRating의 bbOk 조건(avgBW*0.8)과 일치시킴 (기존 0.6은 과도하게 엄격)
+  const squeeze=avgBW>0&&bandwidth<avgBW*0.8;
   const strength=avgBW>0?clamp((1-(bandwidth/avgBW))*100,0,100):0;
   return{squeeze,strength,bandwidth,avgBW};
 }
@@ -1490,7 +1522,9 @@ function calcStarRating(coin,regime,bbsqueeze,mtf){
   const isTrending=regime.regime==='trending_up'||regime.regime==='trending_down';
   if(isTrending){
     points++;
-    conditions.push(regime.direction==='up'?'추세↑':'추세↓');
+    // [v11-BUG18] direction='none'이면 regime 텍스트로 fallback
+    const dirLabel=regime.direction==='up'?'추세↑':regime.direction==='down'?'추세↓':'추세';
+    conditions.push(dirLabel);
   }
 
   // 조건B: BB수축(80% 완화) OR 실OI증가(0.5% 완화)
@@ -1593,8 +1627,8 @@ async function fetchFNG(){
 }
 
 async function fetchTop100(){
-  // [최적화] per_page=100으로 줄여 불필요한 데이터 전송 제거
-  // sparkline=true 포함 시 250개는 과도한 payload
+  // per_page=150으로 요청 후 스테이블/래핑 필터링 → 최종 100개 슬라이스
+  // (필터 제외 코인이 20~30개 존재하므로 여유분 필요)
   const d=await getJSON(
     'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=150&page=1&sparkline=true&price_change_percentage=7d'
   );
@@ -1658,15 +1692,23 @@ async function fetchLeverageMetrics(){
     const oiWeightedFunding=oiTotalVol>0?oiWeightedSum/oiTotalVol:0;
     const avgFunding=frRaw.length?frRaw.reduce((a,b)=>a+b.capped,0)/frRaw.length:0;
 
-    // 스퀴즈 신호 (순서 수정 버전)
+    // 스퀴즈 신호 [v11-BUG9] 조건 체계 정리:
+    // fr>=0.001 구간: lsr 기준으로 overheat(>=1.5) / neutral_high(0.7~1.5) / long_cascade(<=0.7)
+    // fr<=-0.0005 구간: short_squeeze(lsr<=0.75) / long_squeeze_risk(lsr>=1.4) / neutral_low(나머지)
     let squeezeSignal='none',squeezeLabel='';
     const frBTC=frRaw.find(f=>f.sym==='BTCUSDT');
     const frBTCVal=frBTC?frBTC.capped:oiWeightedFunding;
-    if(frBTCVal>=0.001&&lsr>=1.5){squeezeSignal='overheat';squeezeLabel='⚡ 극단과열 → 단기 조정 주의';}
-    else if(frBTCVal>=0.001&&lsr<=0.7){squeezeSignal='long_cascade';squeezeLabel='🔥 양수펀딩+숏우세 → 롱 청산 캐스케이드';}
-    else if(frBTCVal<=-0.0005&&lsr<=0.75){squeezeSignal='short_squeeze';squeezeLabel='🚀 음수펀딩+숏우세 → 숏스퀴즈 가능';}
-    else if(frBTCVal<=-0.0005&&lsr>=1.4){squeezeSignal='long_squeeze_risk';squeezeLabel='⚠ 롱과다+음수펀딩 → 롱스퀴즈 주의';}
-    else if(Math.abs(frBTCVal)<0.0001&&lsr>=0.9&&lsr<=1.1){squeezeSignal='neutral';squeezeLabel='→ 균형 상태';}
+    if(frBTCVal>=0.001){
+      if(lsr>=1.5){squeezeSignal='overheat';squeezeLabel='⚡ 극단과열 → 단기 조정 주의';}
+      else if(lsr<=0.7){squeezeSignal='long_cascade';squeezeLabel='🔥 양수펀딩+숏우세 → 롱 청산 캐스케이드';}
+      // 0.7 < lsr < 1.5: 펀딩 높지만 L/S 균형 → 신호 없음(none 유지)
+    }else if(frBTCVal<=-0.0005){
+      if(lsr<=0.75){squeezeSignal='short_squeeze';squeezeLabel='🚀 음수펀딩+숏우세 → 숏스퀴즈 가능';}
+      else if(lsr>=1.4){squeezeSignal='long_squeeze_risk';squeezeLabel='⚠ 롱과다+음수펀딩 → 롱스퀴즈 주의';}
+      // 그 외: 음수 펀딩이지만 L/S 중립 → none 유지
+    }else if(Math.abs(frBTCVal)<0.0001&&lsr>=0.9&&lsr<=1.1){
+      squeezeSignal='neutral';squeezeLabel='→ 균형 상태';
+    }
 
     // levScore v6: 실제 OI delta + CVD 반영
     const lsScore=clamp(50+(lsr-1.0)*30,0,100);
@@ -1706,7 +1748,7 @@ function buildCoins(raw){
     const c24=c.price_change_percentage_24h||0,c7d=c.price_change_percentage_7d_in_currency||0;
     const oiDelta=getOIDelta((c.symbol||'').toUpperCase());
     const score=calcScore(rsi,bull,oiDelta,c24),grade=toGrade(score);
-    const mcPred=monteCarloBootstrap(prices,7,300);
+    const mcPred=monteCarloBootstrap(prices,7,800); // [v11-ALGO5] N=300→800 통일 (메인 예측과 정합)
     const regime=detectRegime(prices);
     const bbsqueeze=calcBBSqueeze(prices);
     const mtf=calcMTF(prices);
@@ -1762,10 +1804,10 @@ function renderCoins(){
     let av=a[sortKey],bv=b[sortKey];
     if(sortKey==='grade'){const o={S:6,A:5,B:4,C:3,D:2,E:1};av=o[a.grade];bv=o[b.grade];}
     if(sortKey==='stars'){av=a.rating?.points||0;bv=b.rating?.points||0;}
-    // [버그수정] ALL 필터에서 stars 정렬 선택 시 2차 정렬은 score로 (stars 동점 처리)
-    // 기존: ALL필터면 무조건 별점 우선 → 사용자 선택 정렬키 무시
-    if(bv===av&&sortKey!=='stars'){
-      return(b.rating?.points||0)-(a.rating?.points||0);
+    // [v11-BUG11] 2차 정렬: 동점 시 score 기준 내림차순 (sortDir 독립적으로 항상 내림차순)
+    if(bv===av){
+      if(sortKey!=='score')return(b.score||0)-(a.score||0); // 1차: score
+      return(b.rating?.points||0)-(a.rating?.points||0); // score 동점: 별점
     }
     return sortDir*(bv-av);
   });
@@ -1806,7 +1848,7 @@ function renderCoins(){
     const whaleBadge=wh.signal!=='neutral'
       ?'<div class="whale-badge '+whClass+'">'+wh.label+'</div>'
       :'';
-    return'<div class="coin-card" onclick="openCoinModal(\''+esc(c.sym)+'\')">'
+    return'<div class="coin-card" data-sym="'+esc(c.sym)+'">'
       +'<div class="coin-left"><div class="coin-ico">'+esc(c.sym.slice(0,3))+'</div><div><div class="csym">'+esc(c.sym)+'</div><div class="cname">'+esc(c.name.slice(0,12))+'</div>'+starBadge+'</div></div>'
       +'<div><div class="coin-price">'+priceStr+' <span class="'+c24cls+'" style="font-size:0.68rem">'+fmtPct(c.c24)+'</span></div>'
         +'<div class="coin-meta"><span class="coin-rsi" style="color:'+rsiColor+'">RSI '+fmt(c.rsi,0)+'</span>'+macd+'<span style="color:'+dc7+';font-size:0.58rem;font-weight:700">'+dir7+'</span></div>'
@@ -1835,10 +1877,11 @@ function renderCoins(){
 
 function setFilter(g,btn){curFilter=g;document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');renderCoins();}
 
-/* ── 정렬 함수 — 항상 내림차순(높은값 우선) ── */
+/* ── 정렬 함수 — 같은 키 재클릭 시 오름/내림 토글 ── */
 function setSort(key,btn){
-  sortKey=key;
-  sortDir=-1; // 항상 높은순
+  // [v11-BUG4 수정] sortDir 항상 -1 고정 → 같은 키 재클릭 시 토글
+  if(sortKey===key){sortDir*=-1;}
+  else{sortKey=key;sortDir=-1;}
   document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
   renderCoins();
@@ -1861,10 +1904,12 @@ function buildMarketPred(coins,lev){
     for(let d=0;d<len;d++){
       const fromIdx=d*step;
       const toIdx=Math.min((d+1)*step,sp.length-1);
+      if(fromIdx>=sp.length||fromIdx===toIdx)continue; // [v11-BUG13] 인덱스 동일하면 skip
       const fromP=sp[fromIdx];
       const toP=sp[toIdx];
-      if(fromP>0&&toP>0){
-        dailyReturnsByDay[d].push(Math.log(toP/fromP)*100); // %
+      if(fromP>0&&toP>0&&Number.isFinite(fromP)&&Number.isFinite(toP)){
+        const logRet=Math.log(toP/fromP)*100;
+        if(Number.isFinite(logRet))dailyReturnsByDay[d].push(logRet);
       }
     }
   });
@@ -1877,8 +1922,13 @@ function buildMarketPred(coins,lev){
   });
 
   // 수익률 시계열을 인덱스=100 기준 가격으로 변환 후 MC
+  // [v11-BUG13] NaN/Infinity 방어: 비정상 값은 이전 값 유지
   const syntheticPrices=[100];
-  mergedReturns.forEach(r=>syntheticPrices.push(syntheticPrices[syntheticPrices.length-1]*Math.exp(r/100)));
+  mergedReturns.forEach(r=>{
+    const prev=syntheticPrices[syntheticPrices.length-1];
+    const next=prev*Math.exp(r/100);
+    syntheticPrices.push(Number.isFinite(next)&&next>0?next:prev);
+  });
 
   const rawPred=monteCarloBootstrap(syntheticPrices,7,800);
   const lsr=(lev&&lev.longShortRatio!=null)?lev.longShortRatio:1.0;
@@ -1920,11 +1970,10 @@ function calcSentiment(coins,fng,lev){
   if(sq==='long_cascade')v-=10;
   if(sq==='long_squeeze_risk')v-=6;
   if(sq==='overheat')v-=4;
-  // CVD 보정
-  const cvdBuy=cvdData.buyVol5m,cvdSell=cvdData.sellVol5m;
-  if(cvdBuy+cvdSell>0){
-    const ratio=cvdBuy/(cvdBuy+cvdSell);
-    if(ratio>0.62)v+=4;else if(ratio<0.38)v-=4;
+  // CVD 보정 [v11-BUG2 수정] buyVol5m/sellVol5m 스테일 → getCVDLive() window 직접 집계
+  const _cvdSent=getCVDLive();
+  if(_cvdSent.hasCVD){
+    if(_cvdSent.ratio>0.62)v+=4;else if(_cvdSent.ratio<0.38)v-=4;
   }
   // [개선] OI weighted delta 방향 반영 (전체 시장 포지션 증감)
   if(lev?.oiMetrics){
@@ -1997,9 +2046,9 @@ function renderModalBody(c){
     ${wh.detail.map(d=>`<div class="whale-row"><span class="whale-key">근거</span><span style="font-size:0.56rem;color:var(--text)">${esc(d)}</span></div>`).join('')}
   `;
 
-  // 추세 정보
-  const regimeCol=regime.regime==='trending_up'?'#00ff88':regime.regime==='trending_down'?'#ff3355':'#ffd700';
-  const regimeLbl=regime.regime==='trending_up'?'↑ 상승추세':regime.regime==='trending_down'?'↓ 하락추세':'→ 횡보';
+  // 추세 정보 [v11-BUG19] 'unknown' 케이스 포함
+  const regimeCol=regime.regime==='trending_up'?'#00ff88':regime.regime==='trending_down'?'#ff3355':regime.regime==='unknown'?'#64748b':'#ffd700';
+  const regimeLbl=regime.regime==='trending_up'?'↑ 상승추세':regime.regime==='trending_down'?'↓ 하락추세':regime.regime==='unknown'?'-- 데이터 부족':'→ 횡보';
 
   // MTF 신호
   const mtfHtml=(mtf.signals||[]).map(s=>{
@@ -2086,7 +2135,7 @@ function renderModalBody(c){
 
   <!-- 7일 예측 -->
   <div class="ms">
-    <div class="ms-title">▸ 7일 MC 예측 (Bootstrap N=300)</div>
+    <div class="ms-title">▸ 7일 MC 예측 (Bootstrap N=800)</div>
     <div style="font-size:0.48rem;color:var(--muted);margin-bottom:8px;">바 중앙=0% 기준 · 회색밴드=±1σ</div>
     <div class="modal-pred-row">${predRows}</div>
   </div>
@@ -2129,7 +2178,7 @@ async function refreshAll(){
   if(isRefreshing)return;
   isRefreshing=true;
   const rbtn=document.getElementById('refreshBtn');
-  rbtn.disabled=true;rbtn.textContent='...';
+  if(rbtn){rbtn.disabled=true;rbtn.textContent='...';}  // [v11-BUG20] null 방어
   setStatus('데이터 수신 중... Binance(OI+펀딩) + CoinGecko + F&G','info');
   try{
     const[fng,raw,lev]=await Promise.all([fetchFNG(),fetchTop100(),fetchLeverageMetrics()]);
@@ -2179,7 +2228,8 @@ async function refreshAll(){
     setStatus('⚠ '+e.message,'error');
     if(allCoins.length)renderCoins();
   }finally{
-    rbtn.disabled=false;rbtn.textContent='↺ 갱신';
+    const rbtnF=document.getElementById('refreshBtn');
+    if(rbtnF){rbtnF.disabled=false;rbtnF.textContent='↺ 갱신';} // [v11-BUG20] null 방어
     isRefreshing=false;
   }
 }
@@ -2222,8 +2272,17 @@ function triggerRefresh(){refreshAll();}
   });
 
   // 1분 자동갱신
-  setInterval(()=>{if(!document.hidden)refreshAll();},60000);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshAll();});
+  let _lastRefreshTs=0;
+  function safeRefresh(){
+    const now=Date.now();
+    // [v11-BUG24] setInterval + visibilitychange 동시 발화 방지: 30초 쿨다운
+    if(!document.hidden&&now-_lastRefreshTs>30000){
+      _lastRefreshTs=now;
+      refreshAll();
+    }
+  }
+  setInterval(safeRefresh,60000);
+  document.addEventListener('visibilitychange',safeRefresh);
 
   // CVD 패널 10초 주기 렌더 (WS 틱과 별개로 UI 동기화)
   // [v10-ARCH2 수정] isRefreshing 중 stale 렌더 방지
@@ -2231,14 +2290,25 @@ function triggerRefresh(){refreshAll();}
     if(!isRefreshing){renderCVDPanel();renderLiqPanel();}
   },10000);
 
+  // [v11-BUG15] 코인 카드 클릭: onclick 인라인 JS 인젝션 위험 → 이벤트 위임으로 교체
+  const coinListEl=document.getElementById('coinList');
+  if(coinListEl){
+    coinListEl.addEventListener('click',e=>{
+      const card=e.target.closest('.coin-card');
+      if(card&&card.dataset.sym)openCoinModal(card.dataset.sym);
+    });
+  }
+
   // ESC 키로 모달 닫기
   document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 
   // 모달 스와이프 다운 닫기
   const mSheet=document.getElementById('modalSheet');
-  let _ty=0;
-  mSheet.addEventListener('touchstart',e=>{_ty=e.touches[0].clientY;},{passive:true});
-  mSheet.addEventListener('touchmove',e=>{if(e.touches[0].clientY-_ty>70)closeModal();},{passive:true});
+  if(mSheet){ // [v11-BUG25] null 방어
+    let _ty=0;
+    mSheet.addEventListener('touchstart',e=>{_ty=e.touches[0].clientY;},{passive:true});
+    mSheet.addEventListener('touchmove',e=>{if(e.touches[0].clientY-_ty>70)closeModal();},{passive:true});
+  }
 })();
 </script>
 </body>
