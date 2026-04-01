@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#07090f">
-<title>레버리지 게이지 v9 · 버그픽스+알고리즘강화</title>
+<title>레버리지 게이지 v10 · CVD버그픽스+알고리즘강화</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;700;900&display=swap');
 
@@ -556,6 +556,20 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
 function makeRng(s){s=(s>>>0)||1;return function(){s^=s<<13;s^=s>>17;s^=s<<5;return(s>>>0)/4294967296;};}
 function getSeed(){try{const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]||1;}catch(e){return(Date.now()&0xFFFFFFFF)||1;}}
 
+/* ── [v10-BUG1/2/3/4 공통 수정] CVD Live 집계 헬퍼 ──────────────
+   cvdData.buyVol5m / sellVol5m 은 connectCVDWS 에서 업데이트되지 않아
+   4개 함수(calcWhaleSignal, calcStarRating, buildMarketPred, levScore)에서
+   항상 0으로 읽히는 치명적 버그. window에서 직접 실시간 집계.
+   ────────────────────────────────────────────────────────────── */
+function getCVDLive(){
+  const w=cvdData.window;
+  if(!w||!w.length)return{buy:0,sell:0,total:0,ratio:0.5,hasCVD:false};
+  const buy=w.reduce((a,b)=>a+b.buy,0);
+  const sell=w.reduce((a,b)=>a+b.sell,0);
+  const total=buy+sell;
+  return{buy,sell,total,ratio:total>0?buy/total:0.5,hasCVD:total>0};
+}
+
 /* ── 유틸 ── */
 function clamp(v,lo,hi){return v<lo?lo:v>hi?hi:v;}
 function fmt(n,d=2){return Number(n).toFixed(d);}
@@ -791,10 +805,9 @@ function renderLiqPanel(){
   if(totalEl)totalEl.innerHTML='<span style="color:'+(longUsd>shortUsd?'#ff3355':'#00ff88')+'">'+fmtB(total)+'</span>';
   if(subEl)subEl.textContent='LONG '+fmtB(longUsd)+' · SHORT '+fmtB(shortUsd);
 
-  // [버그수정] recent(5분 필터)에서 최근 8개 표시 (liqHistory 전체 slice가 아님)
-  const listEl=document.getElementById('liqList');
-  if(!listEl)return;
-  const items=recent.slice(-8).reverse();
+  // [v10-BUG5 수정] recent.slice(-8).reverse() → 최신이 맨 위에 오도록:
+  // recent는 이미 시간순(오래된→최신). slice(-8)로 최근 8개 → reverse()하면 최신이 첫번째
+  const items=[...recent].reverse().slice(0,8);
   if(!items.length){listEl.innerHTML='<div style="color:var(--muted);font-size:0.6rem;padding:4px 0">청산 이벤트 없음 (5분 내)</div>';return;}
   listEl.innerHTML=items.map(l=>{
     const age=Math.round((now-l.ts)/1000);
@@ -1067,7 +1080,18 @@ function dirLabel(sp){
   if(sp>=18)return['하락','#ff4444'];
   return['지속하락','#cc2222'];
 }
-function pctToSP(pct){return clamp(50+pct*4,5,95);}
+// [v10-BUG6 수정] pctToSP: ×4 고정 배율 → ±10% 이상에서도 시각 차별화되도록 비선형 스케일
+// ±3% → ±15pt, ±6% → ±22pt, ±12%+ → ±40pt (clamp 전)
+function pctToSP(pct){
+  const sign=pct>=0?1:-1;
+  const abs=Math.abs(pct);
+  // 구간별 스케일: 0~3%: ×5, 3~8%: ×3.5, 8%+: ×2.0 (점진 감쇠)
+  let pts;
+  if(abs<=3)pts=abs*5;
+  else if(abs<=8)pts=15+(abs-3)*3.5;
+  else pts=32.5+(abs-8)*2.0;
+  return clamp(50+sign*pts,5,95);
+}
 
 function renderDayGauges(pred){
   const tags=['D+1','D+2','D+3','D+4','D+5','D+6','D+7'];
@@ -1197,12 +1221,17 @@ function calcScore(rsi,bull,oiDelta,c24){
   if(rsi>70)s+=22;else if(rsi>60)s+=12;else if(rsi>50)s+=4;
   else if(rsi<30)s-=22;else if(rsi<40)s-=12;else if(rsi<50)s-=4;
   s+=bull?14:-14;
-  // OI delta: 방향 정렬 반영
+  // [v10-ALGO1 수정] OI delta: c24 방향 분기를 oiDelta<0 케이스에도 적용 (기존 비대칭 수정)
+  // oiDelta>0 + price>0: 롱포지 쌓이며 가격 ↑ → 강세 +18
+  // oiDelta>0 + price<0: OI증가인데 가격↓ → 숏우세 or 청산압력 -12
+  // oiDelta<0 + price<0: OI 감소 + 가격 동반 하락 → 약세 -14
+  // oiDelta<0 + price>0: OI감소(포지청산)인데 가격 ↑ → 무방향성 소폭 -4
   let oiScore=0;
   if(oiDelta!=null){
     if(oiDelta>0&&c24>0)oiScore=clamp(oiDelta*1.5,0,18);
     else if(oiDelta>0&&c24<0)oiScore=clamp(oiDelta*(-0.8),-12,0);
-    else if(oiDelta<0)oiScore=clamp(oiDelta*1.0,-14,0);
+    else if(oiDelta<0&&c24<0)oiScore=clamp(oiDelta*1.0,-14,0);
+    else if(oiDelta<0&&c24>0)oiScore=clamp(oiDelta*0.4,-4,0); // 가격↑+OI↓: 약한 음신호
   }
   s+=oiScore;
   // [v9-ALGO2] 24H 가중치: 선형(×1.1) → sqrt 기반 감쇠 (극단 모멘텀 과다반영 방지)
@@ -1297,9 +1326,11 @@ function calcWhaleSignal(c){
   // ── 신호2: CVD 역발산 (세력 반대매매 감지) ──
   // 가격 오르는데 CVD 하락 = 세력이 고점에서 팔고있음
   // 가격 내리는데 CVD 상승 = 세력이 저점에서 사고있음
-  const hasCVD=(cvdData.buyVol5m+cvdData.sellVol5m)>0;
+  // [v10-BUG1 수정] buyVol5m/sellVol5m 스테일 → getCVDLive() window 직접 집계
+  const _cvdW=getCVDLive();
+  const hasCVD=_cvdW.hasCVD;
   if(hasCVD){
-    const cvdRatio=cvdData.buyVol5m/(cvdData.buyVol5m+cvdData.sellVol5m);
+    const cvdRatio=_cvdW.ratio;
     if(c.c24>2&&cvdRatio<0.42){
       score-=20;
       detail.push('가격↑+CVD↓ 역발산(세력매도)');
@@ -1393,7 +1424,10 @@ function detectRegime(prices){
   const mean=sumY/n;
   if(mean===0)return{regime:'ranging',strength:0};
   const slopePct=(slope/mean)*100;
-  const strength=clamp(Math.abs(slopePct)*10,0,100);
+  // [v10-ALGO3 수정] 강도 스케일 개선: slopePct×10 → tanh 기반 정규화 (0~1% → 0~63, 5% → 100)
+  // 기존 ×10은 slopePct=0.51에서 strength=5.1(너무 낮음) → 민감도 대폭 개선
+  const strengthRaw=Math.tanh(Math.abs(slopePct)*2)*100;
+  const strength=clamp(strengthRaw,0,100);
   if(Math.abs(slopePct)>0.5)return{regime:slopePct>0?'trending_up':'trending_down',strength,direction:slopePct>0?'up':'down'};
   return{regime:'ranging',strength};
 }
@@ -1477,10 +1511,11 @@ function calcStarRating(coin,regime,bbsqueeze,mtf){
   else if(dCount>=2){points++;conditions.push('MTF하락일치');}
 
   // 조건D: CVD 매수우세 OR fallback(RSI저점/MACD골든)
-  const buy5=cvdData.buyVol5m,sell5=cvdData.sellVol5m;
-  const hasCVD=(buy5+sell5)>0;
+  // [v10-BUG2 수정] buyVol5m/sellVol5m 스테일 → getCVDLive() window 직접 집계
+  const _cvdStar=getCVDLive();
+  const hasCVD=_cvdStar.hasCVD;
   if(hasCVD){
-    if(buy5/(buy5+sell5)>0.55){points++;conditions.push('CVD매수우세');}
+    if(_cvdStar.ratio>0.55){points++;conditions.push('CVD매수우세');}
   } else {
     // CVD 미수집(초기로드): RSI 저점권 OR MACD 골든 fallback
     const rsiFall=coin.rsi!=null&&coin.rsi<45;
@@ -1638,9 +1673,9 @@ async function fetchLeverageMetrics(){
     const fundingBias=clamp(oiWeightedFunding*8000,-35,35);
     // OI 변화율 보정: 실제 OI delta% 사용
     const oiDeltaBias=clamp(oiMetrics.weightedDeltaPct*2,-10,10);
-    // CVD 보정
-    const cvdBuy=cvdData.buyVol5m,cvdSell=cvdData.sellVol5m;
-    const cvdBias=(cvdBuy+cvdSell)>0?clamp(((cvdBuy-cvdSell)/(cvdBuy+cvdSell))*8,-8,8):0;
+    // [v10-BUG4 수정] CVD 보정: buyVol5m/sellVol5m 스테일 → getCVDLive() 직접 집계
+    const _cvdLev=getCVDLive();
+    const cvdBias=_cvdLev.hasCVD?clamp((_cvdLev.ratio-0.5)*16,-8,8):0;
     let squeezeBias=0;
     if(squeezeSignal==='short_squeeze')squeezeBias=+12;
     if(squeezeSignal==='long_cascade')squeezeBias=-12;
@@ -1859,12 +1894,14 @@ function buildMarketPred(coins,lev){
   if(sq==='short_squeeze')squeezeBias=+2.5;
   if(sq==='long_cascade')squeezeBias=-2.5;
   if(sq==='long_squeeze_risk')squeezeBias=-1.5;
-  const cvdBuy=cvdData.buyVol5m,cvdSell=cvdData.sellVol5m;
-  const cvdPredBias=(cvdBuy+cvdSell)>0?clamp(((cvdBuy-cvdSell)/(cvdBuy+cvdSell))*1.5,-1.5,1.5):0;
+  // [v10-BUG3 수정] CVD bias: buyVol5m/sellVol5m 스테일 → getCVDLive() 직접 집계
+  const _cvdPred=getCVDLive();
+  const cvdPredBias=_cvdPred.hasCVD?clamp((_cvdPred.ratio-0.5)*3,-1.5,1.5):0;
   const oiDeltaBias=lev?.oiMetrics?clamp(lev.oiMetrics.weightedDeltaPct*0.1,-1.0,1.0):0;
   const totalBias=lsBias+frBias+techBias+squeezeBias+cvdPredBias+oiDeltaBias;
   return rawPred.map((p,i)=>{
-    const decay=Math.exp(-i*0.18);
+    // [v10-ALGO4 수정] decay 0.18 → 0.30: D+7에 30%→7% bias 잔존으로 완화
+    const decay=Math.exp(-i*0.30);
     const adj=totalBias*decay;
     return{muPct:p.muPct+adj,loPct:p.loPct+adj,hiPct:p.hiPct+adj,bias:adj};
   });
@@ -2189,9 +2226,9 @@ function triggerRefresh(){refreshAll();}
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshAll();});
 
   // CVD 패널 10초 주기 렌더 (WS 틱과 별개로 UI 동기화)
+  // [v10-ARCH2 수정] isRefreshing 중 stale 렌더 방지
   setInterval(()=>{
-    renderCVDPanel();
-    renderLiqPanel();
+    if(!isRefreshing){renderCVDPanel();renderLiqPanel();}
   },10000);
 
   // ESC 키로 모달 닫기
