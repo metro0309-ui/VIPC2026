@@ -1318,13 +1318,13 @@ function detectRegime(prices){
 
 /* ── BB Squeeze ── */
 function calcBBSqueeze(prices){
-  if(!prices||prices.length<20)return{squeeze:false,strength:0};
+  if(!prices||prices.length<20)return{squeeze:false,strength:0,bandwidth:0,avgBW:0};
   const period=20;
   const recent=prices.slice(-period);
   const sma=recent.reduce((a,b)=>a+b,0)/period;
   const variance=recent.reduce((a,b)=>a+Math.pow(b-sma,2),0)/period;
   const std=Math.sqrt(variance);
-  const bandwidth=(4*std)/sma*100;
+  const bandwidth=(4*std)/(sma||1)*100;
   const allBW=[];
   for(let i=period;i<prices.length;i++){
     const sl=prices.slice(i-period,i);
@@ -1336,12 +1336,13 @@ function calcBBSqueeze(prices){
   const avgBW=allBW.length>0?allBW.reduce((a,b)=>a+b,0)/allBW.length:bandwidth;
   const squeeze=avgBW>0&&bandwidth<avgBW*0.6;
   const strength=avgBW>0?clamp((1-(bandwidth/avgBW))*100,0,100):0;
-  return{squeeze,strength,bandwidth};
+  // avgBW, bandwidth 모두 반환 → calcStarRating에서 임계값 직접 비교
+  return{squeeze,strength,bandwidth,avgBW};
 }
 
 /* ── MTF ── */
 function calcMTF(prices){
-  if(!prices||prices.length<50)return{score:0,signals:[],aligned:false};
+  if(!prices||prices.length<50)return{score:0,signals:[],aligned:false,bullCount:0,bearCount:0};
   const signals=[];
   const short=prices.slice(-7);
   signals.push(short[short.length-1]>short[0]?'7d↑':'7d↓');
@@ -1349,20 +1350,62 @@ function calcMTF(prices){
   signals.push(mid[mid.length-1]>mid[0]?'30d↑':'30d↓');
   signals.push(prices[prices.length-1]>prices[0]?'60d↑':'60d↓');
   const bullCount=signals.filter(s=>s.includes('↑')).length;
-  return{score:bullCount>=2?bullCount:0,signals,aligned:bullCount>=2||bullCount===0};
+  const bearCount=3-bullCount;
+  // [버그수정] bullCount===0(전부하락)도 aligned:true였던 오류 수정
+  // 상승 2개이상 OR 하락 2개이상일 때만 방향 일치로 판정
+  return{score:bullCount>=2?bullCount:0,signals,aligned:bullCount>=2||bearCount>=2,bullCount,bearCount};
 }
 
-/* ── 별점 ── */
+/* ── 별점 v7 ──────────────────────────────────────────────────
+   [버그수정] 삼중 AND → 4개 독립 조건으로 분리
+   조건A: 선형회귀 추세 존재 (방향 무관)
+   조건B: BB수축(임계 80% 완화) OR 실OI증가(>0.5% 완화)
+   조건C: MTF 2개 이상 같은 방향 일치 (상승 or 하락)
+   조건D: CVD매수우세(55%) OR CVD미수집시 RSI저점/MACD골든 fallback
+   ⭐⭐⭐=3개이상 / ⭐⭐=2개 / ⭐=1개이하
+──────────────────────────────────────────────────────────── */
 function calcStarRating(coin,regime,bbsqueeze,mtf){
   let points=0;const conditions=[];
-  // 조건 1: 추세 + 실제 OI 증가 + BB스퀴즈
-  const oiOk=coin.oiDelta!=null?coin.oiDelta>2:false;
-  if(regime.regime.includes('trending')&&oiOk&&bbsqueeze.squeeze){points++;conditions.push('추세+실OI+BB스퀴즈');}
-  // 조건 2: MTF 일치
-  if(mtf.aligned){points++;conditions.push('MTF일치');}
-  // 조건 3: CVD 매수 우세 (BTC 기준)
+
+  // 조건A: 추세 존재
+  const isTrending=regime.regime==='trending_up'||regime.regime==='trending_down';
+  if(isTrending){
+    points++;
+    conditions.push(regime.direction==='up'?'추세↑':'추세↓');
+  }
+
+  // 조건B: BB수축(80% 완화) OR 실OI증가(0.5% 완화)
+  const bbOk=bbsqueeze.avgBW>0&&bbsqueeze.bandwidth<bbsqueeze.avgBW*0.8;
+  const oiOk=coin.oiDelta!=null&&coin.oiDelta>0.5;
+  if(bbOk||oiOk){
+    points++;
+    const parts=[];
+    if(bbOk)parts.push('BB수축');
+    if(oiOk)parts.push('OI+'+(coin.oiDelta!=null?fmt(coin.oiDelta,1):'?')+'%');
+    conditions.push(parts.join('+'));
+  }
+
+  // 조건C: MTF 방향 일치 (상승 2개이상 OR 하락 2개이상)
+  const bCount=mtf.signals?mtf.signals.filter(s=>s.includes('↑')).length:0;
+  const dCount=mtf.signals?mtf.signals.filter(s=>s.includes('↓')).length:0;
+  if(bCount>=2){points++;conditions.push('MTF상승일치');}
+  else if(dCount>=2){points++;conditions.push('MTF하락일치');}
+
+  // 조건D: CVD 매수우세 OR fallback(RSI저점/MACD골든)
   const buy5=cvdData.buyVol5m,sell5=cvdData.sellVol5m;
-  if(buy5+sell5>0&&buy5/(buy5+sell5)>0.58){points++;conditions.push('CVD매수우세');}
+  const hasCVD=(buy5+sell5)>0;
+  if(hasCVD){
+    if(buy5/(buy5+sell5)>0.55){points++;conditions.push('CVD매수우세');}
+  } else {
+    // CVD 미수집(초기로드): RSI 저점권 OR MACD 골든 fallback
+    const rsiFall=coin.rsi!=null&&coin.rsi<45;
+    const macdFall=coin.bull===true;
+    if(rsiFall||macdFall){
+      points++;
+      conditions.push(rsiFall&&macdFall?'RSI저점+골든':rsiFall?'RSI저점권':'MACD골든');
+    }
+  }
+
   let stars='⭐';
   if(points>=3)stars='⭐⭐⭐';
   else if(points>=2)stars='⭐⭐';
@@ -1545,7 +1588,7 @@ function buildCoins(raw){
     const regime=detectRegime(prices);
     const bbsqueeze=calcBBSqueeze(prices);
     const mtf=calcMTF(prices);
-    const rating=calcStarRating({oiDelta},regime,bbsqueeze,mtf);
+    const rating=calcStarRating({oiDelta,rsi,bull},regime,bbsqueeze,mtf);
     // 세력 감지 — total_volume은 whaleSignal 내 mcap 비율 계산에 필요
     const coinObj={
       rank:i+1,id:c.id,sym:(c.symbol||'').toUpperCase(),name:c.name||'',
