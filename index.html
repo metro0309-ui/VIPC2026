@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#07090f">
-<title>레버리지 게이지 v6 · 실시간 OI+CVD+청산</title>
+<title>레버리지 게이지 v7 · 세력감지+상세팝업</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;700;900&display=swap');
 
@@ -141,6 +141,55 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
 .risk-overbought{background:rgba(255,51,85,0.15);color:#ff3355;border:1px solid rgba(255,51,85,0.35);}
 .risk-oversold{background:rgba(0,255,136,0.1);color:#00ff88;border:1px solid rgba(0,255,136,0.25);}
 .risk-warning{background:rgba(255,165,0,0.12);color:#ffa500;border:1px solid rgba(255,165,0,0.3);}
+/* ── 세력 감지 배지 ── */
+.whale-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:4px;font-size:0.54rem;font-weight:700;margin-top:3px;letter-spacing:0.3px;}
+.whale-alert{background:rgba(255,0,200,0.12);color:#ff00cc;border:1px solid rgba(255,0,200,0.35);animation:whalePulse 2s infinite;}
+.whale-caution{background:rgba(255,140,0,0.12);color:#ffaa00;border:1px solid rgba(255,140,0,0.3);}
+.whale-neutral{background:rgba(100,116,139,0.1);color:#64748b;border:1px solid rgba(100,116,139,0.2);}
+.whale-acc{background:rgba(0,255,136,0.1);color:#00ff88;border:1px solid rgba(0,255,136,0.25);}
+@keyframes whalePulse{0%,100%{box-shadow:0 0 0 0 rgba(255,0,200,0.3);}50%{box-shadow:0 0 0 4px rgba(255,0,200,0);}}
+
+/* ══════════════════
+   코인 상세 팝업 모달
+══════════════════ */
+#coinModal{position:fixed;inset:0;z-index:500;display:none;align-items:flex-end;justify-content:center;}
+#coinModal.open{display:flex;}
+.modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);}
+.modal-sheet{position:relative;z-index:1;background:#0d1117;border:1px solid rgba(255,255,255,0.1);border-radius:18px 18px 0 0;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;padding:0 0 24px;transform:translateY(100%);transition:transform 0.35s cubic-bezier(.32,1,.4,1);}
+#coinModal.open .modal-sheet{transform:translateY(0);}
+.modal-handle{width:36px;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;margin:10px auto 0;}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 10px;}
+.modal-title{font-family:'Orbitron',monospace;font-size:1rem;font-weight:900;color:var(--accent);}
+.modal-close{background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:6px;}
+.modal-close:active{background:rgba(255,255,255,0.05);}
+.modal-body{padding:0 16px;}
+/* 모달 섹션 */
+.ms{margin-bottom:14px;}
+.ms-title{font-family:'Orbitron',monospace;font-size:0.5rem;letter-spacing:2px;color:var(--muted);margin-bottom:7px;}
+.ms-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.ms-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;}
+.ms-card{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:9px;padding:9px 11px;}
+.ms-lbl{font-size:0.5rem;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:0.5px;}
+.ms-val{font-family:'Orbitron',monospace;font-size:0.9rem;font-weight:700;}
+.ms-sub{font-size:0.5rem;color:var(--muted);margin-top:2px;}
+/* 7일 미니 예측 바 (모달) */
+.modal-pred-row{display:flex;flex-direction:column;gap:5px;}
+.modal-pred-item{display:grid;grid-template-columns:32px 1fr 48px 44px;align-items:center;gap:7px;font-size:0.58rem;}
+.modal-pred-tag{font-family:'Orbitron',monospace;font-size:0.5rem;color:var(--muted);text-align:right;}
+.modal-mini-bar{position:relative;height:12px;border-radius:6px;overflow:hidden;background:rgba(255,255,255,0.06);}
+/* 세력 분석 섹션 */
+.whale-section{background:rgba(255,0,200,0.04);border:1px solid rgba(255,0,200,0.15);border-radius:10px;padding:11px 13px;margin-bottom:14px;}
+.whale-section-title{font-family:'Orbitron',monospace;font-size:0.5rem;letter-spacing:2px;color:#ff00cc;margin-bottom:8px;}
+.whale-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.6rem;}
+.whale-row:last-child{border-bottom:none;}
+.whale-key{color:var(--muted);}
+.whale-val{font-family:'Orbitron',monospace;font-size:0.62rem;font-weight:700;}
+/* 정렬 버튼 active 상태 */
+.sort-btn{background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.2);color:var(--muted);padding:4px 10px;border-radius:6px;font-family:'Orbitron',monospace;font-size:0.54rem;cursor:pointer;min-height:28px;transition:all 0.15s;}
+.sort-btn:active,.sort-btn.active{background:rgba(0,229,255,0.18);border-color:var(--accent);color:var(--accent);}
+/* coin-card 클릭 커서 */
+.coin-card{cursor:pointer;transition:background 0.12s;}
+.coin-card:active{background:rgba(255,255,255,0.03);}
 /* ── S/E등급 경고 배너 ── */
 .grade-alert{display:none;padding:6px 12px;border-radius:7px;font-size:0.62rem;font-weight:700;margin-bottom:6px;line-height:1.5;}
 .grade-alert.alert-hot{background:rgba(255,51,85,0.1);border:1px solid rgba(255,51,85,0.3);color:#ff3355;display:block;}
@@ -439,9 +488,9 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
         <button class="fbtn" data-g="E" onclick="setFilter('E',this)">E</button>
       </div>
       <div style="display:flex;gap:6px;margin-top:8px;padding:0 4px">
-        <button class="btn" style="font-size:0.56rem;padding:4px 10px;min-height:28px" onclick="sortKey='stars';sortDir=-1;renderCoins()">⭐ 별점순</button>
-        <button class="btn" style="font-size:0.56rem;padding:4px 10px;min-height:28px" onclick="sortKey='score';sortDir=-1;renderCoins()">점수순</button>
-        <button class="btn" style="font-size:0.56rem;padding:4px 10px;min-height:28px" onclick="sortKey='c24';sortDir=-1;renderCoins()">24H↓</button>
+        <button class="sort-btn active" id="sortBtnStars" onclick="setSort('stars',this)">⭐ 높은 별순</button>
+        <button class="sort-btn" id="sortBtnScore" onclick="setSort('score',this)">📊 높은점수순</button>
+        <button class="sort-btn" id="sortBtnC24" onclick="setSort('c24',this)">📈 24H 높은순</button>
       </div>
     </div>
     <div class="coin-list" id="coinList">
@@ -462,11 +511,24 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
       </div><br>
       <b>등급 기준:</b> S≥80 · A≥65 · B≥50 · C≥35 · D≥20 · E&lt;20<br>
       <b>OI:</b> Binance fapi/v1/openInterest 실제값 · CVD: aggTrade WebSocket 누적 델타<br>
-      <b>⭐ 별점 기준 (4조건):</b> A)선형회귀 추세확인 B)BB수축(80%)or실OI증가(0.5%) C)MTF2개이상일치 D)CVD매수우세(or RSI저점/MACD골든)<br>
+      <b>🐋 세력 감지:</b> OI급증+가격乖離 / 대량청산 / CVD역발산 / 거래량폭발 분석<br>
       <span style="color:rgba(255,255,255,0.3)">⚠ 이 점수는 기술적 신호의 단순 합산이며, 투자 판단의 보조 참고용입니다.</span>
     </div>
   </div>
 
+</div>
+
+<!-- ══ 코인 상세 팝업 모달 ══ -->
+<div id="coinModal" onclick="handleModalClick(event)">
+  <div class="modal-backdrop"></div>
+  <div class="modal-sheet" id="modalSheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">--</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
 </div>
 
 <script>
@@ -1129,7 +1191,114 @@ function calcLSBias(c){
   return{bias,label,color,detail:reasons.slice(0,3).join(' · '),score:w};
 }
 
-/* ── 선형회귀 기반 Regime Detection (ADX 대체) ── */
+/* ══════════════════════════════════════════════════════════════
+   🐋 세력 감지 알고리즘 — calcWhaleSignal()
+   ──────────────────────────────────────────────────────────────
+   세력(스마트머니/기관)의 포지션 빌드 or 덤핑 패턴 감지.
+   5가지 신호를 종합 → 세력지수(-100~+100) 계산
+
+   신호1. OI급증+가격乖離: OI 급증하는데 가격 미미 → 세력 포지션 누적
+   신호2. CVD역발산: 가격상승인데 CVD하락(or 반대) → 세력 반대 포지션
+   신호3. 거래량 폭발(Vol Spike): 7일 평균 대비 24H 거래량 이상 급증
+   신호4. RSI+OI 乖離: RSI과매수인데 OI급감 → 세력 청산 중
+   신호5. 7일 추세 vs 단기 역행: 7일 방향과 24H 방향 역전 + 거래량
+   ──────────────────────────────────────────────────────────────
+   반환: {score, signal, label, color, detail[], risk}
+══════════════════════════════════════════════════════════════ */
+function calcWhaleSignal(c){
+  let score=0;
+  const detail=[];
+
+  // ── 신호1: OI 급증 + 가격 乖離 (포지션 누적 감지) ──
+  // OI 늘어나는데 가격 변동 작으면 → 세력이 몰래 쌓는 중
+  const oiD=c.oiDelta!=null?c.oiDelta:0;
+  const absC24=Math.abs(c.c24);
+  if(oiD>3&&absC24<2){
+    score+=30;
+    detail.push('OI급증+가격횡보(누적의심)');
+  } else if(oiD>1.5&&absC24<1){
+    score+=15;
+    detail.push('OI증가+저변동(관찰)');
+  } else if(oiD<-3&&absC24<2){
+    score-=25;
+    detail.push('OI급감+가격횡보(청산의심)');
+  }
+
+  // ── 신호2: CVD 역발산 (세력 반대매매 감지) ──
+  // 가격 오르는데 CVD 하락 = 세력이 고점에서 팔고있음
+  // 가격 내리는데 CVD 상승 = 세력이 저점에서 사고있음
+  const hasCVD=(cvdData.buyVol5m+cvdData.sellVol5m)>0;
+  if(hasCVD){
+    const cvdRatio=cvdData.buyVol5m/(cvdData.buyVol5m+cvdData.sellVol5m);
+    if(c.c24>2&&cvdRatio<0.42){
+      score-=20;
+      detail.push('가격↑+CVD↓ 역발산(세력매도)');
+    } else if(c.c24<-2&&cvdRatio>0.58){
+      score+=20;
+      detail.push('가격↓+CVD↑ 역발산(세력매수)');
+    } else if(c.c24>0&&cvdRatio>0.62){
+      score+=10;
+      detail.push('CVD매수우세 추종');
+    }
+  }
+
+  // ── 신호3: 거래량 폭발 (Vol Spike) ──
+  // 7일 sparkline 기반 평균 가격 변동 대비 24H 거래량 이상
+  // mcap 대비 vol 비율로 대리 계산
+  if(c.mcap>0){
+    const volRatio=(c.total_volume||c.mcap*0.05)/c.mcap*100;
+    if(volRatio>25){
+      score+=20;
+      detail.push(`거래량폭발(시총비${fmt(volRatio,0)}%)`);
+    } else if(volRatio>12){
+      score+=8;
+      detail.push(`거래량급증(시총비${fmt(volRatio,0)}%)`);
+    }
+  }
+
+  // ── 신호4: RSI + OI 乖離 (세력 청산 패턴) ──
+  if(c.rsi>72&&oiD<-2){
+    score-=25;
+    detail.push('RSI과매수+OI급감(세력이탈)');
+  } else if(c.rsi<30&&oiD>2){
+    score+=25;
+    detail.push('RSI과매도+OI급증(세력진입)');
+  } else if(c.rsi>65&&oiD<-1){
+    score-=12;
+    detail.push('고RSI+OI감소(주의)');
+  }
+
+  // ── 신호5: 7일 추세 역행 감지 ──
+  if(c.c7d>10&&c.c24<-3&&oiD<0){
+    score-=15;
+    detail.push('7일상승→단기급락+OI감소(분배)');
+  } else if(c.c7d<-10&&c.c24>3&&oiD>0){
+    score+=15;
+    detail.push('7일하락→단기급등+OI증가(매집)');
+  }
+
+  // ── 판정 ──
+  score=clamp(score,-100,100);
+  let signal,label,color,risk;
+  if(score>=50){
+    signal='accumulate'; label='🐋 세력 매집 강신호'; color='#00ff88';
+    risk='세력 진입 감지 — 동반매수 고려';
+  } else if(score>=20){
+    signal='watch_bull'; label='🐋 세력 관심 (매수)'; color='#7fff00';
+    risk='세력 움직임 관찰 중';
+  } else if(score>=-20){
+    signal='neutral'; label='〰 세력 중립'; color='#64748b';
+    risk='뚜렷한 세력 신호 없음';
+  } else if(score>=-50){
+    signal='watch_bear'; label='⚠ 세력주의 (매도)'; color='#ff8c00';
+    risk='세력 이탈 또는 분배 가능성';
+  } else {
+    signal='distribute'; label='🚨 세력 분배 강신호'; color='#ff3355';
+    risk='세력 대규모 청산 의심 — 진입 주의';
+  }
+
+  return{score,signal,label,color,risk,detail:detail.slice(0,3)};
+}
 function detectRegime(prices){
   if(!prices||prices.length<20)return{regime:'unknown',strength:0};
   const n=Math.min(prices.length,30);
@@ -1149,13 +1318,13 @@ function detectRegime(prices){
 
 /* ── BB Squeeze ── */
 function calcBBSqueeze(prices){
-  if(!prices||prices.length<20)return{squeeze:false,strength:0,bandwidth:0,avgBW:0};
+  if(!prices||prices.length<20)return{squeeze:false,strength:0};
   const period=20;
   const recent=prices.slice(-period);
   const sma=recent.reduce((a,b)=>a+b,0)/period;
   const variance=recent.reduce((a,b)=>a+Math.pow(b-sma,2),0)/period;
   const std=Math.sqrt(variance);
-  const bandwidth=(4*std)/(sma||1)*100;
+  const bandwidth=(4*std)/sma*100;
   const allBW=[];
   for(let i=period;i<prices.length;i++){
     const sl=prices.slice(i-period,i);
@@ -1165,15 +1334,14 @@ function calcBBSqueeze(prices){
     allBW.push((4*s)/m*100);
   }
   const avgBW=allBW.length>0?allBW.reduce((a,b)=>a+b,0)/allBW.length:bandwidth;
-  const squeeze=avgBW>0&&bandwidth<avgBW*0.6; // 내부 squeeze 플래그는 엄격 유지
+  const squeeze=avgBW>0&&bandwidth<avgBW*0.6;
   const strength=avgBW>0?clamp((1-(bandwidth/avgBW))*100,0,100):0;
-  // [수정] avgBW, bandwidth 모두 반환 → calcStarRating에서 임계값 자체 조정 가능
-  return{squeeze,strength,bandwidth,avgBW};
+  return{squeeze,strength,bandwidth};
 }
 
 /* ── MTF ── */
 function calcMTF(prices){
-  if(!prices||prices.length<50)return{score:0,signals:[],aligned:false,bullCount:0,bearCount:0};
+  if(!prices||prices.length<50)return{score:0,signals:[],aligned:false};
   const signals=[];
   const short=prices.slice(-7);
   signals.push(short[short.length-1]>short[0]?'7d↑':'7d↓');
@@ -1181,66 +1349,20 @@ function calcMTF(prices){
   signals.push(mid[mid.length-1]>mid[0]?'30d↑':'30d↓');
   signals.push(prices[prices.length-1]>prices[0]?'60d↑':'60d↓');
   const bullCount=signals.filter(s=>s.includes('↑')).length;
-  const bearCount=3-bullCount;
-  // [수정] bullCount===0(전부 하락)도 aligned=true이던 버그 수정
-  // 이제 명시적으로 상승 2개 이상 OR 하락 2개 이상일 때만 일치로 판정
-  return{score:bullCount>=2?bullCount:0,signals,aligned:bullCount>=2||bearCount>=2,bullCount,bearCount};
+  return{score:bullCount>=2?bullCount:0,signals,aligned:bullCount>=2||bullCount===0};
 }
 
-/* ── 별점 v6.1 ── 
-   [수정] 삼중 AND → 개별 조건 4개로 분리, 임계값 완화, CVD fallback
-   ────────────────────────────────────────────────────────────
-   조건A: 추세 확인 (trending_up OR trending_down, 방향 무관)
-   조건B: BB 변동성 수축 (60% → 80% 완화) OR 실OI 증가 (>0.5%)
-   조건C: MTF 다수 방향 일치 (2개 이상 같은 방향)
-   조건D: CVD 매수 우세 OR (CVD 데이터 없으면) RSI 과매도 + MACD 골든
-   ─
-   별점: A+B+C+D 중 충족 수 → 3개=⭐⭐⭐ / 2개=⭐⭐ / 1개=⭐
-*/
+/* ── 별점 ── */
 function calcStarRating(coin,regime,bbsqueeze,mtf){
   let points=0;const conditions=[];
-
-  // 조건A: 선형회귀 추세 존재 (방향 무관, 추세 강도만 확인)
-  const isTrending=regime.regime==='trending_up'||regime.regime==='trending_down';
-  if(isTrending){
-    points++;
-    conditions.push(regime.direction==='up'?'추세↑':'추세↓');
-  }
-
-  // 조건B: BB 스퀴즈(임계 80% 완화) OR 실OI 증가(>0.5% 완화)
-  // 기존 0.6 → 0.8 (더 넓은 스퀴즈 인정)
-  const bbOk=bbsqueeze.avgBW>0&&bbsqueeze.bandwidth<bbsqueeze.avgBW*0.8;
-  const oiOk=coin.oiDelta!=null?coin.oiDelta>0.5:false;
-  if(bbOk||oiOk){
-    points++;
-    const parts=[];
-    if(bbOk)parts.push('BB수축');
-    if(oiOk)parts.push(`OI+${fmt(coin.oiDelta,1)}%`);
-    conditions.push(parts.join('+'));
-  }
-
-  // 조건C: MTF 방향 일치 (bullCount>=2: 상승 일치 OR bearCount>=2: 하락 일치)
-  // 기존 aligned(bullCount===0도 true)에서 명시적 방향 일치로 변경
-  const bullCount=mtf.signals.filter(s=>s.includes('↑')).length;
-  const bearCount=mtf.signals.filter(s=>s.includes('↓')).length;
-  if(bullCount>=2){points++;conditions.push('MTF상승일치');}
-  else if(bearCount>=2){points++;conditions.push('MTF하락일치');}
-
-  // 조건D: CVD 매수우세 OR (CVD 미수집 시) 기술지표 fallback
+  // 조건 1: 추세 + 실제 OI 증가 + BB스퀴즈
+  const oiOk=coin.oiDelta!=null?coin.oiDelta>2:false;
+  if(regime.regime.includes('trending')&&oiOk&&bbsqueeze.squeeze){points++;conditions.push('추세+실OI+BB스퀴즈');}
+  // 조건 2: MTF 일치
+  if(mtf.aligned){points++;conditions.push('MTF일치');}
+  // 조건 3: CVD 매수 우세 (BTC 기준)
   const buy5=cvdData.buyVol5m,sell5=cvdData.sellVol5m;
-  const hasCVD=(buy5+sell5)>0;
-  if(hasCVD){
-    if(buy5/(buy5+sell5)>0.55){points++;conditions.push('CVD매수우세');} // 58→55% 완화
-  } else {
-    // CVD 미수집(초기 로드): RSI + MACD 기반 fallback
-    const rsiFallok=coin.rsi!=null&&coin.rsi<45; // 저점권
-    const macdFallok=coin.bull===true;            // 골든크로스
-    if(rsiFallok||macdFallok){
-      points++;
-      conditions.push(rsiFallok&&macdFallok?'RSI저점+골든':rsiFallok?'RSI저점권':'MACD골든');
-    }
-  }
-
+  if(buy5+sell5>0&&buy5/(buy5+sell5)>0.58){points++;conditions.push('CVD매수우세');}
   let stars='⭐';
   if(points>=3)stars='⭐⭐⭐';
   else if(points>=2)stars='⭐⭐';
@@ -1417,20 +1539,23 @@ function buildCoins(raw){
     const prices=(c.sparkline_in_7d?.price)||[];
     const rsi=calcRSI(prices),bull=calcMACDbull(prices);
     const c24=c.price_change_percentage_24h||0,c7d=c.price_change_percentage_7d_in_currency||0;
-    // 실제 OI delta 우선, 없으면 null(calcScore에서 0 처리)
     const oiDelta=getOIDelta((c.symbol||'').toUpperCase());
     const score=calcScore(rsi,bull,oiDelta,c24),grade=toGrade(score);
     const mcPred=monteCarloBootstrap(prices,7,300);
     const regime=detectRegime(prices);
     const bbsqueeze=calcBBSqueeze(prices);
     const mtf=calcMTF(prices);
-    const rating=calcStarRating({oiDelta,rsi,bull},regime,bbsqueeze,mtf);
-    return{
+    const rating=calcStarRating({oiDelta},regime,bbsqueeze,mtf);
+    // 세력 감지 — total_volume은 whaleSignal 내 mcap 비율 계산에 필요
+    const coinObj={
       rank:i+1,id:c.id,sym:(c.symbol||'').toUpperCase(),name:c.name||'',
       price:c.current_price||0,c24,c7d,rsi,bull,oiDelta,score,grade,mcPred,
       sparkline:prices,mcap:c.market_cap||0,
+      total_volume:c.total_volume||0,
       regime,bbsqueeze,mtf,rating
     };
+    coinObj.whale=calcWhaleSignal(coinObj);
+    return coinObj;
   });
 }
 
@@ -1511,19 +1636,24 @@ function renderCoins(){
     const lsb=calcLSBias(c);
     const lsBadge='<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:0.56rem;font-weight:700;background:'+lsb.color+'22;color:'+lsb.color+';border:1px solid '+lsb.color+'44;margin-top:2px">'+lsb.label+'</span>'
       +(lsb.detail?'<span style="font-size:0.52rem;color:var(--muted);margin-left:4px">'+lsb.detail+'</span>':'');
-    const starColor=c.rating.points>=3?'#ffd700':c.rating.points>=2?'#00e5ff':'#aab';
-    const starBg=c.rating.points>=3?'rgba(255,215,0,0.12)':c.rating.points>=2?'rgba(0,229,255,0.08)':'rgba(255,255,255,0.04)';
-    const starBorder=c.rating.points>=3?'rgba(255,215,0,0.4)':c.rating.points>=2?'rgba(0,229,255,0.25)':'rgba(255,255,255,0.08)';
-    const starBadge='<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 7px;background:'+starBg+';border:1px solid '+starBorder+';border-radius:5px;margin-top:4px">'
-      +'<span style="font-size:0.85rem;line-height:1">'+c.rating.stars+'</span>'
-      +'<span style="font-size:0.52rem;color:'+starColor+';font-weight:700">'+c.rating.points+'/4</span></div>';
-    const starDetail='<div style="font-size:0.48rem;color:var(--muted);margin-top:1px;line-height:1.4">'+esc(c.rating.conditions)+'</div>';
-    return'<div class="coin-card">'
+    const starColor=c.rating.points>=3?'#ffd700':c.rating.points>=2?'#ff8c00':'#666';
+    const starBadge='<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 7px;background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.25);border-radius:5px;margin-top:4px">'
+      +'<span style="font-size:0.9rem;line-height:1">'+c.rating.stars+'</span>'
+      +'<span style="font-size:0.54rem;color:'+starColor+';font-weight:700">'+c.rating.points+'조건</span></div>';
+    const starDetail='<div style="font-size:0.5rem;color:var(--muted);margin-top:2px">'+esc(c.rating.conditions)+'</div>';
+    // 세력 배지
+    const wh=c.whale;
+    const whClass=wh.score>=50?'whale-alert':wh.score>=20?'whale-acc':wh.score<=-50?'whale-alert':wh.score<=-20?'whale-caution':'whale-neutral';
+    const whaleBadge=wh.signal!=='neutral'
+      ?'<div class="whale-badge '+whClass+'">'+wh.label+'</div>'
+      :'';
+    return'<div class="coin-card" onclick="openCoinModal(\''+esc(c.sym)+'\')">'
       +'<div class="coin-left"><div class="coin-ico">'+esc(c.sym.slice(0,3))+'</div><div><div class="csym">'+esc(c.sym)+'</div><div class="cname">'+esc(c.name.slice(0,12))+'</div>'+starBadge+'</div></div>'
       +'<div><div class="coin-price">'+priceStr+' <span class="'+c24cls+'" style="font-size:0.68rem">'+fmtPct(c.c24)+'</span></div>'
         +'<div class="coin-meta"><span class="coin-rsi" style="color:'+rsiColor+'">RSI '+fmt(c.rsi,0)+'</span>'+macd+'<span style="color:'+dc7+';font-size:0.58rem;font-weight:700">'+dir7+'</span></div>'
         +starDetail
         +'<div style="margin-top:3px">'+lsBadge+'</div>'
+        +whaleBadge
         +'<div class="cpb-track"><div class="cpb-fill" style="width:'+sp7+'%;background:'+dc7+'"></div></div>'
         +(riskHtml?'<div style="margin-top:4px">'+riskHtml+'</div>':'')
       +'</div>'
@@ -1545,6 +1675,15 @@ function renderCoins(){
 }
 
 function setFilter(g,btn){curFilter=g;document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');renderCoins();}
+
+/* ── 정렬 함수 — 항상 내림차순(높은값 우선) ── */
+function setSort(key,btn){
+  sortKey=key;
+  sortDir=-1; // 항상 높은순
+  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderCoins();
+}
 
 /* ── 시장 예측 + 센티먼트 ── */
 function buildMarketPred(coins,lev){
@@ -1601,6 +1740,195 @@ function calcSentiment(coins,fng,lev){
     if(ratio>0.62)v+=4;else if(ratio<0.38)v-=4;
   }
   return clamp(v,0,100);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   코인 상세 팝업 모달
+══════════════════════════════════════════════════════════════ */
+function openCoinModal(sym){
+  const c=allCoins.find(x=>x.sym===sym);
+  if(!c)return;
+  document.getElementById('modalTitle').textContent=esc(c.sym)+' · '+esc(c.name);
+  document.getElementById('modalBody').innerHTML=renderModalBody(c);
+  const modal=document.getElementById('coinModal');
+  modal.classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeModal(){
+  document.getElementById('coinModal').classList.remove('open');
+  document.body.style.overflow='';
+}
+function handleModalClick(e){
+  if(e.target===document.getElementById('coinModal')||e.target.classList.contains('modal-backdrop'))closeModal();
+}
+
+function renderModalBody(c){
+  const gc=gradeColor(c.grade);
+  const priceStr=c.price>=1?'$'+fmt(c.price,2):'$'+fmt(c.price,4);
+  const lsb=calcLSBias(c);
+  const wh=c.whale;
+  const regime=c.regime;
+  const bb=c.bbsqueeze;
+  const mtf=c.mtf;
+
+  // 7일 예측 미니 렌더
+  const predRows=c.mcPred.map((p,i)=>{
+    const tag='D+'+(i+1);
+    const sp=pctToSP(p.muPct);
+    const spLo=pctToSP(p.loPct||p.muPct-3);
+    const spHi=pctToSP(p.hiPct||p.muPct+3);
+    const[dir,col]=dirLabel(sp);
+    const sign=p.muPct>=0?'+':'';
+    const rangeLeft=Math.min(spLo,spHi);
+    const rangeW=Math.max(2,Math.abs(spHi-spLo));
+    const fillLeft=sp>=50?50:sp;
+    const fillW=Math.abs(sp-50);
+    return`<div class="modal-pred-item">
+      <div class="modal-pred-tag">${tag}</div>
+      <div class="modal-mini-bar">
+        <div style="position:absolute;top:0;bottom:0;left:${rangeLeft}%;width:${rangeW}%;background:rgba(255,255,255,0.07);border-radius:6px;"></div>
+        <div style="position:absolute;top:1px;bottom:1px;left:${fillLeft}%;width:${fillW}%;background:${col};opacity:0.5;border-radius:4px;"></div>
+        <div style="position:absolute;top:0;bottom:0;left:50%;width:2px;background:rgba(255,255,255,0.25);transform:translateX(-50%);"></div>
+        <div style="position:absolute;top:0;bottom:0;left:${sp}%;width:3px;background:${col};border-radius:2px;transform:translateX(-50%);"></div>
+      </div>
+      <div style="font-size:0.56rem;color:${col};text-align:center;font-weight:700">${dir}</div>
+      <div style="font-family:monospace;font-size:0.56rem;color:${col};text-align:right">${sign}${fmt(p.muPct,2)}%</div>
+    </div>`;
+  }).join('');
+
+  // 세력 상세 rows
+  const whaleRows=`
+    <div class="whale-row"><span class="whale-key">세력 지수</span><span class="whale-val" style="color:${wh.color}">${wh.score>0?'+':''}${wh.score}</span></div>
+    <div class="whale-row"><span class="whale-key">신호</span><span class="whale-val" style="color:${wh.color}">${wh.label}</span></div>
+    <div class="whale-row"><span class="whale-key">해석</span><span class="whale-val" style="color:${wh.color};font-size:0.56rem">${esc(wh.risk)}</span></div>
+    ${wh.detail.map(d=>`<div class="whale-row"><span class="whale-key">근거</span><span style="font-size:0.56rem;color:var(--text)">${esc(d)}</span></div>`).join('')}
+  `;
+
+  // 추세 정보
+  const regimeCol=regime.regime==='trending_up'?'#00ff88':regime.regime==='trending_down'?'#ff3355':'#ffd700';
+  const regimeLbl=regime.regime==='trending_up'?'↑ 상승추세':regime.regime==='trending_down'?'↓ 하락추세':'→ 횡보';
+
+  // MTF 신호
+  const mtfHtml=(mtf.signals||[]).map(s=>{
+    const isUp=s.includes('↑');
+    return`<span style="color:${isUp?'#00ff88':'#ff3355'};font-size:0.58rem;margin-right:6px;font-weight:700">${esc(s)}</span>`;
+  }).join('');
+
+  return`
+  <!-- 가격 + 등급 헤더 -->
+  <div style="display:flex;align-items:center;gap:12px;padding:0 2px 14px;border-bottom:1px solid var(--border);margin-bottom:14px;">
+    <div>
+      <div style="font-family:'Orbitron',monospace;font-size:1.6rem;font-weight:900;color:var(--text)">${priceStr}</div>
+      <div style="margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span style="color:${c.c24>=0?'#00ff88':'#ff3355'};font-size:0.8rem;font-weight:700">${fmtPct(c.c24)} 24H</span>
+        <span style="color:${c.c7d>=0?'#7fff00':'#ff8c00'};font-size:0.72rem">${fmtPct(c.c7d)} 7D</span>
+      </div>
+    </div>
+    <div style="margin-left:auto;text-align:center;">
+      <div style="width:48px;height:48px;border-radius:10px;background:${gc}18;border:2px solid ${gc};display:flex;align-items:center;justify-content:center;font-family:'Orbitron',monospace;font-size:1.4rem;font-weight:900;color:${gc};box-shadow:0 0 12px ${gc}44">${c.grade}</div>
+      <div style="font-family:'Orbitron',monospace;font-size:0.6rem;color:${gc};margin-top:4px">${fmt(c.score,0)}pt</div>
+    </div>
+  </div>
+
+  <!-- 기본 지표 -->
+  <div class="ms">
+    <div class="ms-title">▸ 기술 지표</div>
+    <div class="ms-grid-3">
+      <div class="ms-card">
+        <div class="ms-lbl">RSI(14)</div>
+        <div class="ms-val" style="color:${c.rsi>70?'#ff4444':c.rsi<30?'#00ff88':'var(--text)'}">${fmt(c.rsi,1)}</div>
+        <div class="ms-sub">${c.rsi>70?'과매수':c.rsi<30?'과매도':'중립권'}</div>
+      </div>
+      <div class="ms-card">
+        <div class="ms-lbl">MACD</div>
+        <div class="ms-val" style="color:${c.bull?'#00ff88':'#ff3355'}">${c.bull?'골든':'데드'}</div>
+        <div class="ms-sub">${c.bull?'상승신호':'하락신호'}</div>
+      </div>
+      <div class="ms-card">
+        <div class="ms-lbl">OI 변화</div>
+        <div class="ms-val" style="color:${c.oiDelta!=null?(c.oiDelta>0?'#00ff88':'#ff3355'):'#64748b'}">${c.oiDelta!=null?(c.oiDelta>=0?'+':'')+fmt(c.oiDelta,2)+'%':'--'}</div>
+        <div class="ms-sub">${c.oiDelta!=null?(Math.abs(c.oiDelta)>3?'급변':'미미'):'미수집'}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 추세 분석 -->
+  <div class="ms">
+    <div class="ms-title">▸ 추세 분석 (선형회귀 + MTF)</div>
+    <div class="ms-grid">
+      <div class="ms-card">
+        <div class="ms-lbl">현재 추세</div>
+        <div class="ms-val" style="color:${regimeCol}">${regimeLbl}</div>
+        <div class="ms-sub">강도 ${fmt(regime.strength,0)}/100</div>
+      </div>
+      <div class="ms-card">
+        <div class="ms-lbl">BB 스퀴즈</div>
+        <div class="ms-val" style="color:${bb.squeeze?'#ff6b35':'#64748b'}">${bb.squeeze?'수축중':'정상'}</div>
+        <div class="ms-sub">강도 ${fmt(bb.strength,0)}%</div>
+      </div>
+    </div>
+    <div class="ms-card" style="margin-top:7px;">
+      <div class="ms-lbl">MTF 방향</div>
+      <div style="margin-top:4px;">${mtfHtml}</div>
+    </div>
+  </div>
+
+  <!-- 롱/숏 판단 -->
+  <div class="ms">
+    <div class="ms-title">▸ 포지션 바이어스</div>
+    <div class="ms-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="color:${lsb.color};font-size:0.88rem;font-weight:700">${lsb.label}</div>
+        <div style="font-family:'Orbitron',monospace;font-size:0.7rem;color:${lsb.color}">${lsb.score>0?'+':''}${fmt(lsb.score,1)}pt</div>
+      </div>
+      <div style="font-size:0.56rem;color:var(--muted);margin-top:5px">${esc(lsb.detail||'-')}</div>
+    </div>
+  </div>
+
+  <!-- 세력 분석 -->
+  <div class="whale-section">
+    <div class="whale-section-title">🐋 세력 감지 분석</div>
+    ${whaleRows}
+  </div>
+
+  <!-- 7일 예측 -->
+  <div class="ms">
+    <div class="ms-title">▸ 7일 MC 예측 (Bootstrap N=300)</div>
+    <div style="font-size:0.48rem;color:var(--muted);margin-bottom:8px;">바 중앙=0% 기준 · 회색밴드=±1σ</div>
+    <div class="modal-pred-row">${predRows}</div>
+  </div>
+
+  <!-- 시총 / 거래량 -->
+  <div class="ms">
+    <div class="ms-title">▸ 시장 규모</div>
+    <div class="ms-grid">
+      <div class="ms-card">
+        <div class="ms-lbl">시가총액</div>
+        <div class="ms-val">${fmtB(c.mcap)}</div>
+        <div class="ms-sub">#${c.rank}</div>
+      </div>
+      <div class="ms-card">
+        <div class="ms-lbl">24H 거래량</div>
+        <div class="ms-val">${fmtB(c.total_volume)}</div>
+        <div class="ms-sub">시총비 ${c.mcap>0?fmt(c.total_volume/c.mcap*100,1):'--'}%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 별점 -->
+  <div class="ms">
+    <div class="ms-title">▸ 진입 신호 별점</div>
+    <div class="ms-card">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="font-size:1.6rem">${c.rating.stars}</div>
+        <div>
+          <div style="font-family:'Orbitron',monospace;font-size:0.7rem;color:${c.rating.points>=3?'#ffd700':c.rating.points>=2?'#ff8c00':'#64748b'}">${c.rating.points}/4 조건 충족</div>
+          <div style="font-size:0.54rem;color:var(--muted);margin-top:3px">${esc(c.rating.conditions)}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  `;
 }
 
 /* ── 메인 리프레시 ── */
@@ -1709,6 +2037,15 @@ function triggerRefresh(){refreshAll();}
     renderCVDPanel();
     renderLiqPanel();
   },10000);
+
+  // ESC 키로 모달 닫기
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+  // 모달 스와이프 다운 닫기
+  const mSheet=document.getElementById('modalSheet');
+  let _ty=0;
+  mSheet.addEventListener('touchstart',e=>{_ty=e.touches[0].clientY;},{passive:true});
+  mSheet.addEventListener('touchmove',e=>{if(e.touches[0].clientY-_ty>70)closeModal();},{passive:true});
 })();
 </script>
 </body>
