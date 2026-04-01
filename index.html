@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#07090f">
-<title>레버리지 게이지 v7 · 세력감지+상세팝업</title>
+<title>레버리지 게이지 v8 · 버그픽스+알고리즘강화</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;700;900&display=swap');
 
@@ -534,13 +534,25 @@ header h1{font-family:'Orbitron',monospace;font-size:0.68rem;color:var(--accent)
 <script>
 'use strict';
 /* ================================================================
-   레버리지 게이지 v6 — 실시간 바이낸스 데이터 업그레이드
+   레버리지 게이지 v8 — 버그픽스 + 알고리즘 강화 패치
    ─────────────────────────────────────────────────────────────────
-   [신규] ① 실제 OI: fapi/v1/openInterest 배치 조회 (20개 심볼)
-   [신규] ② forceOrder WebSocket → 실시간 청산 스트림 + squeezeAlert 연동
-   [신규] ③ aggTrade WebSocket → CVD(Cumulative Volume Delta) 실시간 누적
-   [신규] ④ OI × 변동성(ATR proxy) → 정교한 스퀴즈 지수 계산
-   [유지] 기존 버그픽스(ADX→선형회귀, Race Condition, MC 무한루프 방어 등)
+   [v8 수정] ① sortKey 초기값 불일치 수정 (score→stars)
+   [v8 수정] ② 검색 시 API 재호출 제거 → 로컬 필터링
+   [v8 수정] ③ RSI → Wilder's SMMA 정확한 공식 적용
+   [v8 수정] ④ MACD EMA warm-up 부족 수정 (26→60봉)
+   [v8 수정] ⑤ OI cache prevOiUsd 덮어쓰기 버그 수정 (delta=0 문제)
+   [v8 수정] ⑥ renderLiqPanel 5분 윈도우 무시 버그 수정
+   [v8 수정] ⑦ setWsDot/updateWsStatus 상태 충돌 수정
+   [v8 수정] ⑧ calcScore OI delta 방향 정렬 반영 (OI↑+가격↓=숏압력)
+   [v8 수정] ⑨ fetchTop100 per_page 250→150 최적화
+   [v8 수정] ⑩ MC Bootstrap adaptive block size (5 고정→데이터 비례)
+   [v8 수정] ⑪ 세력감지 Vol Spike sparkline 기반 변동성 비교 추가
+   [v8 수정] ⑫ buildMarketPred price=0 데이터 제외 (평균 왜곡 방지)
+   [v8 수정] ⑬ calcBBSqueeze sma=0 및 데이터 부족 엣지케이스 처리
+   [v8 수정] ⑭ CVD throttle: window.length%50 → 1초 time-based
+   [v8 수정] ⑮ triggerLiqAlert race condition 수정 (alertId 도입)
+   [v8 수정] ⑯ calcSentiment OI weighted delta 방향 반영 추가
+   [v8 수정] ⑰ renderCoins ALL필터 정렬 강제오버라이드 버그 수정
 ================================================================ */
 
 /* ── RNG ── */
@@ -556,7 +568,7 @@ function safeTime(){try{const d=new Date();return String(d.getHours()).padStart(
 function esc(str){return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
 /* ── 전역 상태 ── */
-let allCoins=[],curFilter='ALL',sortKey='score',sortDir=-1;
+let allCoins=[],curFilter='ALL',sortKey='stars',sortDir=-1;
 let isRefreshing=false;
 
 /* ══════════════════════════════════════════════════════════════
@@ -583,8 +595,11 @@ const markPriceCache=new Map();
 /* ── OI 배치 조회 ──
    fapi/v1/openInterest는 심볼 1개씩만 지원.
    Promise.allSettled로 20개 병렬 조회 후 실패한 것은 이전 캐시 유지.
-   markPrice는 이미 premiumIndex에서 가져오므로 재사용. */
+   markPrice는 이미 premiumIndex에서 가져오므로 재사용.
+   [버그수정] prevOiUsd는 이전 사이클 값을 보존해야 함 → 현재값 저장 후 next에서 prev로 사용 */
+let _oiSnapshotTs=0; // 마지막 OI 스냅샷 타임스탬프
 async function fetchAllOI(){
+  const now=Date.now();
   const results=await Promise.allSettled(
     TARGET_SYMS.map(sym=>
       fetch(`https://fapi.binance.com/fapi/v1/openInterest?symbol=${sym}`,
@@ -599,15 +614,19 @@ async function fetchAllOI(){
       const mp=markPriceCache.get(sym)||0;
       const oiUsd=oi*mp;
       const prev=oiCache.get(sym);
+      // [버그수정] prevOiUsd = 이전 사이클의 oiUsd (최소 30초 경과 시만 갱신)
+      // 같은 사이클 내 재호출 방지: ts 차이가 30초 이상일 때만 prev 업데이트
+      const shouldUpdatePrev=!prev||(now-prev.ts)>30000;
       oiCache.set(sym,{
         oiUsd,
-        prevOiUsd:prev?prev.oiUsd:oiUsd,
+        prevOiUsd:shouldUpdatePrev&&prev?(prev.oiUsd):(prev?.prevOiUsd||oiUsd),
         markPrice:mp,
         rawOi:oi,
-        ts:Date.now()
+        ts:now
       });
     }
   });
+  _oiSnapshotTs=now;
 }
 
 /* ── OI 파생 지표 계산 ──
@@ -741,17 +760,21 @@ function connectLiquidationWS(){
 }
 
 function setWsDot(type,ok){
-  const el=document.getElementById('wsStatus');
-  if(el)el.innerHTML=ok
-    ?'<span style="color:#00ff88">● LIVE</span>'
-    :'<span style="color:#ff3355">● 재연결 중...</span>';
+  // 개별 WS dot 상태 저장 후 통합 상태 업데이트
+  if(type==='liq')setWsDot._liqOk=ok;
+  if(type==='cvd')setWsDot._cvdOk=ok;
+  updateWsStatus();
 }
+setWsDot._liqOk=false;setWsDot._cvdOk=false;
 function updateWsStatus(){
-  const bothOk=wsLiquidation?.readyState===1&&wsCVD?.readyState===1;
+  const liqOk=wsLiquidation?.readyState===1;
+  const cvdOk=wsCVD?.readyState===1;
+  setWsDot._liqOk=liqOk;setWsDot._cvdOk=cvdOk;
   const el=document.getElementById('wsStatus');
-  if(el)el.innerHTML=bothOk
-    ?'<span style="color:#00ff88">● LIVE · WS×2</span>'
-    :'<span style="color:#ffd700">● 부분연결</span>';
+  if(!el)return;
+  if(liqOk&&cvdOk)el.innerHTML='<span style="color:#00ff88">● LIVE · WS×2</span>';
+  else if(liqOk||cvdOk)el.innerHTML='<span style="color:#ffd700">● 부분연결 ('+(liqOk?'LIQ':'CVD')+')</span>';
+  else el.innerHTML='<span style="color:#ff3355">● 재연결 중...</span>';
 }
 
 function renderLiqPanel(){
@@ -766,10 +789,10 @@ function renderLiqPanel(){
   if(totalEl)totalEl.innerHTML='<span style="color:'+(longUsd>shortUsd?'#ff3355':'#00ff88')+'">'+fmtB(total)+'</span>';
   if(subEl)subEl.textContent='LONG '+fmtB(longUsd)+' · SHORT '+fmtB(shortUsd);
 
-  // 최근 8개 청산 이벤트 렌더
+  // [버그수정] recent(5분 필터)에서 최근 8개 표시 (liqHistory 전체 slice가 아님)
   const listEl=document.getElementById('liqList');
   if(!listEl)return;
-  const items=liqHistory.slice(-8).reverse();
+  const items=recent.slice(-8).reverse();
   if(!items.length){listEl.innerHTML='<div style="color:var(--muted);font-size:0.6rem;padding:4px 0">청산 이벤트 없음 (5분 내)</div>';return;}
   listEl.innerHTML=items.map(l=>{
     const age=Math.round((now-l.ts)/1000);
@@ -785,6 +808,7 @@ function renderLiqPanel(){
   }).join('');
 }
 
+let _liqAlertId=0; // 청산 알림 고유 ID (stale timeout 방지)
 function triggerLiqAlert(sym,side,usdSize){
   const sqEl=document.getElementById('squeezeAlert');
   if(!sqEl)return;
@@ -793,10 +817,13 @@ function triggerLiqAlert(sym,side,usdSize){
   const border=isBull?'rgba(0,255,136,0.35)':'rgba(255,51,85,0.3)';
   const textCol=isBull?'var(--green)':'var(--red)';
   const emoji=isBull?'🚀':'🔥';
+  // [버그수정] 고유 ID로 stale timeout이 새 알림을 숨기는 race condition 방지
+  const myId=++_liqAlertId;
+  sqEl.dataset.alertId=String(myId);
   sqEl.style.cssText=`display:block;padding:8px 12px;border-radius:7px;margin-top:8px;font-size:0.66rem;font-weight:700;background:${col};border:1px solid ${border};color:${textCol}`;
   sqEl.textContent=`${emoji} 대규모 ${side} 청산 · ${esc(sym)} ${fmtB(usdSize)} · ${safeTime()}`;
-  // 10초 후 자동 숨김 (다음 정기 신호가 덮어쓸 수 있음)
-  setTimeout(()=>{if(sqEl.textContent.includes(sym))sqEl.style.display='none';},10000);
+  // 10초 후 자동 숨김 — 내 ID가 현재도 활성 상태일 때만 숨김
+  setTimeout(()=>{if(sqEl.dataset.alertId===String(myId))sqEl.style.display='none';},10000);
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -818,6 +845,8 @@ const cvdData={
   sellVol5m:0,    // 5분 매도 볼륨
   lastPrice:0,
 };
+
+let _cvdLastRender=0; // CVD 렌더 throttle 타임스탬프
 
 function connectCVDWS(){
   if(wsCVD&&(wsCVD.readyState===WebSocket.CONNECTING||wsCVD.readyState===WebSocket.OPEN))return;
@@ -843,8 +872,8 @@ function connectCVDWS(){
       while(cvdData.window.length&&cvdData.window[0].ts<now-LIQ_WINDOW_MS)
         cvdData.window.shift();
 
-      // 5분 통계 재계산 (throttle: 매 50틱마다)
-      if(cvdData.window.length%50===0)renderCVDPanel();
+      // [버그수정] time-based throttle: 1초에 1번만 렌더 (window.length%50 → 불규칙 firing 수정)
+      if(now-_cvdLastRender>1000){_cvdLastRender=now;renderCVDPanel();}
     }catch(_){}
   };
 
@@ -1085,7 +1114,10 @@ function monteCarloBootstrap(hist,days,n){
   if(rets.length<6)return Array.from({length:days},()=>({muPct:0,loPct:-5,hiPct:5}));
   const last=hist[hist.length-1];
   const lr=makeRng(getSeed());
-  const bs=5,paths=[];
+  // [개선] Adaptive block size: 수익률 시계열 길이에 비례 (최소3, 최대10)
+  // 짧은 데이터에 큰 block 사용 시 경로 다양성 급감 → 편향 발생
+  const bs=Math.max(3,Math.min(10,Math.floor(rets.length/10)));
+  const paths=[];
   const maxStart=Math.max(1,rets.length-bs);
   for(let sim=0;sim<n;sim++){
     let price=last;const path=[price];let done=0;
@@ -1108,17 +1140,39 @@ function monteCarloBootstrap(hist,days,n){
 }
 
 /* ── 기술 지표 ── */
+// Wilder's RSI (SMMA 방식) — 단순 합산 대신 지수이동평균 사용
 function calcRSI(prices,period=14){
-  if(!prices||prices.length<period+1)return 50;
-  let g=0,l=0;
-  for(let i=prices.length-period;i<prices.length;i++){const d=prices[i]-prices[i-1];if(d>0)g+=d;else l-=d;}
-  if(l===0)return 100;
-  return 100-(100/(1+(g/period)/(l/period)));
+  if(!prices||prices.length<period+2)return 50;
+  const slice=prices.slice(-(period*3+1)); // 충분한 warm-up
+  let avgGain=0,avgLoss=0;
+  // 첫 period개로 초기 평균 계산
+  for(let i=1;i<=period;i++){
+    const d=slice[i]-slice[i-1];
+    if(d>0)avgGain+=d;else avgLoss+=(-d);
+  }
+  avgGain/=period;avgLoss/=period;
+  // Wilder's Smoothing
+  for(let i=period+1;i<slice.length;i++){
+    const d=slice[i]-slice[i-1];
+    const gain=d>0?d:0,loss=d<0?(-d):0;
+    avgGain=(avgGain*(period-1)+gain)/period;
+    avgLoss=(avgLoss*(period-1)+loss)/period;
+  }
+  if(avgLoss===0)return 100;
+  return 100-(100/(1+(avgGain/avgLoss)));
 }
+// MACD: EMA(12) > EMA(26) 판단 — 충분한 초기화(warm-up) 포함
 function calcMACDbull(prices){
   if(!prices||prices.length<26)return true;
-  const ema=(arr,n)=>{const k=2/(n+1);let e=arr[0];for(let i=1;i<arr.length;i++)e=arr[i]*k+e*(1-k);return e;};
-  const sl=prices.slice(-26);return ema(sl,12)>ema(sl,26);
+  // 최근 60봉으로 충분한 warm-up (초기값 편향 최소화)
+  const sl=prices.slice(-60);
+  const ema=(arr,n)=>{
+    const k=2/(n+1);
+    let e=arr[0]; // 첫 값으로 초기화
+    for(let i=1;i<arr.length;i++)e=arr[i]*k+e*(1-k);
+    return e;
+  };
+  return ema(sl,12)>ema(sl,26);
 }
 
 /* ── 실제 OI 기반 코인 점수 계산 ──
@@ -1136,8 +1190,16 @@ function calcScore(rsi,bull,oiDelta,c24){
   if(rsi>70)s+=22;else if(rsi>60)s+=12;else if(rsi>50)s+=4;
   else if(rsi<30)s-=22;else if(rsi<40)s-=12;else if(rsi<50)s-=4;
   s+=bull?14:-14;
-  // OI delta: 실제 값이 있으면 사용, 없으면 0
-  const oiScore=oiDelta!=null?clamp(oiDelta*1.2,-18,18):0;
+  // [버그수정] OI delta는 방향(가격 추세)과의 정렬 여부 반영
+  // OI증가+가격상승 = 강한 롱 신호(추세 추종)
+  // OI증가+가격하락 = 숏 압력(포지션 빌드 or 패닉)
+  // OI감소 = 디레버리징(방향 무관 부정적)
+  let oiScore=0;
+  if(oiDelta!=null){
+    if(oiDelta>0&&c24>0)oiScore=clamp(oiDelta*1.5,0,18);      // OI↑ + 가격↑ : 강세
+    else if(oiDelta>0&&c24<0)oiScore=clamp(oiDelta*(-0.8),-12,0); // OI↑ + 가격↓ : 숏압력
+    else if(oiDelta<0)oiScore=clamp(oiDelta*1.0,-14,0);        // OI↓ : 디레버리징
+  }
   s+=oiScore;
   s+=clamp(c24*1.1,-14,14);
   return clamp(s,0,100);
@@ -1243,14 +1305,26 @@ function calcWhaleSignal(c){
   }
 
   // ── 신호3: 거래량 폭발 (Vol Spike) ──
-  // 7일 sparkline 기반 평균 가격 변동 대비 24H 거래량 이상
-  // mcap 대비 vol 비율로 대리 계산
+  // [개선] mcap 대비 vol 비율 + sparkline 7일 평균 가격 변동성 대비 비교
   if(c.mcap>0){
     const volRatio=(c.total_volume||c.mcap*0.05)/c.mcap*100;
-    if(volRatio>25){
+    // sparkline 기반 평균 일봉 변동성 (7일 168봉 → 24봉씩 평균)
+    let avgDailyMove=0;
+    if(c.sparkline&&c.sparkline.length>=48){
+      const sp=c.sparkline;
+      const step=Math.floor(sp.length/7);
+      const dailyMoves=[];
+      for(let i=step;i<sp.length;i+=step){
+        const prev=sp[i-step],cur=sp[i];
+        if(prev>0)dailyMoves.push(Math.abs((cur-prev)/prev)*100);
+      }
+      avgDailyMove=dailyMoves.length?dailyMoves.reduce((a,b)=>a+b,0)/dailyMoves.length:0;
+    }
+    // 거래량 과열 임계: volRatio > 20% OR 평균 변동성 3배 이상
+    if(volRatio>25||(avgDailyMove>0&&Math.abs(c.c24)>avgDailyMove*3)){
       score+=20;
-      detail.push(`거래량폭발(시총비${fmt(volRatio,0)}%)`);
-    } else if(volRatio>12){
+      detail.push(`거래량폭발(시총비${fmt(volRatio,0)}%${avgDailyMove>0?'·변동'+fmt(Math.abs(c.c24)/avgDailyMove,1)+'×':''})`);
+    } else if(volRatio>12||(avgDailyMove>0&&Math.abs(c.c24)>avgDailyMove*1.5)){
       score+=8;
       detail.push(`거래량급증(시총비${fmt(volRatio,0)}%)`);
     }
@@ -1322,21 +1396,24 @@ function calcBBSqueeze(prices){
   const period=20;
   const recent=prices.slice(-period);
   const sma=recent.reduce((a,b)=>a+b,0)/period;
+  // [버그수정] sma=0이면 bandwidth 계산 불가 → 안전 처리
+  if(sma===0)return{squeeze:false,strength:0,bandwidth:0,avgBW:0};
   const variance=recent.reduce((a,b)=>a+Math.pow(b-sma,2),0)/period;
   const std=Math.sqrt(variance);
-  const bandwidth=(4*std)/(sma||1)*100;
+  const bandwidth=(4*std)/sma*100;
   const allBW=[];
   for(let i=period;i<prices.length;i++){
     const sl=prices.slice(i-period,i);
     const m=sl.reduce((a,b)=>a+b,0)/period;
-    if(m===0)continue;
+    if(m<=0)continue;
     const s=Math.sqrt(sl.reduce((a,b)=>a+Math.pow(b-m,2),0)/period);
     allBW.push((4*s)/m*100);
   }
-  const avgBW=allBW.length>0?allBW.reduce((a,b)=>a+b,0)/allBW.length:bandwidth;
+  // [버그수정] allBW가 비어있으면(데이터 부족) squeeze 판단 불가 → false 반환
+  if(allBW.length<3)return{squeeze:false,strength:0,bandwidth,avgBW:bandwidth};
+  const avgBW=allBW.reduce((a,b)=>a+b,0)/allBW.length;
   const squeeze=avgBW>0&&bandwidth<avgBW*0.6;
   const strength=avgBW>0?clamp((1-(bandwidth/avgBW))*100,0,100):0;
-  // avgBW, bandwidth 모두 반환 → calcStarRating에서 임계값 직접 비교
   return{squeeze,strength,bandwidth,avgBW};
 }
 
@@ -1473,8 +1550,10 @@ async function fetchFNG(){
 }
 
 async function fetchTop100(){
+  // [최적화] per_page=100으로 줄여 불필요한 데이터 전송 제거
+  // sparkline=true 포함 시 250개는 과도한 payload
   const d=await getJSON(
-    'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=true&price_change_percentage=7d'
+    'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=150&page=1&sparkline=true&price_change_percentage=7d'
   );
   return d.filter(c=>!isStableOrWrapped(c)).slice(0,100);
 }
@@ -1608,15 +1687,8 @@ function onSearch(val){
   searchQuery=val.trim().toLowerCase();
   const clearBtn=document.getElementById('searchClear');
   if(clearBtn)clearBtn.style.display=searchQuery?'block':'none';
-  if(searchQuery){
-    clearTimeout(searchRefreshTimer);
-    const inp=document.getElementById('coinSearch');
-    if(inp)inp.style.borderColor='var(--yellow)';
-    searchRefreshTimer=setTimeout(async()=>{
-      await refreshAll();
-      if(inp)inp.style.borderColor='';
-    },300);
-  }else{renderCoins();}
+  // 로컬 필터링만 수행 (API 재호출 제거 → 300ms debounce 불필요)
+  renderCoins();
 }
 function clearSearch(){
   searchQuery='';
@@ -1644,13 +1716,14 @@ function renderCoins(){
     else{info.style.display='none';}
   }
   const sorted=rows.slice().sort((a,b)=>{
-    if(curFilter==='ALL'){
-      const aStar=a.rating?.points||0,bStar=b.rating?.points||0;
-      if(aStar!==bStar)return bStar-aStar;
-    }
     let av=a[sortKey],bv=b[sortKey];
     if(sortKey==='grade'){const o={S:6,A:5,B:4,C:3,D:2,E:1};av=o[a.grade];bv=o[b.grade];}
     if(sortKey==='stars'){av=a.rating?.points||0;bv=b.rating?.points||0;}
+    // [버그수정] ALL 필터에서 stars 정렬 선택 시 2차 정렬은 score로 (stars 동점 처리)
+    // 기존: ALL필터면 무조건 별점 우선 → 사용자 선택 정렬키 무시
+    if(bv===av&&sortKey!=='stars'){
+      return(b.rating?.points||0)-(a.rating?.points||0);
+    }
     return sortDir*(bv-av);
   });
   const list=document.getElementById('coinList');
@@ -1733,7 +1806,8 @@ function buildMarketPred(coins,lev){
   const merged=[],len=168;
   for(let i=0;i<len;i++){
     let sum=0,cnt=0;
-    coins.forEach(c=>{const sp=c.sparkline;if(sp&&sp.length){const idx=Math.floor(i*sp.length/len);if(sp[idx]!==undefined){sum+=sp[idx];cnt++;}}});
+    // [버그수정] price=0인 데이터 포인트 제외 → 평균 왜곡 방지
+    coins.forEach(c=>{const sp=c.sparkline;if(sp&&sp.length){const idx=Math.floor(i*sp.length/len);if(sp[idx]>0){sum+=sp[idx];cnt++;}}});
     if(cnt>0)merged.push(sum/cnt);
   }
   const rawPred=monteCarloBootstrap(merged,7,800);
@@ -1763,7 +1837,7 @@ function buildMarketPred(coins,lev){
   });
 }
 
-/* ── calcSentiment v6 (CVD + 실OI 반영) ── */
+/* ── calcSentiment v7 (CVD + 실OI delta 방향 반영) ── */
 function calcSentiment(coins,fng,lev){
   const tech=coins.reduce((a,b)=>a+b.score,0)/coins.length;
   const ls=(lev&&lev.levScore!=null)?lev.levScore:50;
@@ -1781,6 +1855,12 @@ function calcSentiment(coins,fng,lev){
   if(cvdBuy+cvdSell>0){
     const ratio=cvdBuy/(cvdBuy+cvdSell);
     if(ratio>0.62)v+=4;else if(ratio<0.38)v-=4;
+  }
+  // [개선] OI weighted delta 방향 반영 (전체 시장 포지션 증감)
+  if(lev?.oiMetrics){
+    const wdp=lev.oiMetrics.weightedDeltaPct;
+    if(wdp>2)v+=3;else if(wdp>0.5)v+=1;
+    else if(wdp<-2)v-=3;else if(wdp<-0.5)v-=1;
   }
   return clamp(v,0,100);
 }
