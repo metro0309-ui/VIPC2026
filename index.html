@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#07090f">
 <title>레버리지 게이지 v14 · Extreme Quant Edition</title>
@@ -1101,25 +1102,41 @@ function calcMACDbull(prices) {
 /* ── OI 캐시 ── */
 const oiCache = new Map();
 const markPriceCache = new Map();
-const TARGET_SYMS = ['BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','ADAUSDT','AVAXUSDT','DOGEUSDT','DOTUSDT','LINKUSDT','MATICUSDT','LTCUSDT','ATOMUSDT','NEARUSDT','UNIUSDT','AAVEUSDT','INJUSDT','SUIUSDT','ARBUSDT','OPUSDT'];
+const TARGET_SYMS = ['BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','ADAUSDT','AVAXUSDT','DOGEUSDT','DOTUSDT','LINKUSDT','POLUSDT','LTCUSDT','ATOMUSDT','NEARUSDT','UNIUSDT','AAVEUSDT','INJUSDT','SUIUSDT','ARBUSDT','OPUSDT'];
 const MAJOR_CAP = new Set(['BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT']);
 const CAP_MAJOR = 0.0008, CAP_ALT = 0.003;
 
+// 바이낸스 선물에 존재하지 않는(상장폐지/리브랜딩) 심볼 블랙리스트
+const OI_DEAD_SYMS = new Set(['MATICUSDT']);
+
+async function fetchSingleOI(sym) {
+  if (OI_DEAD_SYMS.has(sym)) return;
+  try {
+    const res = await fetch(`https://fapi.binance.com/fapi/v1/openInterest?symbol=${sym}`);
+    if (!res.ok) {
+      if (res.status === 400) {
+        OI_DEAD_SYMS.add(sym);
+        console.warn(`[OI] Dead symbol removed: ${sym}`);
+      }
+      return;
+    }
+    const d = await res.json();
+    if (!d || d.openInterest === undefined) return;
+    const oi = parseFloat(d.openInterest) || 0;
+    const mp = markPriceCache.get(sym) || 1;
+    const oiUsd = oi * mp;
+    const prev = oiCache.get(sym)?.oiUsd || 0;
+    oiCache.set(sym, { oiUsd, prevOiUsd: prev > 0 ? prev : oiUsd });
+  } catch (_) {}
+}
+
 async function fetchAllOI() {
+  const active = TARGET_SYMS.filter(s => !OI_DEAD_SYMS.has(s));
   const chunks = [];
-  for (let i = 0; i < TARGET_SYMS.length; i += 5) chunks.push(TARGET_SYMS.slice(i, i + 5));
-  await Promise.all(chunks.map(async chunk => {
-    await Promise.all(chunk.map(async sym => {
-      try {
-        const d = await getJSON(`https://fapi.binance.com/fapi/v1/openInterest?symbol=${sym}`);
-        const oi = parseFloat(d.openInterest || 0);
-        const mp = markPriceCache.get(sym) || 1;
-        const oiUsd = oi * mp;
-        const prev = oiCache.get(sym)?.oiUsd || 0;
-        oiCache.set(sym, { oiUsd, prevOiUsd: prev > 0 ? prev : oiUsd });
-      } catch (_) {}
-    }));
-  }));
+  for (let i = 0; i < active.length; i += 5) chunks.push(active.slice(i, i + 5));
+  for (const chunk of chunks) {
+    await Promise.all(chunk.map(sym => fetchSingleOI(sym)));
+  }
 }
 
 function calcOIMetrics(tickerMap) {
@@ -1865,9 +1882,11 @@ async function idbCleanup() {
 }
 
 /* ── API 헬퍼 (캐시-어사이드) ── */
+// 메모리 캐시 (탭 세션 내) — getJSON 보다 먼저 선언
+const _memCache = new Map();
+
 async function getJSON(url, cacheKey, ttlMs = 60000) {
   if (cacheKey) {
-    // 메모리 캐시 우선
     const mem = _memCache.get(cacheKey);
     if (mem && Date.now() - mem.ts < ttlMs) return mem.data;
   }
@@ -1877,9 +1896,6 @@ async function getJSON(url, cacheKey, ttlMs = 60000) {
   if (cacheKey) _memCache.set(cacheKey, { data, ts: Date.now() });
   return data;
 }
-
-// 메모리 캐시 (탭 세션 내)
-const _memCache = new Map();
 
 async function fetchGlobal() {
   try {
