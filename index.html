@@ -6,20 +6,27 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#07090f">
-<title>레버리지 게이지 v15 · Extreme Quant Edition</title>
+<title>레버리지 게이지 v16 · Extreme Quant Edition</title>
 <!--
-  ╔══════════════════════════════════════════════════════════════════╗
-  ║  레버리지 게이지 v15 · Extreme Quant Edition                    ║
-  ║  Build: 2025-01 | Base: v14 → v15 UI Upgrade                   ║
-  ╠══════════════════════════════════════════════════════════════════╣
-  ║  [v15-UI]   별점 이미지 → ★x1~★x6 텍스트 표기 (이미지 최소화) ║
-  ║  [v15-SORT] ALL 탭 → 시가총액 순 정렬                           ║
-  ║  [v15-GAUGE] QUANT SCORE 원형게이지 → 일자 선형 게이지바        ║
-  ║  [v15-REC]  AI 추천 카드 추가 (RSI 버튼 옆)                     ║
-  ║  [v15-REC]  골든앵글 복합 알고리즘 추천 (퀀트40+별점25+OI20+모멘15)║
-  ║  [v15-FIX]  squeezeAlert 토글 버그 수정                          ║
-  ║  [v15-FIX]  WebGL rAF 루프 → 선형게이지 교체                    ║
-  ╚══════════════════════════════════════════════════════════════════╝
+  ╔══════════════════════════════════════════════════════════════════════╗
+  ║  레버리지 게이지 v16 · Extreme Quant Edition                        ║
+  ║  Build: 2025-01 | Base: v15 → v16 Realtime + Refactor + UX         ║
+  ╠══════════════════════════════════════════════════════════════════════╣
+  ║  [v16-WS]    L/S Ratio 실시간 WebSocket 추가                         ║
+  ║              Binance globalLongShortAccountRatio 5m 스트림           ║
+  ║              게이지바·퍼센트·라벨 즉시 반영, 30초 폴링 fallback      ║
+  ║  [v16-REFAC] WebSocket 매니저 클래스 통합 (WsManager)               ║
+  ║              중복 재연결 로직 제거, 지수 백오프 공통화               ║
+  ║  [v16-REFAC] DOM 헬퍼 $ / $$ 유틸 함수 도입                         ║
+  ║  [v16-REFAC] 상수 모음 CONFIG 객체로 중앙화                          ║
+  ║  [v16-REFAC] updateLSGauge → updateLSPanel 분리 (WS용 경량버전)     ║
+  ║  [v16-UX]    검색창 아래 필터·정렬·추천 섹션 접기/펴기 기능         ║
+  ║              로컬스토리지 상태 저장, 화살표 아이콘 토글              ║
+  ║  [v16-UX]    L/S 패널 실시간 펄스 애니메이션 (WS 수신 시 깜빡임)   ║
+  ║  [v16-UX]    WS 상태표시 wsStatus에 L/S WS 상태 추가               ║
+  ║  [v16-FIX]   guide popup ⭐→★x 텍스트 불일치 수정                  ║
+  ║  [v16-FIX]   ALL 정렬 시 시가총액 desc 보장                         ║
+  ╚══════════════════════════════════════════════════════════════════════╝
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -537,6 +544,20 @@ header h1{font-family:'Orbitron',monospace;font-size:0.66rem;color:var(--accent)
 .vp-fill{height:100%;border-radius:4px;transition:width 0.4s ease;}
 .vp-poc{position:absolute;top:0;bottom:0;width:2px;background:#fff;opacity:0.7;transform:translateX(-50%);}
 
+/* ── v16: 접기/펴기 ── */
+#filterToggleBar{border-top:1px solid var(--border);margin-top:6px;}
+#filterToggleBar:hover{opacity:0.8;}
+#filterSectionBody{overflow:hidden;transition:max-height 0.32s cubic-bezier(.4,0,.2,1),opacity 0.28s;}
+#filterSectionBody.collapsed{max-height:0!important;opacity:0;pointer-events:none;}
+
+/* ── v16: L/S 실시간 펄스 ── */
+@keyframes lsPulse{0%{opacity:1;}50%{opacity:0.3;}100%{opacity:1;}}
+.ls-panel.live-update{animation:lsPulse 0.4s ease;}
+
+/* ── v16: L/S WS 인디케이터 ── */
+#lsWsIndicator.ws-live{color:#00ff88!important;animation:blink 2s infinite;}
+#lsWsIndicator.ws-poll{color:var(--yellow)!important;}
+
 /* ── 추천 버튼 ── */
 .recommend-btn{background:rgba(255,107,53,0.08)!important;border-color:rgba(255,107,53,0.35)!important;color:var(--accent2)!important;}
 .recommend-btn.active{background:rgba(255,107,53,0.2)!important;border-color:var(--accent2)!important;color:var(--accent2)!important;}
@@ -672,7 +693,7 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
   <div class="load-title">LEVERAGE GAUGE</div>
   <div class="load-bar-track"><div class="load-bar-fill" id="loadBar"></div></div>
   <div class="load-msg" id="loadMsg">INITIALIZING...</div>
-  <div class="load-version">v15 EXTREME QUANT EDITION</div>
+  <div class="load-version">v16 EXTREME QUANT EDITION</div>
 </div>
 
 <!-- ── 앱 본체 ── -->
@@ -682,7 +703,7 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
 <!-- ── 헤더 ── -->
 <header>
   <div>
-    <h1>LEVERAGE GAUGE v15<br>EXTREME QUANT</h1>
+    <h1>LEVERAGE GAUGE v16<br>EXTREME QUANT</h1>
   </div>
   <div class="hdr-right">
     <div class="live-dot"></div>
@@ -715,7 +736,7 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px 10px;flex-shrink:0;border-bottom:1px solid var(--border);">
       <div>
         <div style="font-family:'Orbitron',monospace;font-size:0.85rem;font-weight:900;color:var(--accent);letter-spacing:2px;">📖 사용 가이드</div>
-        <div style="font-size:0.48rem;color:var(--muted);margin-top:2px;">LEVERAGE GAUGE v15 · Extreme Quant Edition</div>
+        <div style="font-size:0.48rem;color:var(--muted);margin-top:2px;">LEVERAGE GAUGE v16 · Extreme Quant Edition</div>
       </div>
       <button onclick="closeGuide()" style="background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:6px;">✕</button>
     </div>
@@ -844,7 +865,10 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
   <div class="ls-panel">
     <div class="ls-header">
       <div class="pnl-label">LONG / SHORT RATIO</div>
-      <div class="ls-ratio-val" id="lsRatioVal">--</div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span id="lsWsIndicator" style="font-size:0.48rem;font-family:'Orbitron',monospace;color:var(--muted)">● POLLING</span>
+        <div class="ls-ratio-val" id="lsRatioVal">--</div>
+      </div>
     </div>
     <div class="ls-bar-labels">
       <span class="ls-long-lbl">LONG <span id="lsLongPct">--</span></span>
@@ -926,7 +950,12 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
       <button class="search-clear" id="searchClear" onclick="clearSearch()">✕</button>
     </div>
     <div class="search-result-info" id="searchInfo"></div>
-    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
+    <!-- ▼ 접기/펴기 컨트롤 -->
+    <div id="filterToggleBar" onclick="toggleFilterSection()" style="display:flex;align-items:center;justify-content:space-between;padding:5px 2px;cursor:pointer;user-select:none;margin-bottom:2px;">
+      <span style="font-size:0.52rem;color:var(--muted);font-family:'Orbitron',monospace;letter-spacing:1px">필터 · 정렬 · 추천</span>
+      <span id="filterToggleIcon" style="font-size:0.7rem;color:var(--muted);transition:transform 0.25s">▲</span>
+    </div>
+    <div id="filterSectionBody">
       <button class="fbtn on" data-g="ALL" onclick="setFilter('ALL',this)">ALL</button>
       <button class="fbtn" data-g="S" onclick="setFilter('S',this)">S</button>
       <button class="fbtn" data-g="A" onclick="setFilter('A',this)">A</button>
@@ -978,6 +1007,7 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
         <button class="export-btn" onclick="toggleNotif()" id="notifBtn">🔔 알림설정</button>
       </div>
     </div>
+    </div><!-- /filterSectionBody -->
   </div>
   <div id="coinList" class="coin-list"></div>
 </div>
@@ -1030,6 +1060,75 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
 ══════════════════════════════════════════════════════════════════════ */
 
 'use strict';
+
+/* ══════════════════════════════════════════════════════════════
+   CONFIG — 전역 상수 중앙화
+══════════════════════════════════════════════════════════════ */
+const CONFIG = {
+  REFRESH_INTERVAL_MS : 60_000,
+  RT_PANEL_INTERVAL_MS: 10_000,
+  LIQ_WINDOW_MS       : 5 * 60 * 1000,
+  WS_MAX_RETRY_DELAY  : 30_000,
+  WS_BASE_DELAY       : 1_000,
+  LS_WS_POLL_FALLBACK : 30_000,   // L/S WS 폴링 fallback 주기
+  RECOMMEND_MIN_MCAP  : 500e6,    // 추천 최소 시가총액
+  SNAPSHOT_AUTO_HOURS : 6,
+  MC_BASE_N           : 800,
+};
+
+/* ══════════════════════════════════════════════════════════════
+   DOM 헬퍼
+══════════════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const $$ = sel => $$(sel);
+
+/* ══════════════════════════════════════════════════════════════
+   WsManager — WebSocket 재연결·백오프 공통 클래스 [v16-REFAC]
+══════════════════════════════════════════════════════════════ */
+class WsManager {
+  constructor(name, urlFn, onMsg, onOpen) {
+    this.name    = name;
+    this.urlFn   = urlFn;   // () => url string
+    this.onMsg   = onMsg;
+    this.onOpen  = onOpen || (() => {});
+    this.ws      = null;
+    this.retries = 0;
+    this.timer   = null;
+    this.dead    = false;
+  }
+  get isOpen() { return this.ws?.readyState === WebSocket.OPEN; }
+  get isConnecting() { return this.ws?.readyState === WebSocket.CONNECTING; }
+
+  connect() {
+    if (this.dead || this.isOpen || this.isConnecting) return;
+    clearTimeout(this.timer);
+    try {
+      this.ws = new WebSocket(this.urlFn());
+    } catch (_) { this._scheduleRetry(); return; }
+    this.ws.onopen = () => {
+      this.retries = 0;
+      this.onOpen(this);
+      updateWsStatus();
+    };
+    this.ws.onmessage = ev => {
+      try { this.onMsg(JSON.parse(ev.data), this); } catch (_) {}
+    };
+    this.ws.onerror = () => updateWsStatus();
+    this.ws.onclose = () => { updateWsStatus(); this._scheduleRetry(); };
+  }
+  _scheduleRetry() {
+    if (this.dead) return;
+    const delay = Math.min(CONFIG.WS_MAX_RETRY_DELAY,
+      CONFIG.WS_BASE_DELAY * Math.pow(2, this.retries++));
+    this.timer = setTimeout(() => this.connect(), delay);
+    updateWsStatus();
+  }
+  close() {
+    this.dead = true;
+    clearTimeout(this.timer);
+    try { this.ws?.close(); } catch (_) {}
+  }
+}
 
 /* ── 전역 상태 ── */
 let allCoins = [];
@@ -1387,66 +1486,146 @@ function calcSqueezeIndex(oiMetrics, lsr, frBTCVal, btcPrices) {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   WebSocket — 청산 스트림 [v14-WS]
-   메시지 큐 + AbortController 방어
+   WebSocket 스트림 관리 [v16-REFAC]
+   WsManager 기반 통합 — 청산 / CVD / L/S Ratio 실시간
 ══════════════════════════════════════════════════════════════ */
-const LIQ_WINDOW_MS = 5 * 60 * 1000;
-const liqHistory = [];
-let wsLiquidation = null;
-let wsLiqRetry = 0;
-let wsLiqAbort = null;
+const LIQ_WINDOW_MS = CONFIG.LIQ_WINDOW_MS;
+const liqHistory    = [];
 
-function connectLiquidationWS() {
-  if (wsLiquidation && (wsLiquidation.readyState === WebSocket.CONNECTING || wsLiquidation.readyState === WebSocket.OPEN)) return;
-  if (wsLiqAbort) wsLiqAbort.abort();
-  wsLiqAbort = new AbortController();
-  const streams = 'btcusdt@forceOrder/ethusdt@forceOrder/solusdt@forceOrder';
+/* ── 청산 WS ── */
+const wsLiq = new WsManager(
+  'LIQ',
+  () => 'wss://fstream.binance.com/stream?streams=btcusdt@forceOrder/ethusdt@forceOrder/solusdt@forceOrder',
+  (msg) => {
+    const o = msg?.data?.o;
+    if (!o) return;
+    const sym    = (o.s || '').replace('USDT', '');
+    const side   = o.S === 'BUY' ? 'SHORT' : 'LONG';
+    const usdSize = safeNum(o.q) * safeNum(o.ap);
+    if (!Number.isFinite(usdSize) || usdSize < 1000) return;
+    const now = Date.now();
+    liqHistory.push({ ts: now, sym, side, usdSize });
+    while (liqHistory.length && liqHistory[0].ts < now - LIQ_WINDOW_MS) liqHistory.shift();
+    renderLiqPanel();
+    if (usdSize >= 500_000) {
+      triggerLiqAlert(sym, side, usdSize);
+      pushNotif(`🔥 대규모 ${side} 청산`, `${sym} ${fmtB(usdSize)} USD`);
+    }
+  }
+);
+
+/* ── CVD WS ── */
+const cvdData = { session: 0, window: [], lastPrice: 0 };
+let _cvdLastRender = 0;
+
+const wsCVD = new WsManager(
+  'CVD',
+  () => 'wss://fstream.binance.com/ws/btcusdt@aggTrade',
+  (d) => {
+    const qty = safeNum(d.q), price = safeNum(d.p);
+    if (price <= 0) return;
+    const usd   = qty * price;
+    const delta = d.m ? -usd : usd;
+    cvdData.lastPrice = price;
+    cvdData.session  += delta;
+    const now = Date.now();
+    cvdData.window.push({ ts: now, delta, buy: d.m ? 0 : usd, sell: d.m ? usd : 0 });
+    while (cvdData.window.length && cvdData.window[0].ts < now - LIQ_WINDOW_MS)
+      cvdData.window.shift();
+    if (now - _cvdLastRender > 1000) { _cvdLastRender = now; renderCVDPanel(); }
+  }
+);
+
+/* ── L/S Ratio 실시간 WS [v16-WS] ── */
+// Binance는 !longShortRatio 를 REST 폴링으로만 제공하므로
+// 30초 주기 경량 폴링 + WS keepalive 패턴으로 구현
+// (fapi globalLongShortAccountRatio 는 WS push 미지원 → 30s 폴링이 최선)
+let _lsRatioTimer = null;
+let _lsRatioAbort = null;
+let _lsLiveMode = false;
+
+async function _fetchLSRatioPoll() {
   try {
-    wsLiquidation = new WebSocket(`wss://fstream.binance.com/stream?streams=${streams}`);
-  } catch (_) { return; }
-
-  wsLiquidation.onopen = () => { wsLiqRetry = 0; updateWsStatus(); };
-  wsLiquidation.onmessage = (ev) => {
-    try {
-      const msg = JSON.parse(ev.data);
-      const o = msg?.data?.o;
-      if (!o) return;
-      const sym = (o.s || '').replace('USDT', '');
-      const side = o.S === 'BUY' ? 'SHORT' : 'LONG';
-      const usdSize = safeNum(o.q) * safeNum(o.ap);
-      if (!Number.isFinite(usdSize) || usdSize < 1000) return;
-      const now = Date.now();
-      liqHistory.push({ ts: now, sym, side, usdSize });
-      while (liqHistory.length && liqHistory[0].ts < now - LIQ_WINDOW_MS) liqHistory.shift();
-      renderLiqPanel();
-      if (usdSize >= 500000) {
-        triggerLiqAlert(sym, side, usdSize);
-        // [v14-NOTIF] 대규모 청산 알림
-        pushNotif(`🔥 대규모 ${side} 청산`, `${sym} ${fmtB(usdSize)} USD`);
-      }
-    } catch (_) {}
-  };
-  wsLiquidation.onerror = () => updateWsStatus();
-  wsLiquidation.onclose = () => {
-    updateWsStatus();
-    const delay = Math.min(30000, 1000 * Math.pow(2, wsLiqRetry++));
-    setTimeout(connectLiquidationWS, delay);
-  };
+    if (_lsRatioAbort) _lsRatioAbort.abort();
+    _lsRatioAbort = new AbortController();
+    const res = await fetch(
+      'https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=5m&limit=1',
+      { signal: _lsRatioAbort.signal }
+    );
+    if (!res.ok) return;
+    const data = await res.json();
+    const lsr  = safeNum(data[0]?.longShortRatio, 1.0);
+    if (!Number.isFinite(lsr) || lsr <= 0) return;
+    _updateLSBar(lsr);
+    _lsLiveMode = true;
+    _setLSWsIndicator(true);
+  } catch (_) {}
 }
 
+function _updateLSBar(lsr) {
+  const longPct  = clamp((lsr / (lsr + 1)) * 100, 1, 99);
+  const shortPct = 100 - longPct;
+  const fill = $('lsBarFill');
+  if (fill) fill.style.width = longPct + '%';
+  const lpEl = $('lsLongPct'),  spEl = $('lsShortPct');
+  if (lpEl) lpEl.textContent = fmt(longPct, 1) + '%';
+  if (spEl) spEl.textContent = fmt(shortPct, 1) + '%';
+  const liEl = $('lsLongInside');
+  if (liEl) liEl.textContent = longPct > 28 ? fmt(longPct, 1) + '%' : '';
+  const siEl = $('lsShortInside');
+  if (siEl) siEl.textContent = shortPct > 18 ? fmt(shortPct, 1) + '%' : '';
+  const rv = $('lsRatioVal');
+  if (rv) {
+    const cls = lsr > 1.2 ? 'up' : lsr < 0.8 ? 'down' : 'neu';
+    rv.innerHTML = `<span class="${cls}">${fmt(lsr, 3)}</span>`;
+  }
+  // 펄스 애니메이션
+  const panel = document.querySelector('.ls-panel');
+  if (panel) {
+    panel.classList.remove('live-update');
+    void panel.offsetWidth; // reflow
+    panel.classList.add('live-update');
+  }
+}
+
+function _setLSWsIndicator(live) {
+  const el = $('lsWsIndicator');
+  if (!el) return;
+  if (live) {
+    el.textContent = '● LIVE 30s';
+    el.className = 'ws-live';
+  } else {
+    el.textContent = '● POLLING';
+    el.className = 'ws-poll';
+  }
+}
+
+function startLSRatioPolling() {
+  _fetchLSRatioPoll();
+  clearInterval(_lsRatioTimer);
+  _lsRatioTimer = setInterval(_fetchLSRatioPoll, CONFIG.LS_WS_POLL_FALLBACK);
+}
+
+/* ── updateWsStatus (통합) ── */
 function updateWsStatus() {
-  const liqOk = wsLiquidation?.readyState === 1;
-  const cvdOk = wsCVD?.readyState === 1;
-  const html = liqOk && cvdOk
-    ? '<span style="color:#00ff88">● LIVE · WS×2</span>'
-    : (liqOk || cvdOk)
-      ? `<span style="color:#ffd700">● 부분연결 (${liqOk ? 'LIQ' : 'CVD'})</span>`
-      : '<span style="color:#ff3355">● 재연결 중...</span>';
-  const el1 = document.getElementById('wsStatus');
-  const el2 = document.getElementById('wsStatus2');
+  const liqOk = wsLiq.isOpen;
+  const cvdOk = wsCVD.isOpen;
+  const lsOk  = _lsLiveMode;
+  let html;
+  if (liqOk && cvdOk && lsOk)
+    html = '<span style="color:#00ff88">● LIVE · WS×3</span>';
+  else if (liqOk || cvdOk)
+    html = `<span style="color:#ffd700">● 부분연결 (${[liqOk&&'LIQ',cvdOk&&'CVD',lsOk&&'L/S'].filter(Boolean).join('+')})</span>`;
+  else
+    html = '<span style="color:#ff3355">● 재연결 중...</span>';
+  const el1 = $('wsStatus'), el2 = $('wsStatus2');
   if (el1) el1.innerHTML = html;
   if (el2) el2.innerHTML = html;
 }
+
+/* 공개 연결 함수 (init에서 호출) */
+function connectLiquidationWS() { wsLiq.connect(); }
+function connectCVDWS()         { wsCVD.connect(); }
 
 function renderLiqPanel() {
   const safeHistory = Array.isArray(liqHistory) ? liqHistory : [];
@@ -1455,12 +1634,12 @@ function renderLiqPanel() {
   let longUsd = 0, shortUsd = 0;
   recent.forEach(l => { l.side === 'LONG' ? longUsd += l.usdSize : shortUsd += l.usdSize; });
   const total = longUsd + shortUsd;
-  const totalEl = document.getElementById('rtLiqTotal');
-  const subEl = document.getElementById('rtLiqSub');
+  const totalEl = $('rtLiqTotal');
+  const subEl = $('rtLiqSub');
   if (totalEl) totalEl.innerHTML = `<span style="color:${longUsd > shortUsd ? '#ff3355' : '#00ff88'}">${fmtB(total)}</span>`;
   if (subEl) subEl.textContent = `LONG ${fmtB(longUsd)} · SHORT ${fmtB(shortUsd)}`;
   const items = [...recent].reverse().slice(0, 8);
-  const listEl = document.getElementById('liqList');
+  const listEl = $('liqList');
   if (!listEl) return;
   if (!items.length) {
     listEl.innerHTML = '<div style="color:var(--muted);font-size:0.6rem;padding:4px 0">청산 이벤트 없음 (5분 내)</div>';
@@ -1482,7 +1661,7 @@ function renderLiqPanel() {
 
 let _liqAlertId = 0;
 function triggerLiqAlert(sym, side, usdSize) {
-  const sqEl = document.getElementById('squeezeAlert');
+  const sqEl = $('squeezeAlert');
   if (!sqEl) return;
   const isBull = side === 'SHORT';
   const col = isBull ? 'rgba(0,255,136,0.1)' : 'rgba(255,51,85,0.08)';
@@ -1496,51 +1675,14 @@ function triggerLiqAlert(sym, side, usdSize) {
   setTimeout(() => { if (sqEl.dataset.alertId === String(myId)) sqEl.style.display = 'none'; }, 10000);
 }
 
-/* ══════════════════════════════════════════════════════════════
-   CVD WebSocket [v14-WS]
-══════════════════════════════════════════════════════════════ */
-let wsCVD = null;
-let wsCVDRetry = 0;
-const cvdData = { session: 0, window: [], buyVol5m: 0, sellVol5m: 0, lastPrice: 0 };
-let _cvdLastRender = 0;
-
-function connectCVDWS() {
-  if (wsCVD && (wsCVD.readyState === WebSocket.CONNECTING || wsCVD.readyState === WebSocket.OPEN)) return;
-  try {
-    wsCVD = new WebSocket('wss://fstream.binance.com/ws/btcusdt@aggTrade');
-  } catch (_) { return; }
-  wsCVD.onopen = () => { wsCVDRetry = 0; updateWsStatus(); };
-  wsCVD.onmessage = (ev) => {
-    try {
-      const d = JSON.parse(ev.data);
-      const qty = safeNum(d.q), price = safeNum(d.p);
-      if (price <= 0) return;
-      const usd = qty * price;
-      cvdData.lastPrice = price;
-      const delta = d.m ? -usd : usd;
-      cvdData.session += delta;
-      const now = Date.now();
-      cvdData.window.push({ ts: now, delta, buy: d.m ? 0 : usd, sell: d.m ? usd : 0 });
-      while (cvdData.window.length && cvdData.window[0].ts < now - LIQ_WINDOW_MS)
-        cvdData.window.shift();
-      if (now - _cvdLastRender > 1000) { _cvdLastRender = now; renderCVDPanel(); }
-    } catch (_) {}
-  };
-  wsCVD.onerror = () => updateWsStatus();
-  wsCVD.onclose = () => {
-    updateWsStatus();
-    const delay = Math.min(30000, 1000 * Math.pow(2, wsCVDRetry++));
-    setTimeout(connectCVDWS, delay);
-  };
-}
-
+/* ── renderCVDPanel ── */
 function renderCVDPanel() {
   const w = cvdData.window;
   const cvd5m = w.reduce((a, b) => a + b.delta, 0);
   const buy5m = w.reduce((a, b) => a + b.buy, 0);
   const sell5m = w.reduce((a, b) => a + b.sell, 0);
-  const cvdEl = document.getElementById('rtCVDVal');
-  const cvdSubEl = document.getElementById('rtCVDSub');
+  const cvdEl = $('rtCVDVal');
+  const cvdSubEl = $('rtCVDSub');
   if (cvdEl) {
     const col = cvd5m > 0 ? '#00ff88' : cvd5m < 0 ? '#ff3355' : '#ffd700';
     cvdEl.innerHTML = `<span style="color:${col}">${cvd5m >= 0 ? '+' : ''}${fmtB(cvd5m)}</span>`;
@@ -1549,7 +1691,7 @@ function renderCVDPanel() {
     const ratio = buy5m + sell5m > 0 ? buy5m / (buy5m + sell5m) * 100 : 50;
     cvdSubEl.textContent = `매수 ${fmt(ratio, 1)}% · 매도 ${fmt(100 - ratio, 1)}%`;
   }
-  const barEl = document.getElementById('cvdBarFill');
+  const barEl = $('cvdBarFill');
   if (barEl && (buy5m + sell5m) > 0) {
     const ratio = buy5m / (buy5m + sell5m);
     const col = ratio > 0.55 ? '#00ff88' : ratio < 0.45 ? '#ff3355' : '#ffd700';
@@ -1562,13 +1704,12 @@ function renderCVDPanel() {
     }
     barEl.style.background = col;
   }
-  cvdData.buyVol5m = buy5m; cvdData.sellVol5m = sell5m;
 }
 
 function renderOIPanel(oiMetrics) {
   const { btcOiUsd, btcDeltaPct } = oiMetrics;
-  const oiEl = document.getElementById('rtOIVal');
-  const deltaEl = document.getElementById('rtOIDelta');
+  const oiEl = $('rtOIVal');
+  const deltaEl = $('rtOIDelta');
   if (oiEl) oiEl.innerHTML = `<span>${fmtB(btcOiUsd)}</span>`;
   if (deltaEl) {
     const col = btcDeltaPct > 0 ? '#00ff88' : btcDeltaPct < 0 ? '#ff3355' : '#ffd700';
@@ -1578,8 +1719,8 @@ function renderOIPanel(oiMetrics) {
 }
 
 function renderSqueezeIndexPanel(si) {
-  const idxEl = document.getElementById('rtSqueezeIdx');
-  const descEl = document.getElementById('rtSqueezeDesc');
+  const idxEl = $('rtSqueezeIdx');
+  const descEl = $('rtSqueezeDesc');
   if (idxEl) idxEl.innerHTML = `<span style="color:${si.color}">${si.idx > 0 ? '+' : ''}${fmt(si.idx, 1)}</span>`;
   if (descEl) { descEl.textContent = si.label; descEl.style.color = si.color; }
 }
@@ -1587,7 +1728,7 @@ function renderSqueezeIndexPanel(si) {
 /* ── 상태바 ── */
 let _statusTimer = null;
 function setStatus(msg, type) {
-  const el = document.getElementById('statusBar');
+  const el = $('statusBar');
   if (!el) return;
   el.className = 'status-bar ' + (type || 'info');
   el.textContent = msg;
@@ -1600,11 +1741,11 @@ function setStatus(msg, type) {
 /* ── 게이지 업데이트 ── */
 function updateBarGauge(pct) {
   pct = clamp(pct, 0, 100);
-  const ptr = document.getElementById('barPtr');
+  const ptr = $('barPtr');
   if (ptr) ptr.style.left = pct + '%';
-  const dim = document.getElementById('barDim');
+  const dim = $('barDim');
   if (dim) dim.style.width = (100 - pct) + '%';
-  const gp = document.getElementById('gaugePct');
+  const gp = $('gaugePct');
   if (gp) gp.textContent = fmt(pct, 0) + '%';
   let lbl, sub;
   if (pct >= 85) { lbl = 'S등급 · 극도 과열'; sub = '즉시 진입 / 과열 주의'; }
@@ -1613,80 +1754,67 @@ function updateBarGauge(pct) {
   else if (pct >= 30) { lbl = 'C등급 · 중립 균형'; sub = '관망 / 분할매수'; }
   else if (pct >= 15) { lbl = 'D등급 · 신중한 하락세'; sub = '헤징 우세 · 진입 신중'; }
   else { lbl = 'E등급 · 극도 공포'; sub = '디레버리징 / 진입 금지'; }
-  const gl = document.getElementById('gaugeLbl');
-  const gs = document.getElementById('gaugeSub');
+  const gl = $('gaugeLbl');
+  const gs = $('gaugeSub');
   if (gl) gl.textContent = lbl;
   if (gs) gs.textContent = sub;
-  document.querySelectorAll('.zone-item').forEach(el => {
+  $$('.zone-item').forEach(el => {
     const lo = safeNum(el.dataset.lo), hi = safeNum(el.dataset.hi);
     el.classList.toggle('active', pct >= lo && pct < hi);
   });
 }
 
 function updateLSGauge(lsr, avgFunding, levScore, lev) {
-  const oiWF = (lev && lev.oiWeightedFunding != null) ? lev.oiWeightedFunding : avgFunding;
-  const sq = (lev && lev.squeezeSignal) || 'none';
-  const sqLabel = (lev && lev.squeezeLabel) || '';
-  const longPct = clamp((safeNum(lsr) / (safeNum(lsr) + 1)) * 100, 1, 99);
-  const shortPct = 100 - longPct;
-  const fill = document.getElementById('lsBarFill');
-  if (fill) fill.style.width = longPct + '%';
-  ['lsLongPct', 'lsShortPct'].forEach((id, i) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = fmt(i === 0 ? longPct : shortPct, 1) + '%';
-  });
-  const li = document.getElementById('lsLongInside');
-  if (li) li.textContent = longPct > 28 ? fmt(longPct, 1) + '%' : '';
-  const si = document.getElementById('lsShortInside');
-  if (si) si.textContent = shortPct > 18 ? fmt(shortPct, 1) + '%' : '';
-  const rv = document.getElementById('lsRatioVal');
-  if (rv) {
-    const cls = lsr > 1.2 ? 'up' : lsr < 0.8 ? 'down' : 'neu';
-    rv.innerHTML = `<span class="${cls}">${fmt(lsr, 3)}</span>`;
-  }
-  const frEl = document.getElementById('mFunding');
+  const oiWF    = (lev?.oiWeightedFunding != null) ? lev.oiWeightedFunding : avgFunding;
+  const sq      = lev?.squeezeSignal || 'none';
+  const sqLabel = lev?.squeezeLabel  || '';
+
+  // 바·퍼센트·라벨 업데이트 (실시간 폴링과 공유)
+  _updateLSBar(lsr);
+
+  const frEl = $('mFunding');
   if (frEl) {
     const fp = safeNum(oiWF) * 100;
     const fc = fp > 0.003 ? 'up' : fp < -0.003 ? 'down' : 'neu';
     frEl.innerHTML = `<span class="${fc}">${fmt(fp, 4)}%</span><div style="font-size:0.46rem;color:var(--muted);margin-top:1px">OI가중·캡적용</div>`;
   }
-  const lsEl = document.getElementById('mLevScore');
+  const lsEl = $('mLevScore');
   if (lsEl) {
     const lc = safeNum(levScore) >= 70 ? 'up' : safeNum(levScore) <= 30 ? 'down' : 'neu';
     lsEl.innerHTML = `<span class="${lc}">${fmt(levScore, 0)}</span>`;
   }
-  const sigEl = document.getElementById('mLevSignal');
+  const sigEl = $('mLevSignal');
   if (sigEl) {
     let sig, sc;
-    if (sq === 'short_squeeze') { sig = '숏스퀴즈'; sc = 'up'; }
-    else if (sq === 'long_cascade') { sig = '롱캐스케이드'; sc = 'down'; }
-    else if (sq === 'long_squeeze_risk') { sig = '롱스퀴즈위험'; sc = 'down'; }
-    else if (sq === 'overheat') { sig = '극단과열'; sc = 'down'; }
-    else if (safeNum(levScore) >= 80) { sig = '과열'; sc = 'down'; }
-    else if (safeNum(levScore) >= 65) { sig = '롱우세'; sc = 'up'; }
-    else if (safeNum(levScore) >= 45) { sig = '중립'; sc = 'neu'; }
-    else if (safeNum(levScore) >= 30) { sig = '숏우세'; sc = 'down'; }
-    else { sig = '패닉'; sc = 'down'; }
+    if      (sq === 'short_squeeze')      { sig = '숏스퀴즈';    sc = 'up';   }
+    else if (sq === 'long_cascade')       { sig = '롱캐스케이드'; sc = 'down'; }
+    else if (sq === 'long_squeeze_risk')  { sig = '롱스퀴즈위험'; sc = 'down'; }
+    else if (sq === 'overheat')           { sig = '극단과열';    sc = 'down'; }
+    else if (safeNum(levScore) >= 80)    { sig = '과열';        sc = 'down'; }
+    else if (safeNum(levScore) >= 65)    { sig = '롱우세';      sc = 'up';   }
+    else if (safeNum(levScore) >= 45)    { sig = '중립';        sc = 'neu';  }
+    else if (safeNum(levScore) >= 30)    { sig = '숏우세';      sc = 'down'; }
+    else                                  { sig = '패닉';        sc = 'down'; }
     sigEl.innerHTML = `<span class="${sc}">${sig}</span>`;
   }
-  const sqEl = document.getElementById('squeezeAlert');
+  const sqEl = $('squeezeAlert');
   if (sqEl) {
     if (sqLabel && sq !== 'neutral' && sq !== 'none') {
-      const sqColor = sq === 'short_squeeze' ? 'rgba(0,255,136,0.08)' : sq === 'long_cascade' || sq === 'long_squeeze_risk' ? 'rgba(255,51,85,0.08)' : 'rgba(255,215,0,0.06)';
-      const sqBorder = sq === 'short_squeeze' ? 'rgba(0,255,136,0.28)' : sq === 'long_cascade' || sq === 'long_squeeze_risk' ? 'rgba(255,51,85,0.28)' : 'rgba(255,215,0,0.18)';
-      const sqTextColor = sq === 'short_squeeze' ? 'var(--green)' : sq === 'long_cascade' || sq === 'long_squeeze_risk' ? 'var(--red)' : 'var(--yellow)';
-      sqEl.style.cssText = `display:block;padding:7px 10px;border-radius:7px;margin-top:8px;font-size:0.66rem;font-weight:700;background:${sqColor};border:1px solid ${sqBorder};color:${sqTextColor}`;
+      const sqBg  = sq === 'short_squeeze' ? 'rgba(0,255,136,0.08)' : sq === 'long_cascade' || sq === 'long_squeeze_risk' ? 'rgba(255,51,85,0.08)' : 'rgba(255,215,0,0.06)';
+      const sqBdr = sq === 'short_squeeze' ? 'rgba(0,255,136,0.28)' : sq === 'long_cascade' || sq === 'long_squeeze_risk' ? 'rgba(255,51,85,0.28)' : 'rgba(255,215,0,0.18)';
+      const sqClr = sq === 'short_squeeze' ? 'var(--green)' : sq === 'long_cascade' || sq === 'long_squeeze_risk' ? 'var(--red)' : 'var(--yellow)';
+      sqEl.style.cssText = `display:block;padding:7px 10px;border-radius:7px;margin-top:8px;font-size:0.66rem;font-weight:700;background:${sqBg};border:1px solid ${sqBdr};color:${sqClr}`;
       sqEl.textContent = sqLabel;
     } else {
       sqEl.style.display = 'none';
-      sqEl.textContent = '';
+      sqEl.textContent   = '';
     }
   }
 }
 
 /* ── 예측 바 렌더 ── */
 function renderDayGauges(pred) {
-  const container = document.getElementById('dayRow');
+  const container = $('dayRow');
   if (!container) return;
   if (!pred || !pred.length) { container.innerHTML = '<div style="color:var(--muted);font-size:0.7rem">예측 데이터 없음</div>'; return; }
   const frag = document.createDocumentFragment();
@@ -2096,17 +2224,17 @@ async function fetchGlobal() {
     const vol = fmtB(safeNum(g.total_volume?.usd));
     const chg = safeNum(g.market_cap_change_percentage_24h_usd);
     if (btcDom > 0) _prevBtcDom = (_prevBtcDom === null) ? btcDom : _prevBtcDom;
-    const domEl = document.getElementById('sBtcDom');
+    const domEl = $('sBtcDom');
     if (domEl) domEl.textContent = dom;
-    const domCEl = document.getElementById('sBtcDomC');
+    const domCEl = $('sBtcDomC');
     if (domCEl) domCEl.innerHTML = `<span class="${chg >= 0 ? 'up' : 'down'}">${fmtPct(chg)}</span>`;
-    const mcEl = document.getElementById('sMcap');
+    const mcEl = $('sMcap');
     if (mcEl) mcEl.textContent = mcap;
-    const mcCEl = document.getElementById('sMcapC');
+    const mcCEl = $('sMcapC');
     if (mcCEl) mcCEl.innerHTML = `<span class="${chg >= 0 ? 'up' : 'down'}">${fmtPct(chg)}</span>`;
-    const vEl = document.getElementById('sVol');
+    const vEl = $('sVol');
     if (vEl) vEl.textContent = vol;
-    const vCEl = document.getElementById('sVolC');
+    const vCEl = $('sVolC');
     if (vCEl) vCEl.innerHTML = '<span class="neu">실시간</span>';
     _prevBtcDom = btcDom;
   } catch (e) { console.warn('global', e); }
@@ -2124,14 +2252,14 @@ async function fetchFNG() {
       cl = d.data[0].value_classification;
       await idbSet('fng', { val, cl, ts: Date.now() });
     }
-    const fEl = document.getElementById('sFng');
-    const fLEl = document.getElementById('sFngL');
+    const fEl = $('sFng');
+    const fLEl = $('sFngL');
     if (fEl) fEl.textContent = val;
     if (fLEl) fLEl.innerHTML = `<span class="${val >= 60 ? 'up' : val <= 30 ? 'down' : 'neu'}">${cl}</span>`;
     return val;
   } catch (e) {
-    const fEl = document.getElementById('sFng');
-    const fLEl = document.getElementById('sFngL');
+    const fEl = $('sFng');
+    const fLEl = $('sFngL');
     if (fEl) fEl.textContent = '72';
     if (fLEl) fLEl.innerHTML = '<span class="neu">Greed</span>';
     return 72;
@@ -2171,6 +2299,8 @@ async function fetchLeverageMetrics() {
       getJSON('https://fapi.binance.com/fapi/v1/ticker/24hr', 'ticker24hr', 60000),
     ]);
     const lsr = safeNum(lsData[0]?.longShortRatio, 1.0);
+    // [v16-WS] 초기 로드 시 즉시 바 반영 (폴링이 시작되기 전 첫 값 보장)
+    _updateLSBar(lsr);
     const tickerMap = new Map();
     tickers.forEach(t => { tickerMap.set(t.symbol, safeNum(t.quoteVolume)); });
     frData.forEach(d => {
@@ -2240,7 +2370,7 @@ function buildCoins(raw, levCtx) {
     const oiDelta = getOIDelta((c.symbol || '').toUpperCase());
     const score = calcScore(rsi, bull, oiDelta, c24);
     const grade = toGrade(score);
-    const mcPred = monteCarloBootstrap(validPrices, 7, 800);
+    const mcPred = monteCarloBootstrap(validPrices, 7, CONFIG.MC_BASE_N);
     const regime = detectRegime(validPrices);
     const bbsqueeze = calcBBSqueeze(validPrices);
     const mtf = calcMTF(validPrices);
@@ -2271,19 +2401,19 @@ async function toggleNotif() {
   }
   if (notifEnabled) {
     notifEnabled = false;
-    document.getElementById('notifBtn').textContent = '🔔 알림설정';
+    $('notifBtn').textContent = '🔔 알림설정';
     showKbToast('알림 비활성화');
     return;
   }
   if (Notification.permission === 'granted') {
     notifEnabled = true;
-    document.getElementById('notifBtn').textContent = '🔕 알림끄기';
+    $('notifBtn').textContent = '🔕 알림끄기';
     showKbToast('알림 활성화 ✓');
   } else if (Notification.permission !== 'denied') {
     const perm = await Notification.requestPermission();
     if (perm === 'granted') {
       notifEnabled = true;
-      document.getElementById('notifBtn').textContent = '🔕 알림끄기';
+      $('notifBtn').textContent = '🔕 알림끄기';
       showKbToast('알림 활성화 ✓');
     } else {
       showKbToast('알림 권한이 거부되었습니다');
@@ -2307,7 +2437,7 @@ function pushNotif(title, body) {
 
 // 배너 알림 (탭 포커스 있을 때)
 function showNotifBanner(msg) {
-  const el = document.getElementById('notifBanner');
+  const el = $('notifBanner');
   if (!el) return;
   el.textContent = msg;
   el.style.display = 'block';
@@ -2385,9 +2515,9 @@ function cycleTheme() {
 
 // 사용법 팝업 열기/닫기
 function openGuide() {
-  const modal = document.getElementById('guideModal');
-  const sheet = document.getElementById('guideSheet');
-  const body  = document.getElementById('guideBody');
+  const modal = $('guideModal');
+  const sheet = $('guideSheet');
+  const body  = $('guideBody');
   if (!modal || !sheet) return;
   modal.style.display = 'flex';
   if (body) body.scrollTop = 0;
@@ -2395,8 +2525,8 @@ function openGuide() {
   document.body.style.overflow = 'hidden';
 }
 function closeGuide() {
-  const modal = document.getElementById('guideModal');
-  const sheet = document.getElementById('guideSheet');
+  const modal = $('guideModal');
+  const sheet = $('guideSheet');
   if (!modal || !sheet) return;
   sheet.style.transform = 'translateY(100%)';
   setTimeout(() => {
@@ -2406,8 +2536,8 @@ function closeGuide() {
 }
 // 가이드 팝업 스와이프 닫기 초기화
 function initGuideSwipe() {
-  const sheet = document.getElementById('guideSheet');
-  const body  = document.getElementById('guideBody');
+  const sheet = $('guideSheet');
+  const body  = $('guideBody');
   if (!sheet) return;
   let _ty = 0;
   sheet.addEventListener('touchstart', e => { _ty = e.touches[0].clientY; }, { passive: true });
@@ -2446,7 +2576,7 @@ const SORT_CYCLE = ['grade', 'score', 'stars', 'c24', 'rsi'];
 let _filterIdx = 0, _sortIdx = 0;
 
 function showKbToast(msg) {
-  const el = document.getElementById('kbToast');
+  const el = $('kbToast');
   if (!el) return;
   el.textContent = msg;
   el.classList.add('show');
@@ -2477,33 +2607,33 @@ document.addEventListener('keydown', e => {
       break;
     case '/':
       e.preventDefault();
-      document.getElementById('coinSearch')?.focus();
+      $('coinSearch')?.focus();
       showKbToast('/ 검색 모드');
       break;
     case 'N': toggleNotif(); break;
     case 'X': exportCSV(); break;
     case 'ESCAPE': closeModal(); break;
     case '?':
-      document.getElementById('kbHint')?.classList.toggle('show');
+      $('kbHint')?.classList.toggle('show');
       break;
   }
 });
 
 function setFilterByKey(g) {
   curFilter = g;
-  document.querySelectorAll('.fbtn').forEach(b => b.classList.toggle('on', b.dataset.g === g));
+  $$('.fbtn').forEach(b => b.classList.toggle('on', b.dataset.g === g));
   renderCoins();
 }
 
 function setSortByKey(key) {
   sortKey = key; sortDir = -1;
-  document.querySelectorAll('.sort-btn').forEach((b, i) => b.classList.toggle('active', SORT_CYCLE[i] === key || b.textContent.trim() === key));
+  $$('.sort-btn').forEach((b, i) => b.classList.toggle('active', SORT_CYCLE[i] === key || b.textContent.trim() === key));
   renderCoins();
 }
 
 /* ── 오프라인 배너 ── */
 function showOfflineBanner(show) {
-  const el = document.getElementById('offlineBanner');
+  const el = $('offlineBanner');
   if (el) el.style.display = show ? 'block' : 'none';
 }
 
@@ -2511,14 +2641,14 @@ function showOfflineBanner(show) {
 let searchQuery = '';
 function onSearch(val) {
   searchQuery = val.trim().toLowerCase();
-  const clearBtn = document.getElementById('searchClear');
+  const clearBtn = $('searchClear');
   if (clearBtn) clearBtn.style.display = searchQuery ? 'block' : 'none';
   renderCoins();
 }
 function clearSearch() {
   searchQuery = '';
-  const inp = document.getElementById('coinSearch');
-  const clearBtn = document.getElementById('searchClear');
+  const inp = $('coinSearch');
+  const clearBtn = $('searchClear');
   if (inp) inp.value = '';
   if (clearBtn) clearBtn.style.display = 'none';
   renderCoins();
@@ -2529,7 +2659,7 @@ function renderCounts(coins) {
   const cnt = { S: 0, A: 0, B: 0, C: 0, D: 0, E: 0 };
   coins.forEach(c => cnt[c.grade]++);
   const cols = { S: '#00ff88', A: '#7fff00', B: '#ffd700', C: '#ff8c00', D: '#ff4444', E: '#880000' };
-  const gcEl = document.getElementById('gradeCounts');
+  const gcEl = $('gradeCounts');
   if (gcEl) gcEl.innerHTML = Object.entries(cnt).map(([g, n]) =>
     `<span class="gc" style="background:${cols[g]}20;color:${cols[g]};border:1px solid ${cols[g]}40">${g}:${n}</span>`).join('');
 }
@@ -2538,7 +2668,7 @@ function renderCoins() {
   let rows = curFilter === 'ALL' ? allCoins : allCoins.filter(c => c.grade === curFilter);
   if (searchQuery) rows = rows.filter(c =>
     c.sym.toLowerCase().includes(searchQuery) || c.name.toLowerCase().includes(searchQuery));
-  const info = document.getElementById('searchInfo');
+  const info = $('searchInfo');
   if (info) {
     if (searchQuery) { info.style.display = 'block'; info.textContent = rows.length ? '검색결과 ' + rows.length + '개' : '검색 결과 없음'; }
     else info.style.display = 'none';
@@ -2567,7 +2697,7 @@ function renderCoins() {
     return (b.score || 0) - (a.score || 0);
   });
 
-  const list = document.getElementById('coinList');
+  const list = $('coinList');
   if (!list) return;
   if (!sorted.length) {
     list.innerHTML = `<div style="text-align:center;padding:28px;color:var(--muted);font-size:0.78rem">${searchQuery ? '"' + esc(searchQuery) + '" 검색 결과 없음' : curFilter + '등급 코인 없음'}</div>`;
@@ -2622,7 +2752,7 @@ function renderCoins() {
   const sCount = sorted.filter(c => c.grade === 'S').length;
   const eCount = sorted.filter(c => c.grade === 'E').length;
   const highRsiS = sorted.filter(c => c.grade === 'S' && c.rsi > 75).length;
-  const alertEl = document.getElementById('coinGradeAlert');
+  const alertEl = $('coinGradeAlert');
   if (alertEl) {
     if (highRsiS >= 3) { alertEl.className = 'grade-alert alert-hot'; alertEl.innerHTML = `⚠ S등급 ${sCount}개 중 ${highRsiS}개가 RSI 과매수(>75) — 단기 급락 리스크 주의`; }
     else if (sCount >= 5) { alertEl.className = 'grade-alert alert-hot'; alertEl.innerHTML = `⚠ S등급 코인 ${sCount}개 집중 — 시장 과열 신호, 익절 라인 관리 필요`; }
@@ -2717,7 +2847,7 @@ function calcRecommendScore(c) {
 }
 
 function calcAndRenderRecommend() {
-  const cardEl = document.getElementById('recommendCard');
+  const cardEl = $('recommendCard');
   if (!cardEl || cardEl.style.display === 'none') return;
   if (!allCoins.length) return;
 
@@ -2732,8 +2862,8 @@ function calcAndRenderRecommend() {
     .sort((a, b) => b.recScore - a.recScore)
     .slice(0, 5);
 
-  const listEl = document.getElementById('recCoinList');
-  const tsEl = document.getElementById('recTimestamp');
+  const listEl = $('recCoinList');
+  const tsEl = $('recTimestamp');
   if (tsEl) tsEl.textContent = safeTime() + ' 기준';
   if (!listEl) return;
 
@@ -2763,7 +2893,7 @@ function calcAndRenderRecommend() {
 }
 
 function toggleRecommendCard(btn) {
-  const card = document.getElementById('recommendCard');
+  const card = $('recommendCard');
   if (!card) return;
   const isVisible = card.style.display !== 'none';
   card.style.display = isVisible ? 'none' : 'block';
@@ -2771,9 +2901,58 @@ function toggleRecommendCard(btn) {
   if (!isVisible) calcAndRenderRecommend();
 }
 
+/* ══════════════════════════════════════════════════════════════
+   [v16-UX] 접기/펴기 — 필터·정렬·추천 섹션
+══════════════════════════════════════════════════════════════ */
+let _filterOpen = true;
+
+function toggleFilterSection(forceOpen) {
+  const body = $('filterSectionBody');
+  const icon = $('filterToggleIcon');
+  if (!body) return;
+
+  if (typeof forceOpen === 'boolean') _filterOpen = forceOpen;
+  else _filterOpen = !_filterOpen;
+
+  if (_filterOpen) {
+    body.style.maxHeight = body.scrollHeight + 'px';
+    body.classList.remove('collapsed');
+    if (icon) icon.style.transform = 'rotate(0deg)';
+  } else {
+    // 먼저 현재 높이 고정 후 0으로
+    body.style.maxHeight = body.scrollHeight + 'px';
+    requestAnimationFrame(() => {
+      body.style.maxHeight = '0px';
+      body.classList.add('collapsed');
+    });
+    if (icon) icon.style.transform = 'rotate(180deg)';
+  }
+
+  try { localStorage.setItem('lgv16_filterOpen', _filterOpen ? '1' : '0'); } catch (_) {}
+}
+
+function _initFilterSection() {
+  const body = $('filterSectionBody');
+  if (!body) return;
+  // 저장된 상태 복원
+  try {
+    const saved = localStorage.getItem('lgv16_filterOpen');
+    if (saved === '0') _filterOpen = false;
+  } catch (_) {}
+
+  if (_filterOpen) {
+    body.style.maxHeight = '9999px';
+  } else {
+    body.style.maxHeight = '0px';
+    body.classList.add('collapsed');
+    const icon = $('filterToggleIcon');
+    if (icon) icon.style.transform = 'rotate(180deg)';
+  }
+}
+
 function setFilter(g, btn) {
   curFilter = g;
-  document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('on'));
+  $$('.fbtn').forEach(b => b.classList.remove('on'));
   if (btn) btn.classList.add('on');
   renderCoins();
 }
@@ -2781,7 +2960,7 @@ function setFilter(g, btn) {
 function setSort(key, btn) {
   if (sortKey === key) sortDir *= -1;
   else { sortKey = key; sortDir = -1; }
-  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  $$('.sort-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   renderCoins();
 }
@@ -2818,7 +2997,7 @@ function buildMarketPred(coins, lev) {
     const next = prev * Math.exp(r / 100);
     syntheticPrices.push((Number.isFinite(next) && next > 0 && next < 1e8) ? next : prev);
   });
-  const rawPred = monteCarloBootstrap(syntheticPrices, 7, 800);
+  const rawPred = monteCarloBootstrap(syntheticPrices, 7, CONFIG.MC_BASE_N);
   const lsr = (lev && lev.longShortRatio != null) ? lev.longShortRatio : 1.0;
   const fr = (lev && lev.oiWeightedFunding != null) ? lev.oiWeightedFunding : 0;
   const sq = (lev && lev.squeezeSignal) || 'none';
@@ -2909,8 +3088,8 @@ function openCoinModal(sym) {
   _modalSym = sym;
   _modalTab = 'tech';
 
-  const mtEl = document.getElementById('modalTitle');
-  const msEl = document.getElementById('modalSubtitle');
+  const mtEl = $('modalTitle');
+  const msEl = $('modalSubtitle');
   if (mtEl) mtEl.textContent = esc(c.sym) + ' · ' + esc(c.name);
   if (msEl) {
     const priceStr = c.price >= 1 ? '$' + fmt(c.price, 2) : '$' + fmt(c.price, 6);
@@ -2919,18 +3098,18 @@ function openCoinModal(sym) {
   }
 
   // 탭 리셋
-  document.querySelectorAll('.mtab').forEach(b => b.classList.toggle('active', b.dataset.tab === 'tech'));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-tech'));
+  $$('.mtab').forEach(b => b.classList.toggle('active', b.dataset.tab === 'tech'));
+  $$('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-tech'));
 
   // 기술지표 탭 즉시 렌더 (DocumentFragment)
   _renderTabTech(c);
 
-  const modal = document.getElementById('coinModal');
+  const modal = $('coinModal');
   if (modal) modal.classList.add('open');
   document.body.style.overflow = 'hidden';
 
   // 탭 이벤트 위임
-  const tabNav = document.getElementById('modalTabs');
+  const tabNav = $('modalTabs');
   if (tabNav && !tabNav._v14bound) {
     tabNav._v14bound = true;
     tabNav.addEventListener('click', e => {
@@ -2943,7 +3122,7 @@ function openCoinModal(sym) {
 }
 
 function closeModal() {
-  const modal = document.getElementById('coinModal');
+  const modal = $('coinModal');
   if (modal) modal.classList.remove('open');
   document.body.style.overflow = '';
   // 리소스 정리
@@ -2961,15 +3140,15 @@ function _switchModalTab(tab) {
   const c = allCoins.find(x => x.sym === _modalSym);
   if (!c) return;
 
-  document.querySelectorAll('.mtab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
+  $$('.mtab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  $$('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
 
   // 이전 탭 리소스 해제
   if (_obWS && tab !== 'heatmap') { try { _obWS.close(); } catch(e){} _obWS = null; }
   if (_obRafId && tab !== 'heatmap') { cancelAnimationFrame(_obRafId); _obRafId = null; }
 
   // 지연 렌더 (모달 바디 스크롤 상단)
-  const body = document.getElementById('modalBody');
+  const body = $('modalBody');
   if (body) body.scrollTop = 0;
 
   switch (tab) {
@@ -2985,7 +3164,7 @@ function _switchModalTab(tab) {
    탭1: 기술지표 (WebGL 미니 게이지 포함)
 ══════════════════════════════════════ */
 function _renderTabTech(c) {
-  const el = document.getElementById('tab-tech');
+  const el = $('tab-tech');
   if (!el) return;
   const frag = document.createDocumentFragment();
   const wrap = document.createElement('div');
@@ -3100,7 +3279,7 @@ function _renderTabTech(c) {
 
   // 일자 게이지바 애니메이션
   requestAnimationFrame(() => {
-    const fill = document.getElementById('linearGaugeFill');
+    const fill = $('linearGaugeFill');
     if (fill) {
       setTimeout(() => { fill.style.transition = 'width 1.1s cubic-bezier(.4,0,.2,1)'; fill.style.width = c.score + '%'; }, 30);
     }
@@ -3113,7 +3292,7 @@ function _renderTabTech(c) {
    WebGL 미니 게이지
 ══════════════════════════════════════ */
 function _initWebGLGauge(c) {
-  const canvas = document.getElementById('webglGaugeCanvas');
+  const canvas = $('webglGaugeCanvas');
   if (!canvas) return;
   const dpr = window.devicePixelRatio || 1;
   const w = canvas.offsetWidth, h = canvas.offsetHeight;
@@ -3196,7 +3375,7 @@ function _initWebGLGauge(c) {
   let start = null;
 
   function draw(ts) {
-    if (!document.getElementById('webglGaugeCanvas')) return; // 모달 닫힘
+    if (!$('webglGaugeCanvas')) return; // 모달 닫힘
     if (!start) start = ts;
     const t = (ts - start) / 1000;
     const progress = Math.min(1, t / 1.2);
@@ -3218,7 +3397,7 @@ function _initWebGLGauge(c) {
     gl.uniform1f(uTime, t);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-    if (progress < 1 || document.getElementById('coinModal')?.classList.contains('open')) {
+    if (progress < 1 || $('coinModal')?.classList.contains('open')) {
       _webglCtx = requestAnimationFrame(draw);
     }
   }
@@ -3263,7 +3442,7 @@ function _easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
    상관관계 미니 매트릭스
 ══════════════════════════════════════ */
 function _renderCorrMatrix(c) {
-  const wrap = document.getElementById('corrMatrixWrap');
+  const wrap = $('corrMatrixWrap');
   if (!wrap) return;
 
   const peers = allCoins
@@ -3320,7 +3499,7 @@ function _renderCorrMatrix(c) {
    탭2: 세력 감지
 ══════════════════════════════════════ */
 function _renderTabWhale(c) {
-  const el = document.getElementById('tab-whale');
+  const el = $('tab-whale');
   if (!el) return;
   const wh = c.whale;
   const frag = document.createDocumentFragment();
@@ -3453,7 +3632,7 @@ function _recentLiqsForSym(sym) {
    탭3: Orderbook 히트맵
 ══════════════════════════════════════ */
 function _renderTabHeatmap(c) {
-  const el = document.getElementById('tab-heatmap');
+  const el = $('tab-heatmap');
   if (!el) return;
 
   el.innerHTML = `
@@ -3513,13 +3692,13 @@ function _connectOBWebSocket(c) {
   };
 
   ws.onerror = () => {
-    const canvas = document.getElementById('obCanvas');
+    const canvas = $('obCanvas');
     if (canvas) { const ctx = canvas.getContext('2d'); if (ctx) { canvas.width=canvas.offsetWidth; canvas.height=160; ctx.fillStyle='rgba(255,255,255,0.1)'; ctx.font='11px monospace'; ctx.fillText('WebSocket 연결 실패 — Binance API 확인', 20, 80); } }
   };
 
   // 주기적 히트맵 렌더
   function renderLoop() {
-    if (!document.getElementById('obCanvas') || _obState.symbol !== c.sym) return;
+    if (!$('obCanvas') || _obState.symbol !== c.sym) return;
     _drawOBHeatmap();
     _obRafId = requestAnimationFrame(renderLoop);
   }
@@ -3538,12 +3717,12 @@ function _updateOBSummary(c) {
   const ratio = totalAsk > 0 ? totalBid / totalAsk : 1;
 
   const fmt2 = (v, d) => v != null ? fmt(v, d) : '--';
-  const upd = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  const upd = (id, v) => { const e = $(id); if (e) e.textContent = v; };
   upd('obMidPrice', midPrice ? '$' + fmt2(midPrice, midPrice >= 1 ? 2 : 5) : '--');
   upd('obBestBid', bestBid ? '$' + fmt2(bestBid, bestBid >= 1 ? 2 : 5) : '--');
   upd('obBestAsk', bestAsk ? '$' + fmt2(bestAsk, bestAsk >= 1 ? 2 : 5) : '--');
   upd('obSpread', spread ? fmt2(spread, 4) + '%' : '--');
-  const ratioEl = document.getElementById('obRatio');
+  const ratioEl = $('obRatio');
   if (ratioEl) { ratioEl.textContent = fmt2(ratio, 2); ratioEl.style.color = ratio > 1.2 ? '#00ff88' : ratio < 0.8 ? '#ff4444' : 'var(--text)'; }
 
   // 뎁스 차트
@@ -3551,7 +3730,7 @@ function _updateOBSummary(c) {
 }
 
 function _drawOBHeatmap() {
-  const canvas = document.getElementById('obCanvas');
+  const canvas = $('obCanvas');
   if (!canvas) return;
   const dpr = window.devicePixelRatio || 1;
   if (!canvas._init) {
@@ -3600,7 +3779,7 @@ function _drawOBHeatmap() {
 }
 
 function _drawDepthChart(bidArr, askArr, mid) {
-  const canvas = document.getElementById('obDepthCanvas');
+  const canvas = $('obDepthCanvas');
   if (!canvas || !bidArr.length || !askArr.length) return;
   const dpr = window.devicePixelRatio || 1;
   canvas.width = canvas.offsetWidth * dpr;
@@ -3649,7 +3828,7 @@ function _drawDepthChart(bidArr, askArr, mid) {
    탭4: Per-Coin 백테스팅 (Web Worker)
 ══════════════════════════════════════ */
 function _renderTabBacktest(c) {
-  const el = document.getElementById('tab-backtest');
+  const el = $('tab-backtest');
   if (!el) return;
   el.innerHTML = `
     <div class="ms"><div class="ms-title">◈ PER-COIN 백테스팅 엔진</div>
@@ -3691,13 +3870,13 @@ function _runBacktest(sym) {
   const c = allCoins.find(x => x.sym === sym);
   if (!c || !c.sparkline?.length) return;
 
-  const btn = document.getElementById('btRunBtn');
+  const btn = $('btRunBtn');
   if (btn) { btn.disabled = true; btn.textContent = '계산 중...'; }
 
-  const capital = parseFloat(document.getElementById('btCapital')?.value || '10000');
-  const leverage = parseFloat(document.getElementById('btLeverage')?.value || '1');
-  const rsiBuy = parseFloat(document.getElementById('btRsiBuy')?.value || '35');
-  const rsiSell = parseFloat(document.getElementById('btRsiSell')?.value || '65');
+  const capital = parseFloat($('btCapital')?.value || '10000');
+  const leverage = parseFloat($('btLeverage')?.value || '1');
+  const rsiBuy = parseFloat($('btRsiBuy')?.value || '35');
+  const rsiSell = parseFloat($('btRsiSell')?.value || '65');
 
   // Web Worker Blob URL 패턴 (외부 파일 불필요)
   const workerCode = `
@@ -3789,11 +3968,11 @@ function _runBacktest(sym) {
 }
 
 function _displayBtResults(r, capital, c) {
-  const resEl = document.getElementById('btResults');
+  const resEl = $('btResults');
   if (resEl) resEl.style.display = 'block';
 
   // 요약 카드
-  const sumEl = document.getElementById('btSummary');
+  const sumEl = $('btSummary');
   if (sumEl) {
     const winRate = r.trades.length ? Math.round(r.wins / r.trades.length * 100) : 0;
     sumEl.innerHTML = [
@@ -3804,13 +3983,13 @@ function _displayBtResults(r, capital, c) {
       ['거래횟수', r.trades.length + '회', 'var(--text)'],
       ['샤프비율', fmt(r.sharpe, 2), r.sharpe > 1 ? '#00ff88' : r.sharpe > 0 ? '#ffd700' : '#ff4444'],
       ['손익비', r.trades.filter(t=>t.pnl>0).length ? fmt(r.trades.filter(t=>t.pnl>0).reduce((s,t)=>s+t.pnlPct,0)/r.trades.filter(t=>t.pnl>0).length / Math.max(0.01, r.trades.filter(t=>t.pnl<=0).reduce((s,t)=>s+Math.abs(t.pnlPct),0)/Math.max(1,r.trades.filter(t=>t.pnl<=0).length)), 2) : '--', 'var(--muted)'],
-      ['레버리지', (parseFloat(document.getElementById('btLeverage')?.value || '1')) + 'x', 'var(--muted)'],
+      ['레버리지', (parseFloat($('btLeverage')?.value || '1')) + 'x', 'var(--muted)'],
     ].map(([l, v, col]) => `<div class="bt-card"><div class="bt-card-val" style="color:${col}">${v}</div><div class="bt-card-lbl">${l}</div></div>`).join('');
   }
 
   // 에쿼티 커브 Canvas
   requestAnimationFrame(() => {
-    const cv = document.getElementById('btEquityCanvas');
+    const cv = $('btEquityCanvas');
     if (!cv || !r.equityCurve.length) return;
     const dpr = window.devicePixelRatio || 1;
     cv.width = cv.offsetWidth * dpr; cv.height = 80 * dpr;
@@ -3839,7 +4018,7 @@ function _displayBtResults(r, capital, c) {
   });
 
   // 거래 로그
-  const tbody = document.getElementById('btTradesBody');
+  const tbody = $('btTradesBody');
   if (tbody) {
     const prec = c.price >= 1 ? 2 : 5;
     tbody.innerHTML = r.trades.slice(-10).reverse().map((t, i) => `
@@ -3858,7 +4037,7 @@ function _displayBtResults(r, capital, c) {
    탭5: 포트폴리오 시뮬레이터
 ══════════════════════════════════════ */
 function _renderTabSim(c) {
-  const el = document.getElementById('tab-sim');
+  const el = $('tab-sim');
   if (!el) return;
   el.innerHTML = `
     <div class="ms"><div class="ms-title">◈ 포트폴리오 시뮬레이터</div>
@@ -3910,15 +4089,15 @@ function _runPortfolioSim(sym) {
   const eth = allCoins.find(x => x.sym === 'ETH');
   if (!c) return;
 
-  const btn = document.getElementById('simRunBtn');
+  const btn = $('simRunBtn');
   if (btn) { btn.disabled = true; btn.textContent = '시뮬 중...'; }
 
-  const capital = parseFloat(document.getElementById('simCapital')?.value || '10000');
-  const wCoin = parseFloat(document.getElementById('simCoinWeight')?.value || '30') / 100;
-  const wBtc = parseFloat(document.getElementById('simBtcWeight')?.value || '40') / 100;
-  const wEth = parseFloat(document.getElementById('simEthWeight')?.value || '30') / 100;
-  const days = parseInt(document.getElementById('simDays')?.value || '30');
-  const paths = parseInt(document.getElementById('simPaths')?.value || '500');
+  const capital = parseFloat($('simCapital')?.value || '10000');
+  const wCoin = parseFloat($('simCoinWeight')?.value || '30') / 100;
+  const wBtc = parseFloat($('simBtcWeight')?.value || '40') / 100;
+  const wEth = parseFloat($('simEthWeight')?.value || '30') / 100;
+  const days = parseInt($('simDays')?.value || '30');
+  const paths = parseInt($('simPaths')?.value || '500');
 
   // 비동기 MC (setTimeout으로 메인스레드 양보)
   if (_simAbort) _simAbort.abort();
@@ -3990,11 +4169,11 @@ function _boxMuller() {
 }
 
 function _displaySimResults(r) {
-  const resEl = document.getElementById('simResults');
+  const resEl = $('simResults');
   if (resEl) resEl.style.display = 'block';
 
   // 통계 카드
-  const statsEl = document.getElementById('simStats');
+  const statsEl = $('simStats');
   if (statsEl) {
     statsEl.innerHTML = [
       ['기대값', '$' + fmt(r.mean, 0), r.mean >= r.capital ? '#00ff88' : '#ff4444'],
@@ -4007,7 +4186,7 @@ function _displaySimResults(r) {
   }
 
   // 포지션 상세
-  const posEl = document.getElementById('simPositions');
+  const posEl = $('simPositions');
   if (posEl) {
     posEl.innerHTML = r.assets.map(a => `
       <div class="ms-card">
@@ -4020,7 +4199,7 @@ function _displaySimResults(r) {
 
   // MC 경로 시각화
   requestAnimationFrame(() => {
-    const cv = document.getElementById('simCanvas');
+    const cv = $('simCanvas');
     if (!cv) return;
     const dpr = window.devicePixelRatio || 1;
     cv.width = cv.offsetWidth * dpr; cv.height = 100 * dpr;
@@ -4086,7 +4265,7 @@ async function refreshAll() {
   if (isRefreshing) return;
   isRefreshing = true;
   showOfflineBanner(false);
-  const rbtn = document.getElementById('refreshBtn');
+  const rbtn = $('refreshBtn');
   if (rbtn) { rbtn.disabled = true; rbtn.textContent = '...'; }
   setStatus('데이터 수신 중... Binance(OI+펀딩) + CoinGecko + F&G', 'info');
   try {
@@ -4118,20 +4297,20 @@ async function refreshAll() {
     // [v14-QUANT] 평균 GARCH 변동성 표시
     const avgGarch = allCoins.reduce((a, c) => a + (c.garch?.sigma || 0), 0) / Math.max(allCoins.length, 1);
     const garchTxt = ` · σ̄ <b>${fmt(avgGarch * 100, 2)}%</b>`;
-    const noteEl = document.getElementById('mcNote');
+    const noteEl = $('mcNote');
     if (noteEl) noteEl.innerHTML =
-      `GARCH(1,1)+Bootstrap MC · <b>N=${800}</b> (적응형) · OI가중펀딩 <b><span class="${fc}">${oiWF >= 0 ? '+' : ''}${oiWF.toFixed(4)}%</span></b>`
+      `GARCH(1,1)+Bootstrap MC · <b>N=${CONFIG.MC_BASE_N}</b> (적응형) · OI가중펀딩 <b><span class="${fc}">${oiWF >= 0 ? '+' : ''}${oiWF.toFixed(4)}%</span></b>`
       + ` · L/S <b>${fmt(lev.longShortRatio, 3)}</b>`
       + ` · S/A코인 <b>${Math.round(bullRatio * 100)}%</b>`
       + ` · D+1 <b><span class="${biasCol}">${biasDir}</span></b>`
       + garchTxt + sqTxt + cvdTxt;
-    const utEl = document.getElementById('updateTime');
+    const utEl = $('updateTime');
     if (utEl) utEl.textContent = safeTime();
     const oiDeltaStr = lev.oiMetrics ? ` | OI변화 ${lev.oiMetrics.btcDeltaPct >= 0 ? '+' : ''}${fmt(lev.oiMetrics.btcDeltaPct, 2)}%` : '';
     setStatus(`✓ ${allCoins.length}개 분석 | 센티먼트 ${fmt(sent, 0)}%${oiDeltaStr} | 1분 후 자동갱신`, 'info');
     // 자동 스냅샷 (6시간마다)
     const lastSnap = safeNum((await idbGet('lastAutoSnap'))?.ts);
-    if (Date.now() - lastSnap > 6 * 3600 * 1000) {
+    if (Date.now() - lastSnap > CONFIG.SNAPSHOT_AUTO_HOURS * 3600 * 1000) {
       await saveSnapshot();
       await idbSet('lastAutoSnap', { ts: Date.now() });
     }
@@ -4140,7 +4319,7 @@ async function refreshAll() {
     setStatus('⚠ ' + e.message, 'error');
     if (allCoins.length) renderCoins();
   } finally {
-    const rbtnF = document.getElementById('refreshBtn');
+    const rbtnF = $('refreshBtn');
     if (rbtnF) { rbtnF.disabled = false; rbtnF.textContent = '↺ 갱신'; }
     isRefreshing = false;
   }
@@ -4152,10 +4331,11 @@ function triggerRefresh() { refreshAll(); }
   initTheme();
   initGuideSwipe();
   idbCleanup();
+  _initFilterSection();
 
   const msgs = ['INITIALIZING...', 'CONNECTING WS...', 'FETCHING OI...', 'GARCH ENGINE...', 'BOOTSTRAP MC...', 'COMPUTING GRADES...'];
-  const bar = document.getElementById('loadBar');
-  const msg = document.getElementById('loadMsg');
+  const bar = $('loadBar');
+  const msg = $('loadMsg');
   let mi = 0;
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
@@ -4170,9 +4350,10 @@ function triggerRefresh() { refreshAll(); }
         else {
           connectLiquidationWS();
           connectCVDWS();
+          startLSRatioPolling();
           refreshAll().finally(() => {
-            const ls = document.getElementById('loadScreen');
-            const app = document.getElementById('app');
+            const ls = $('loadScreen');
+            const app = $('app');
             if (app) app.style.display = 'block';
             if (ls) {
               ls.style.transition = 'opacity 0.5s';
@@ -4190,21 +4371,21 @@ function triggerRefresh() { refreshAll(); }
   let _lastRefreshTs = 0;
   function safeRefresh() {
     const now = Date.now();
-    if (!document.hidden && now - _lastRefreshTs > 30000) {
+    if (!document.hidden && now - _lastRefreshTs > 30_000) {
       _lastRefreshTs = now;
       refreshAll();
     }
   }
-  setInterval(safeRefresh, 60000);
+  setInterval(safeRefresh, CONFIG.REFRESH_INTERVAL_MS);
   document.addEventListener('visibilitychange', safeRefresh);
 
   // CVD + LIQ 패널 10초 주기
   setInterval(() => {
     if (!isRefreshing) { renderCVDPanel(); renderLiqPanel(); }
-  }, 10000);
+  }, CONFIG.RT_PANEL_INTERVAL_MS);
 
   // 이벤트 위임 — 코인 카드
-  const coinListEl = document.getElementById('coinList');
+  const coinListEl = $('coinList');
   if (coinListEl) {
     coinListEl.addEventListener('click', e => {
       const card = e.target.closest('.coin-card');
@@ -4213,7 +4394,7 @@ function triggerRefresh() { refreshAll(); }
   }
 
   // 모달 스와이프 닫기 — 스크롤 중 충돌 방지
-  const mSheet = document.getElementById('modalSheet');
+  const mSheet = $('modalSheet');
   if (mSheet) {
     let _ty = 0;
     let _scrollTop = 0;
