@@ -576,6 +576,45 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
 
 /* 접근성 focus */
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+/* ── 사용법 버튼 ── */
+.btn-guide{background:rgba(0,229,255,0.08);border-color:rgba(0,229,255,0.3);color:var(--accent);font-size:0.58rem;}
+.btn-guide:hover{background:rgba(0,229,255,0.16);}
+
+/* ── 사용법 팝업 내부 스타일 ── */
+.guide-section{margin-bottom:16px;}
+.guide-sec-title{
+  font-family:'Orbitron',monospace;font-size:0.52rem;font-weight:700;
+  color:var(--accent);letter-spacing:2px;margin-bottom:8px;
+  padding-bottom:5px;border-bottom:1px solid var(--border);
+}
+/* 별점/등급 테이블 */
+.guide-table{display:flex;flex-direction:column;gap:4px;}
+.gt-row{display:flex;align-items:center;gap:10px;padding:6px 10px;background:rgba(255,255,255,0.025);border-radius:7px;}
+.gt-star{font-size:0.7rem;min-width:90px;flex-shrink:0;}
+.gt-grade{font-family:'Orbitron',monospace;font-size:0.9rem;font-weight:900;min-width:28px;text-align:center;flex-shrink:0;}
+.gt-desc{font-size:0.5rem;line-height:1.5;color:var(--muted);}
+.gt-s{color:#00ff88;}.gt-a{color:#7fff00;}.gt-b{color:#ffd700;}.gt-c{color:#ff8c00;}
+.guide-note{font-size:0.44rem;color:var(--muted);margin-top:6px;padding:5px 8px;background:rgba(255,255,255,0.02);border-radius:5px;line-height:1.7;}
+/* 신호 그리드 */
+.guide-sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.gsig{padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);}
+.gsig-green{border-color:rgba(0,255,136,0.2);background:rgba(0,255,136,0.04);}
+.gsig-red{border-color:rgba(255,51,85,0.2);background:rgba(255,51,85,0.04);}
+.gsig-yellow{border-color:rgba(255,215,0,0.2);background:rgba(255,215,0,0.04);}
+.gsig-lbl{font-size:0.44rem;color:var(--muted);margin-bottom:4px;line-height:1.4;}
+.gsig-val{font-size:0.5rem;font-weight:700;line-height:1.4;}
+.gsig-green .gsig-val{color:var(--green);}
+.gsig-red .gsig-val{color:var(--red);}
+.gsig-yellow .gsig-val{color:var(--yellow);}
+/* 리스크 리스트 */
+.guide-risk-list{display:flex;flex-direction:column;gap:5px;}
+.grisk{display:flex;align-items:flex-start;gap:10px;padding:7px 10px;background:rgba(255,107,53,0.05);border:1px solid rgba(255,107,53,0.15);border-radius:7px;font-size:0.5rem;color:var(--text);line-height:1.6;}
+.grisk-num{font-family:'Orbitron',monospace;font-size:0.46rem;font-weight:700;color:var(--accent2);flex-shrink:0;min-width:18px;}
+/* 단축키 그리드 */
+.guide-kb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;}
+.gkb{display:flex;align-items:center;gap:7px;padding:6px 8px;background:rgba(255,255,255,0.025);border-radius:7px;font-size:0.5rem;color:var(--muted);}
+.gkbd{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:4px;padding:2px 7px;font-family:'Orbitron',monospace;font-size:0.52rem;color:var(--accent);font-weight:700;}
 </style>
 </head>
 <body>
@@ -614,6 +653,7 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
     <span id="updateTime">--:--:--</span>
     <span id="wsStatus"><span style="color:#64748b">● 연결중</span></span>
     <button class="theme-btn" onclick="cycleTheme()" title="테마 (T)">🎨</button>
+    <button class="btn btn-guide" onclick="openGuide()" title="사용법">📖 사용법</button>
     <button class="btn" id="refreshBtn" onclick="triggerRefresh()" title="갱신 (R)">↺ 갱신</button>
   </div>
 </header>
@@ -624,7 +664,103 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
 <!-- ── 상태바 ── -->
 <div class="status-bar" id="statusBar"></div>
 
-<!-- ① 센티먼트 게이지 -->
+<!-- ── 사용법 팝업 모달 ── -->
+<div id="guideModal" style="display:none;position:fixed;inset:0;z-index:300;align-items:flex-end;justify-content:center;">
+  <div id="guideBackdrop" onclick="closeGuide()" style="position:absolute;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);"></div>
+  <div id="guideSheet" style="
+    position:relative;z-index:1;width:100%;max-width:600px;max-height:88vh;
+    background:var(--panel);border:1px solid rgba(0,229,255,0.2);
+    border-radius:20px 20px 0 0;display:flex;flex-direction:column;
+    transform:translateY(100%);transition:transform 0.35s cubic-bezier(.32,1,.4,1);
+  ">
+    <!-- 핸들 -->
+    <div style="width:36px;height:4px;background:rgba(255,255,255,0.14);border-radius:2px;margin:10px auto 0;flex-shrink:0;"></div>
+    <!-- 헤더 -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px 10px;flex-shrink:0;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-family:'Orbitron',monospace;font-size:0.85rem;font-weight:900;color:var(--accent);letter-spacing:2px;">📖 사용 가이드</div>
+        <div style="font-size:0.48rem;color:var(--muted);margin-top:2px;">LEVERAGE GAUGE v14 · Extreme Quant Edition</div>
+      </div>
+      <button onclick="closeGuide()" style="background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:6px;">✕</button>
+    </div>
+    <!-- 스크롤 바디 -->
+    <div id="guideBody" style="flex:1;overflow-y:auto;padding:14px 16px 32px;overscroll-behavior:contain;">
+
+      <!-- ① 별점 시스템 -->
+      <div class="guide-section">
+        <div class="guide-sec-title">⭐ 별점 시스템 (최대 6개)</div>
+        <div class="guide-table">
+          <div class="gt-row"><span class="gt-star">⭐⭐⭐⭐⭐⭐</span><span class="gt-desc gt-s">6조건 전부 충족 · 최고 신뢰도 진입 검토</span></div>
+          <div class="gt-row"><span class="gt-star">⭐⭐⭐⭐⭐</span><span class="gt-desc gt-a">5조건 · 강한 신호 · 진입 적극 고려</span></div>
+          <div class="gt-row"><span class="gt-star">⭐⭐⭐⭐</span><span class="gt-desc gt-b">4조건 · 양호 · 소규모 진입 검토</span></div>
+          <div class="gt-row"><span class="gt-star">⭐⭐⭐</span><span class="gt-desc gt-c">3조건 · 중립 · 관망 또는 극소량</span></div>
+          <div class="gt-row"><span class="gt-star" style="color:#666">⭐⭐ 이하</span><span class="gt-desc" style="color:var(--muted)">2조건 이하 · 진입 비권장</span></div>
+        </div>
+        <div class="guide-note">조건: 추세 · BB수축 · MTF일치 · CVD · 레버적정 · GARCH변동성안정</div>
+      </div>
+
+      <!-- ② 등급 & 점수 -->
+      <div class="guide-section">
+        <div class="guide-sec-title">📊 등급 & 퀀트 점수 (0~100)</div>
+        <div class="guide-table">
+          <div class="gt-row"><span class="gt-grade" style="color:#00ff88">S</span><span class="gt-desc gt-s">85~100 · 극도 강세 · 공격적 진입 검토</span></div>
+          <div class="gt-row"><span class="gt-grade" style="color:#7fff00">A</span><span class="gt-desc gt-a">70~84 · 강세 · 추격 주의하며 진입</span></div>
+          <div class="gt-row"><span class="gt-grade" style="color:#ffd700">B</span><span class="gt-desc gt-b">50~69 · 낙관 · 현물 위주 / 소량 선물</span></div>
+          <div class="gt-row"><span class="gt-grade" style="color:#ff8c00">C</span><span class="gt-desc gt-c">30~49 · 중립 · 관망 / 분할 매수</span></div>
+          <div class="gt-row"><span class="gt-grade" style="color:#ff4444">D</span><span class="gt-desc" style="color:#ff4444">15~29 · 신중 · 진입 자제</span></div>
+          <div class="gt-row"><span class="gt-grade" style="color:#cc2222">E</span><span class="gt-desc" style="color:#cc2222">0~14 · 극도 공포/하락 · 진입 금지</span></div>
+        </div>
+        <div class="guide-note">점수 = RSI(±22) + MACD(±14) + OI델타(±18) + 24H%(±14) 복합 산출</div>
+      </div>
+
+      <!-- ③ 핵심 신호 해석 -->
+      <div class="guide-section">
+        <div class="guide-sec-title">📡 핵심 신호 해석</div>
+        <div class="guide-sig-grid">
+          <div class="gsig gsig-green"><div class="gsig-lbl">Funding Rate 마이너스</div><div class="gsig-val">숏 과열 → 롱 기회</div></div>
+          <div class="gsig gsig-red"><div class="gsig-lbl">Funding Rate +0.1% 초과</div><div class="gsig-val">롱 과열 → 숏 기회</div></div>
+          <div class="gsig gsig-green"><div class="gsig-lbl">OI증가 + 가격상승</div><div class="gsig-val">신규 진입 → 추세 신뢰</div></div>
+          <div class="gsig gsig-red"><div class="gsig-lbl">OI급감 + 가격변동</div><div class="gsig-val">대규모 청산 → 역방향 주의</div></div>
+          <div class="gsig gsig-yellow"><div class="gsig-lbl">공포지수 &lt; 25</div><div class="gsig-val">극도 공포 → 분할 매수</div></div>
+          <div class="gsig gsig-red"><div class="gsig-lbl">공포지수 &gt; 75</div><div class="gsig-val">극도 탐욕 → 익절/숏 검토</div></div>
+        </div>
+      </div>
+
+      <!-- ④ 리스크 원칙 -->
+      <div class="guide-section">
+        <div class="guide-sec-title" style="color:var(--accent2);">⚠️ 필수 리스크 원칙</div>
+        <div class="guide-risk-list">
+          <div class="grisk"><span class="grisk-num">01</span><span>1회 포지션 리스크 = <b>총자산 1~2% 이하</b></span></div>
+          <div class="grisk"><span class="grisk-num">02</span><span>초기 레버리지 <b>3~5배 이하</b> 엄수</span></div>
+          <div class="grisk"><span class="grisk-num">03</span><span>진입 전 <b>손절가 반드시 설정</b> (±2~3%)</span></div>
+          <div class="grisk"><span class="grisk-num">04</span><span>신호 1개만 보고 <b>올인 절대 금지</b></span></div>
+          <div class="grisk"><span class="grisk-num">05</span><span>수익 나도 레버리지 <b>점진적으로만 증가</b></span></div>
+        </div>
+      </div>
+
+      <!-- ⑤ 단축키 & 갱신 -->
+      <div class="guide-section">
+        <div class="guide-sec-title">⌨️ 단축키 & 갱신</div>
+        <div class="guide-kb-grid">
+          <div class="gkb"><kbd class="gkbd">R</kbd><span>즉시 갱신</span></div>
+          <div class="gkb"><kbd class="gkbd">F</kbd><span>필터 순환</span></div>
+          <div class="gkb"><kbd class="gkbd">S</kbd><span>정렬 순환</span></div>
+          <div class="gkb"><kbd class="gkbd">T</kbd><span>테마 전환</span></div>
+          <div class="gkb"><kbd class="gkbd">E</kbd><span>극한 모드</span></div>
+          <div class="gkb"><kbd class="gkbd">/</kbd><span>검색</span></div>
+        </div>
+        <div class="guide-note">데이터: Binance Futures + CoinGecko · 1분 자동갱신 · WebSocket 실시간</div>
+      </div>
+
+      <!-- 면책 -->
+      <div style="font-size:0.44rem;color:var(--muted);text-align:center;padding:10px 0 0;border-top:1px solid var(--border);line-height:2;opacity:0.65;">
+        본 툴은 투자 판단 보조 도구입니다 · 투자 결정은 전적으로 본인 책임 · 수익을 보장하지 않습니다<br>
+        크립토 선물 거래는 원금 전액 손실 위험이 있습니다
+      </div>
+
+    </div>
+  </div>
+</div>
 <div class="panel">
   <div class="sentiment-panel">
     <div class="sentiment-top">
@@ -780,7 +916,7 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
         <span class="ftag">OI delta ±18</span>
         <span class="ftag">24H% ±14</span>
       </div>
-      <div style="margin-top:4px;color:var(--muted)">별점: <b style="color:var(--accent)">추세·BB·MTF·CVD·레버</b> 5개 조건 | GARCH 변동성 클러스터링 적용</div>
+      <div style="margin-top:4px;color:var(--muted)">별점: <b style="color:var(--accent)">추세·BB·MTF·CVD·레버·GARCH</b> 6개 조건 (⭐~⭐⭐⭐⭐⭐⭐) | GARCH 변동성 클러스터링 적용</div>
     </div>
     <!-- 내보내기 -->
     <div class="export-section" style="padding:8px 0 0;border-top:1px solid var(--border);margin-top:8px;">
@@ -1771,11 +1907,9 @@ function calcStarRating(coin, regime, bbsqueeze, mtf, levCtx, garchSigma) {
     else if (garchSigma > 0.04) conditions.push(`변동성높음${fmt(garchSigma * 100, 1)}%`);
   }
 
-  // 골든앵글 기반 최종 점수 (rawScore → 별점 매핑)
-  const goldenStars = rawScore >= GOLDEN_WEIGHTS[0] + GOLDEN_WEIGHTS[1] + GOLDEN_WEIGHTS[2]
-    ? '⭐⭐⭐⭐' : rawScore >= GOLDEN_WEIGHTS[0] + GOLDEN_WEIGHTS[1]
-      ? '⭐⭐⭐' : rawScore >= GOLDEN_WEIGHTS[0]
-        ? '⭐⭐' : '⭐';
+  // 조건 충족 개수(points) 기반 별점 매핑 — 6조건 완전 반영
+  const STAR_MAP = ['—','⭐','⭐⭐','⭐⭐⭐','⭐⭐⭐⭐','⭐⭐⭐⭐⭐','⭐⭐⭐⭐⭐⭐'];
+  const goldenStars = STAR_MAP[Math.min(points, STAR_MAP.length - 1)];
 
   return { stars: goldenStars, points, conditions: conditions.join(' · ') || '조건 미충족', rawScore: safeNum(rawScore) };
 }
@@ -2193,6 +2327,41 @@ function cycleTheme() {
   try { localStorage.setItem('lgv14_theme', THEMES[_themeIdx]); } catch (_) {}
 }
 
+// 사용법 팝업 열기/닫기
+function openGuide() {
+  const modal = document.getElementById('guideModal');
+  const sheet = document.getElementById('guideSheet');
+  const body  = document.getElementById('guideBody');
+  if (!modal || !sheet) return;
+  modal.style.display = 'flex';
+  if (body) body.scrollTop = 0;
+  requestAnimationFrame(() => { sheet.style.transform = 'translateY(0)'; });
+  document.body.style.overflow = 'hidden';
+}
+function closeGuide() {
+  const modal = document.getElementById('guideModal');
+  const sheet = document.getElementById('guideSheet');
+  if (!modal || !sheet) return;
+  sheet.style.transform = 'translateY(100%)';
+  setTimeout(() => {
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+  }, 380);
+}
+// 가이드 팝업 스와이프 닫기 초기화
+function initGuideSwipe() {
+  const sheet = document.getElementById('guideSheet');
+  const body  = document.getElementById('guideBody');
+  if (!sheet) return;
+  let _ty = 0;
+  sheet.addEventListener('touchstart', e => { _ty = e.touches[0].clientY; }, { passive: true });
+  sheet.addEventListener('touchmove', e => {
+    const dy = e.touches[0].clientY - _ty;
+    const atTop = !body || body.scrollTop <= 0;
+    if (dy > 80 && atTop) closeGuide();
+  }, { passive: true });
+}
+
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme === 'dark' ? '' : theme);
   const names = { dark: '다크', light: '라이트', contrast: '고대비' };
@@ -2372,8 +2541,8 @@ function renderCoins() {
       ? `<span class="garch-badge" style="background:rgba(255,51,85,0.08);color:#ff6666;border-color:rgba(255,51,85,0.2)">GARCH ${fmt(c.garch.sigma * 100, 1)}%σ</span>` : '';
     const lsb = calcLSBias(c);
     const lsBadge = `<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:0.54rem;font-weight:700;background:${lsb.color}22;color:${lsb.color};border:1px solid ${lsb.color}44;margin-top:2px">${lsb.label}</span>${lsb.detail ? `<span style="font-size:0.5rem;color:var(--muted);margin-left:4px">${esc(lsb.detail)}</span>` : ''}`;
-    const starColor = c.rating.points >= 3 ? '#ffd700' : c.rating.points >= 2 ? '#ff8c00' : '#666';
-    const starBadge = `<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 7px;background:rgba(255,215,0,0.07);border:1px solid rgba(255,215,0,0.22);border-radius:5px;margin-top:4px"><span style="font-size:0.88rem;line-height:1">${c.rating.stars}</span><span style="font-size:0.52rem;color:${starColor};font-weight:700">${c.rating.points}조건</span></div>`;
+    const starColor = c.rating.points >= 5 ? '#00ff88' : c.rating.points >= 4 ? '#ffd700' : c.rating.points >= 3 ? '#ff8c00' : c.rating.points >= 2 ? '#ff6b35' : '#666';
+    const starBadge = `<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 7px;background:rgba(255,215,0,0.07);border:1px solid rgba(255,215,0,0.22);border-radius:5px;margin-top:4px"><span style="font-size:0.88rem;line-height:1">${c.rating.stars}</span><span style="font-size:0.52rem;color:${starColor};font-weight:700">${c.rating.points}/6조건</span></div>`;
     const starDetail = `<div style="font-size:0.48rem;color:var(--muted);margin-top:2px">${esc(c.rating.conditions)}</div>`;
     const wh = c.whale;
     const whClass = wh.score >= 50 ? 'whale-alert' : wh.score >= 20 ? 'whale-acc' : wh.score <= -50 ? 'whale-alert' : wh.score <= -20 ? 'whale-caution' : 'whale-neutral';
@@ -2697,7 +2866,7 @@ function _renderTabTech(c) {
     </div>
     <!-- 별점 조건 -->
     <div class="ms">
-      <div class="ms-title">◈ 별점 조건 (${c.rating.stars} · ${c.rating.points}조건)</div>
+      <div class="ms-title">◈ 별점 조건 (${c.rating.stars} · ${c.rating.points}/6조건)</div>
       <div style="padding:8px 10px;background:rgba(255,215,0,0.04);border:1px solid rgba(255,215,0,0.15);border-radius:8px;font-size:0.6rem">${esc(c.rating.conditions)}</div>
     </div>
     ${garchForecastHtml}
@@ -3777,6 +3946,7 @@ function triggerRefresh() { refreshAll(); }
 /* ── 초기화 ── */
 (function init() {
   initTheme();
+  initGuideSwipe();
   idbCleanup();
 
   const msgs = ['INITIALIZING...', 'CONNECTING WS...', 'FETCHING OI...', 'GARCH ENGINE...', 'BOOTSTRAP MC...', 'COMPUTING GRADES...'];
@@ -3838,12 +4008,22 @@ function triggerRefresh() { refreshAll(); }
     });
   }
 
-  // 모달 스와이프
+  // 모달 스와이프 닫기 — 스크롤 중 충돌 방지
   const mSheet = document.getElementById('modalSheet');
   if (mSheet) {
     let _ty = 0;
-    mSheet.addEventListener('touchstart', e => { _ty = e.touches[0].clientY; }, { passive: true });
-    mSheet.addEventListener('touchmove', e => { if (e.touches[0].clientY - _ty > 80) closeModal(); }, { passive: true });
+    let _scrollTop = 0;
+    const mBody = mSheet.querySelector('.modal-body');
+    mSheet.addEventListener('touchstart', e => {
+      _ty = e.touches[0].clientY;
+      _scrollTop = mBody ? mBody.scrollTop : 0;
+    }, { passive: true });
+    mSheet.addEventListener('touchmove', e => {
+      const dy = e.touches[0].clientY - _ty;
+      // 스크롤이 최상단이고 아래로 스와이프할 때만 모달 닫기
+      const isAtTop = !mBody || mBody.scrollTop <= 0;
+      if (dy > 80 && isAtTop) closeModal();
+    }, { passive: true });
   }
 
   // 온/오프라인 감지
