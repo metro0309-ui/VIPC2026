@@ -1104,8 +1104,8 @@ const CONFIG = {
 /* ══════════════════════════════════════════════════════════════
    DOM 헬퍼
 ══════════════════════════════════════════════════════════════ */
-const $ = id => document.getElementById(id);
-const $$ = sel => $$(sel);
+const $  = id  => document.getElementById(id);
+const $$ = sel => document.querySelectorAll(sel);
 
 /* ══════════════════════════════════════════════════════════════
    WsManager — WebSocket 재연결·백오프 공통 클래스 [v16-REFAC]
