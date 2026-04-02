@@ -6,25 +6,19 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#07090f">
-<title>레버리지 게이지 v14 · Extreme Quant Edition</title>
+<title>레버리지 게이지 v15 · Extreme Quant Edition</title>
 <!--
   ╔══════════════════════════════════════════════════════════════════╗
-  ║  레버리지 게이지 v14 · Extreme Quant Edition                    ║
-  ║  Build: 2025-01 | Base: v13 BugFix+QuantAlgo v8 → v14          ║
+  ║  레버리지 게이지 v15 · Extreme Quant Edition                    ║
+  ║  Build: 2025-01 | Base: v14 → v15 UI Upgrade                   ║
   ╠══════════════════════════════════════════════════════════════════╣
-  ║  [v14-PERF]  Web Worker MC 오프로드 — 메인 스레드 블로킹 제거   ║
-  ║  [v14-PERF]  DocumentFragment 가상화 렌더 — 100코인 최적화      ║
-  ║  [v14-PERF]  rAF 배치 DOM 업데이트 큐                          ║
-  ║  [v14-DB]    IndexedDB 7일 캐시 — 오프라인 fallback 지원        ║
-  ║  [v14-NOTIF] 브라우저 Push Notification (청산 알림 + 등급변경)  ║
-  ║  [v14-THEME] 다크/라이트/고대비 3종 테마 + 시스템 감지          ║
-  ║  [v14-KB]    키보드 단축키 (R/F/S/T/E///)                      ║
-  ║  [v14-EXPORT] CSV + JSON 내보내기 + 자동 스냅샷                 ║
-  ║  [v14-QUANT] GARCH(1,1) 변동성 클러스터링 + 적응형 MC N        ║
-  ║  [v14-QUANT] Volume Profile 분석 추가                           ║
-  ║  [v14-QUANT] 골든앵글 가중치 최적화                             ║
-  ║  [v14-SAFE]  완전한 NaN/undefined 방어 + XSS 방어 강화          ║
-  ║  [v14-WS]    WebSocket 메시지 큐 + AbortController 방어         ║
+  ║  [v15-UI]   별점 이미지 → ★x1~★x6 텍스트 표기 (이미지 최소화) ║
+  ║  [v15-SORT] ALL 탭 → 시가총액 순 정렬                           ║
+  ║  [v15-GAUGE] QUANT SCORE 원형게이지 → 일자 선형 게이지바        ║
+  ║  [v15-REC]  AI 추천 카드 추가 (RSI 버튼 옆)                     ║
+  ║  [v15-REC]  골든앵글 복합 알고리즘 추천 (퀀트40+별점25+OI20+모멘15)║
+  ║  [v15-FIX]  squeezeAlert 토글 버그 수정                          ║
+  ║  [v15-FIX]  WebGL rAF 루프 → 선형게이지 교체                    ║
   ╚══════════════════════════════════════════════════════════════════╝
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -543,6 +537,48 @@ header h1{font-family:'Orbitron',monospace;font-size:0.66rem;color:var(--accent)
 .vp-fill{height:100%;border-radius:4px;transition:width 0.4s ease;}
 .vp-poc{position:absolute;top:0;bottom:0;width:2px;background:#fff;opacity:0.7;transform:translateX(-50%);}
 
+/* ── 추천 버튼 ── */
+.recommend-btn{background:rgba(255,107,53,0.08)!important;border-color:rgba(255,107,53,0.35)!important;color:var(--accent2)!important;}
+.recommend-btn.active{background:rgba(255,107,53,0.2)!important;border-color:var(--accent2)!important;color:var(--accent2)!important;}
+
+/* ── 추천 코인 아이템 ── */
+.rec-coin-item{
+  display:grid;grid-template-columns:24px 1fr auto auto;align-items:center;gap:8px;
+  padding:7px 10px;background:rgba(255,255,255,0.025);border:1px solid rgba(0,229,255,0.1);
+  border-radius:8px;cursor:pointer;transition:all 0.15s;
+}
+.rec-coin-item:hover{background:rgba(0,229,255,0.06);border-color:rgba(0,229,255,0.25);}
+.rec-rank{font-family:'Orbitron',monospace;font-size:0.52rem;color:var(--muted);text-align:center;}
+.rec-rank.rank-1{color:#ffd700;}
+.rec-rank.rank-2{color:#aaa;}
+.rec-rank.rank-3{color:#cd7f32;}
+.rec-info{display:flex;flex-direction:column;gap:1px;}
+.rec-sym{font-weight:700;font-size:0.75rem;}
+.rec-reason{font-size:0.46rem;color:var(--muted);line-height:1.4;}
+.rec-score-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+.rec-score{font-family:'Orbitron',monospace;font-size:0.7rem;font-weight:700;}
+.rec-stars{font-family:'Orbitron',monospace;font-size:0.48rem;}
+.rec-grade-badge{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;font-family:'Orbitron',monospace;font-size:0.6rem;font-weight:900;border:1.5px solid;}
+
+/* ── 일자 퀀트 스코어 게이지바 ── */
+.linear-gauge-wrap{padding:10px 12px;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:10px;}
+.linear-gauge-header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;}
+.linear-gauge-val{font-family:'Orbitron',monospace;font-size:2rem;font-weight:900;line-height:1;}
+.linear-gauge-grade{font-family:'Orbitron',monospace;font-size:0.56rem;letter-spacing:2px;color:var(--muted);}
+.linear-gauge-track{position:relative;height:28px;border-radius:14px;overflow:hidden;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);}
+.linear-gauge-bg{
+  position:absolute;inset:0;
+  background:linear-gradient(90deg,#5c0000 0%,#b31010 15%,#e05500 30%,#e0a800 50%,#28a845 65%,#00cc55 80%,#00ff88 100%);
+  opacity:0.25;
+}
+.linear-gauge-fill{position:absolute;top:0;left:0;bottom:0;border-radius:14px;transition:width 1.1s cubic-bezier(.4,0,.2,1);z-index:2;}
+.linear-gauge-ticks{position:absolute;inset:0;z-index:3;pointer-events:none;}
+.linear-gauge-ticks div{position:absolute;top:0;bottom:0;width:1px;background:rgba(0,0,0,0.4);}
+.linear-gauge-zones{position:absolute;inset:0;display:flex;align-items:center;z-index:4;pointer-events:none;}
+.linear-gauge-zones span{position:absolute;font-family:'Orbitron',monospace;font-size:0.42rem;color:rgba(255,255,255,0.5);transform:translateX(-50%);font-weight:700;}
+.linear-gauge-labels{display:flex;justify-content:space-between;margin-top:4px;padding:0 2px;}
+.linear-gauge-labels span{font-family:'Orbitron',monospace;font-size:0.44rem;color:var(--muted);}
+
 /* ── GARCH 뱃지 ── */
 .garch-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:4px;font-size:0.5rem;font-weight:700;margin-left:4px;background:rgba(0,229,255,0.06);color:var(--accent);border:1px solid rgba(0,229,255,0.2);}
 
@@ -636,7 +672,7 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
   <div class="load-title">LEVERAGE GAUGE</div>
   <div class="load-bar-track"><div class="load-bar-fill" id="loadBar"></div></div>
   <div class="load-msg" id="loadMsg">INITIALIZING...</div>
-  <div class="load-version">v14 EXTREME QUANT EDITION</div>
+  <div class="load-version">v15 EXTREME QUANT EDITION</div>
 </div>
 
 <!-- ── 앱 본체 ── -->
@@ -646,7 +682,7 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
 <!-- ── 헤더 ── -->
 <header>
   <div>
-    <h1>LEVERAGE GAUGE v14<br>EXTREME QUANT</h1>
+    <h1>LEVERAGE GAUGE v15<br>EXTREME QUANT</h1>
   </div>
   <div class="hdr-right">
     <div class="live-dot"></div>
@@ -679,7 +715,7 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px 10px;flex-shrink:0;border-bottom:1px solid var(--border);">
       <div>
         <div style="font-family:'Orbitron',monospace;font-size:0.85rem;font-weight:900;color:var(--accent);letter-spacing:2px;">📖 사용 가이드</div>
-        <div style="font-size:0.48rem;color:var(--muted);margin-top:2px;">LEVERAGE GAUGE v14 · Extreme Quant Edition</div>
+        <div style="font-size:0.48rem;color:var(--muted);margin-top:2px;">LEVERAGE GAUGE v15 · Extreme Quant Edition</div>
       </div>
       <button onclick="closeGuide()" style="background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:6px;">✕</button>
     </div>
@@ -690,11 +726,11 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
       <div class="guide-section">
         <div class="guide-sec-title">⭐ 별점 시스템 (최대 6개)</div>
         <div class="guide-table">
-          <div class="gt-row"><span class="gt-star">⭐⭐⭐⭐⭐⭐</span><span class="gt-desc gt-s">6조건 전부 충족 · 최고 신뢰도 진입 검토</span></div>
-          <div class="gt-row"><span class="gt-star">⭐⭐⭐⭐⭐</span><span class="gt-desc gt-a">5조건 · 강한 신호 · 진입 적극 고려</span></div>
-          <div class="gt-row"><span class="gt-star">⭐⭐⭐⭐</span><span class="gt-desc gt-b">4조건 · 양호 · 소규모 진입 검토</span></div>
-          <div class="gt-row"><span class="gt-star">⭐⭐⭐</span><span class="gt-desc gt-c">3조건 · 중립 · 관망 또는 극소량</span></div>
-          <div class="gt-row"><span class="gt-star" style="color:#666">⭐⭐ 이하</span><span class="gt-desc" style="color:var(--muted)">2조건 이하 · 진입 비권장</span></div>
+          <div class="gt-row"><span class="gt-star" style="font-family:'Orbitron',monospace;font-size:0.7rem">★x6</span><span class="gt-desc gt-s">6조건 전부 충족 · 최고 신뢰도 진입 검토</span></div>
+          <div class="gt-row"><span class="gt-star" style="font-family:'Orbitron',monospace;font-size:0.7rem">★x5</span><span class="gt-desc gt-a">5조건 · 강한 신호 · 진입 적극 고려</span></div>
+          <div class="gt-row"><span class="gt-star" style="font-family:'Orbitron',monospace;font-size:0.7rem">★x4</span><span class="gt-desc gt-b">4조건 · 양호 · 소규모 진입 검토</span></div>
+          <div class="gt-row"><span class="gt-star" style="font-family:'Orbitron',monospace;font-size:0.7rem">★x3</span><span class="gt-desc gt-c">3조건 · 중립 · 관망 또는 극소량</span></div>
+          <div class="gt-row"><span class="gt-star" style="font-family:'Orbitron',monospace;font-size:0.7rem;color:#666">★x2 이하</span><span class="gt-desc" style="color:var(--muted)">2조건 이하 · 진입 비권장</span></div>
         </div>
         <div class="guide-note">조건: 추세 · BB수축 · MTF일치 · CVD · 레버적정 · GARCH변동성안정</div>
       </div>
@@ -906,6 +942,20 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
       <button class="sort-btn" onclick="setSort('stars',this)">별점</button>
       <button class="sort-btn" onclick="setSort('c24',this)">24H%</button>
       <button class="sort-btn" onclick="setSort('rsi',this)">RSI</button>
+      <button class="sort-btn recommend-btn" onclick="toggleRecommendCard(this)" id="recommendToggleBtn">🎯 AI추천</button>
+    </div>
+    <!-- AI 추천 카드 -->
+    <div id="recommendCard" style="display:none;margin-bottom:8px;padding:10px 12px;background:linear-gradient(135deg,rgba(0,229,255,0.05),rgba(255,107,53,0.05));border:1px solid rgba(0,229,255,0.25);border-radius:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="font-family:'Orbitron',monospace;font-size:0.52rem;letter-spacing:2px;color:var(--accent)">🎯 AI 종합추천 코인</div>
+        <div style="font-size:0.46rem;color:var(--muted)" id="recTimestamp">--</div>
+      </div>
+      <div id="recCoinList" style="display:flex;flex-direction:column;gap:6px;">
+        <div style="text-align:center;padding:12px;color:var(--muted);font-size:0.6rem">갱신 후 추천 코인이 표시됩니다</div>
+      </div>
+      <div style="margin-top:8px;padding:6px 8px;background:rgba(0,229,255,0.03);border-radius:6px;font-size:0.48rem;color:var(--muted);line-height:1.7" id="recAlgoNote">
+        알고리즘: 퀀트점수(40%) + 별점가중치(25%) + 골든앵글OI(20%) + GARCH안정성(15%)
+      </div>
     </div>
     <!-- 공식 안내 -->
     <div class="formula-box">
@@ -1620,12 +1670,17 @@ function updateLSGauge(lsr, avgFunding, levScore, lev) {
     sigEl.innerHTML = `<span class="${sc}">${sig}</span>`;
   }
   const sqEl = document.getElementById('squeezeAlert');
-  if (sqEl && sqLabel && sq !== 'neutral' && sq !== 'none' && sqEl.style.display === 'none') {
-    const sqColor = sq === 'short_squeeze' ? 'rgba(0,255,136,0.08)' : sq === 'long_cascade' || sq === 'long_squeeze_risk' ? 'rgba(255,51,85,0.08)' : 'rgba(255,215,0,0.06)';
-    const sqBorder = sq === 'short_squeeze' ? 'rgba(0,255,136,0.28)' : sq === 'long_cascade' || sq === 'long_squeeze_risk' ? 'rgba(255,51,85,0.28)' : 'rgba(255,215,0,0.18)';
-    const sqTextColor = sq === 'short_squeeze' ? 'var(--green)' : sq === 'long_cascade' || sq === 'long_squeeze_risk' ? 'var(--red)' : 'var(--yellow)';
-    sqEl.style.cssText = `display:block;padding:7px 10px;border-radius:7px;margin-top:8px;font-size:0.66rem;font-weight:700;background:${sqColor};border:1px solid ${sqBorder};color:${sqTextColor}`;
-    sqEl.textContent = sqLabel;
+  if (sqEl) {
+    if (sqLabel && sq !== 'neutral' && sq !== 'none') {
+      const sqColor = sq === 'short_squeeze' ? 'rgba(0,255,136,0.08)' : sq === 'long_cascade' || sq === 'long_squeeze_risk' ? 'rgba(255,51,85,0.08)' : 'rgba(255,215,0,0.06)';
+      const sqBorder = sq === 'short_squeeze' ? 'rgba(0,255,136,0.28)' : sq === 'long_cascade' || sq === 'long_squeeze_risk' ? 'rgba(255,51,85,0.28)' : 'rgba(255,215,0,0.18)';
+      const sqTextColor = sq === 'short_squeeze' ? 'var(--green)' : sq === 'long_cascade' || sq === 'long_squeeze_risk' ? 'var(--red)' : 'var(--yellow)';
+      sqEl.style.cssText = `display:block;padding:7px 10px;border-radius:7px;margin-top:8px;font-size:0.66rem;font-weight:700;background:${sqColor};border:1px solid ${sqBorder};color:${sqTextColor}`;
+      sqEl.textContent = sqLabel;
+    } else {
+      sqEl.style.display = 'none';
+      sqEl.textContent = '';
+    }
   }
 }
 
@@ -1907,8 +1962,8 @@ function calcStarRating(coin, regime, bbsqueeze, mtf, levCtx, garchSigma) {
     else if (garchSigma > 0.04) conditions.push(`변동성높음${fmt(garchSigma * 100, 1)}%`);
   }
 
-  // 조건 충족 개수(points) 기반 별점 매핑 — 6조건 완전 반영
-  const STAR_MAP = ['—','⭐','⭐⭐','⭐⭐⭐','⭐⭐⭐⭐','⭐⭐⭐⭐⭐','⭐⭐⭐⭐⭐⭐'];
+  // 조건 충족 개수(points) 기반 별점 매핑 — 6조건 완전 반영 (이미지 최소화: 텍스트 형식)
+  const STAR_MAP = ['—','★x1','★x2','★x3','★x4','★x5','★x6'];
   const goldenStars = STAR_MAP[Math.min(points, STAR_MAP.length - 1)];
 
   return { stars: goldenStars, points, conditions: conditions.join(' · ') || '조건 미충족', rawScore: safeNum(rawScore) };
@@ -2174,6 +2229,7 @@ async function fetchLeverageMetrics() {
 
 /* ── 코인 빌드 ── */
 function buildCoins(raw, levCtx) {
+  // CoinGecko는 market_cap_desc 순서로 오므로 rank = i+1이 시총 순위와 일치
   return raw.map((c, i) => {
     const prices = (c.sparkline_in_7d?.price) || [];
     const validPrices = prices.filter(v => Number.isFinite(v) && v > 0);
@@ -2489,6 +2545,10 @@ function renderCoins() {
   }
   const gradeOrder = { S: 6, A: 5, B: 4, C: 3, D: 2, E: 1 };
   const sorted = rows.slice().sort((a, b) => {
+    // ALL 필터 + 등급 정렬 시 → 시가총액 기준
+    if (curFilter === 'ALL' && sortKey === 'grade') {
+      return safeNum(b.mcap) - safeNum(a.mcap);
+    }
     let av, bv;
     if (sortKey === 'grade') { av = gradeOrder[a.grade] || 0; bv = gradeOrder[b.grade] || 0; }
     else if (sortKey === 'stars') { av = a.rating?.points || 0; bv = b.rating?.points || 0; }
@@ -2542,7 +2602,7 @@ function renderCoins() {
     const lsb = calcLSBias(c);
     const lsBadge = `<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:0.54rem;font-weight:700;background:${lsb.color}22;color:${lsb.color};border:1px solid ${lsb.color}44;margin-top:2px">${lsb.label}</span>${lsb.detail ? `<span style="font-size:0.5rem;color:var(--muted);margin-left:4px">${esc(lsb.detail)}</span>` : ''}`;
     const starColor = c.rating.points >= 5 ? '#00ff88' : c.rating.points >= 4 ? '#ffd700' : c.rating.points >= 3 ? '#ff8c00' : c.rating.points >= 2 ? '#ff6b35' : '#666';
-    const starBadge = `<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 7px;background:rgba(255,215,0,0.07);border:1px solid rgba(255,215,0,0.22);border-radius:5px;margin-top:4px"><span style="font-size:0.88rem;line-height:1">${c.rating.stars}</span><span style="font-size:0.52rem;color:${starColor};font-weight:700">${c.rating.points}/6조건</span></div>`;
+    const starBadge = `<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 7px;background:rgba(255,215,0,0.07);border:1px solid rgba(255,215,0,0.22);border-radius:5px;margin-top:4px"><span style="font-family:'Orbitron',monospace;font-size:0.62rem;font-weight:700;color:${starColor};line-height:1">${c.rating.stars}</span><span style="font-size:0.52rem;color:${starColor};font-weight:700">${c.rating.points}/6조건</span></div>`;
     const starDetail = `<div style="font-size:0.48rem;color:var(--muted);margin-top:2px">${esc(c.rating.conditions)}</div>`;
     const wh = c.whale;
     const whClass = wh.score >= 50 ? 'whale-alert' : wh.score >= 20 ? 'whale-acc' : wh.score <= -50 ? 'whale-alert' : wh.score <= -20 ? 'whale-caution' : 'whale-neutral';
@@ -2582,6 +2642,133 @@ function renderCoins() {
     });
   }
   sorted.forEach(c => _lastGradeMap.set(c.sym, c.grade));
+
+  // 추천 카드 노출 중이면 자동 갱신
+  calcAndRenderRecommend();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   AI 종합추천 알고리즘 v1
+   퀀트점수(40%) + 골든앵글별점가중(25%) + OI/GARCH복합(20%) + 모멘텀(15%)
+   시가총액 최소필터 적용 (펌핑 소형코인 제외)
+══════════════════════════════════════════════════════════════ */
+function calcRecommendScore(c) {
+  // ① 퀀트점수 (0~100) × 0.40
+  const quantW = safeNum(c.score) * 0.40;
+
+  // ② 골든앵글 별점 가중 (최대 6점 → 0~100 환산) × 0.25
+  const starRaw = (c.rating?.points || 0) / 6 * 100;
+  // 별점별 추가 가중치 (황금비율 적용)
+  const starBonus = c.rating?.points >= 5 ? 1.618 : c.rating?.points >= 4 ? 1.0 : c.rating?.points >= 3 ? 0.618 : 0.382;
+  const starW = Math.min(100, starRaw * starBonus * 0.5) * 0.25;
+
+  // ③ OI 델타 + GARCH 안정성 복합 (0~100) × 0.20
+  let oiGarchScore = 50; // 기본값
+  const oi = c.oiDelta;
+  if (oi != null) {
+    // OI 증가 + 가격 상승 조합이 가장 이상적
+    if (oi > 0 && safeNum(c.c24) > 0) oiGarchScore += clamp(oi * 3, 0, 25);
+    else if (oi > 0 && safeNum(c.c24) < 0) oiGarchScore += clamp(oi * 0.5, 0, 5); // 누적의심
+    else if (oi < 0) oiGarchScore += clamp(oi * 2, -20, 0);
+  }
+  // GARCH 낮을수록 안정적 → 점수 가산
+  const gSig = c.garch?.sigma || 0.02;
+  if (gSig < 0.015) oiGarchScore += 15;
+  else if (gSig < 0.025) oiGarchScore += 8;
+  else if (gSig > 0.045) oiGarchScore -= 15;
+  else if (gSig > 0.035) oiGarchScore -= 8;
+  const oiGarchW = clamp(oiGarchScore, 0, 100) * 0.20;
+
+  // ④ 모멘텀 (RSI 적정구간 + MACD + 7일추세) × 0.15
+  let momScore = 50;
+  const rsi = safeNum(c.rsi, 50);
+  // 이상적 RSI: 45~65 (과매수/과매도 아닌 상승 모멘텀)
+  if (rsi >= 45 && rsi <= 65) momScore += 20;
+  else if (rsi >= 55 && rsi <= 70) momScore += 12;
+  else if (rsi > 70) momScore -= 10; // 과매수 패널티
+  else if (rsi < 30) momScore += 5;  // 반등 기대
+  else if (rsi < 40) momScore -= 5;
+  if (c.bull) momScore += 15; else momScore -= 8;
+  const c7d = safeNum(c.c7d);
+  if (c7d > 5) momScore += 10; else if (c7d > 2) momScore += 5;
+  else if (c7d < -10) momScore -= 10; else if (c7d < -5) momScore -= 5;
+  // MTF 상승 정렬
+  if (c.mtf?.bullCount >= 2) momScore += 8;
+  // BB 수축 (폭발 직전)
+  if (c.bbsqueeze?.squeeze) momScore += 10;
+  const momW = clamp(momScore, 0, 100) * 0.15;
+
+  // 합산
+  const total = quantW + starW + oiGarchW + momW;
+
+  // 추천 이유 생성 (상위 요인 3개)
+  const reasons = [];
+  if (c.rating?.points >= 4) reasons.push(`★x${c.rating.points}별점`);
+  if (safeNum(c.score) >= 70) reasons.push(`퀀트${fmt(c.score,0)}점`);
+  if (oi != null && oi > 1 && safeNum(c.c24) > 0) reasons.push('OI↑+가격↑');
+  if (gSig < 0.02) reasons.push('변동성안정');
+  if (c.bbsqueeze?.squeeze) reasons.push('BB수축🔥');
+  if (c.mtf?.bullCount >= 2) reasons.push('MTF정렬');
+  if (c.bull && rsi >= 45 && rsi <= 65) reasons.push('MACD+RSI적정');
+  if (c.whale?.signal === 'accumulate') reasons.push('🐋세력매집');
+
+  return { sym: c.sym, name: c.name, grade: c.grade, score: c.score,
+    recScore: total, reasons: reasons.slice(0, 3), rating: c.rating, mcap: c.mcap };
+}
+
+function calcAndRenderRecommend() {
+  const cardEl = document.getElementById('recommendCard');
+  if (!cardEl || cardEl.style.display === 'none') return;
+  if (!allCoins.length) return;
+
+  // 시가총액 상위 50개 + 등급 C 이상만 후보
+  const candidates = allCoins
+    .filter(c => {
+      const gradeOk = ['S','A','B','C'].includes(c.grade);
+      const mcapOk = safeNum(c.mcap) > 500e6; // 5억달러 이상
+      return gradeOk && mcapOk;
+    })
+    .map(c => calcRecommendScore(c))
+    .sort((a, b) => b.recScore - a.recScore)
+    .slice(0, 5);
+
+  const listEl = document.getElementById('recCoinList');
+  const tsEl = document.getElementById('recTimestamp');
+  if (tsEl) tsEl.textContent = safeTime() + ' 기준';
+  if (!listEl) return;
+
+  if (!candidates.length) {
+    listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--muted);font-size:0.6rem">조건 충족 코인 없음</div>';
+    return;
+  }
+
+  const rankClasses = ['rank-1','rank-2','rank-3','rank-4','rank-4'];
+  const rankLabels = ['①','②','③','④','⑤'];
+  const gc = (g) => ({'S':'#00ff88','A':'#7fff00','B':'#ffd700','C':'#ff8c00','D':'#ff4444','E':'#cc2222'}[g]||'#888');
+
+  listEl.innerHTML = candidates.map((c, i) => `
+    <div class="rec-coin-item" onclick="openCoinModal('${esc(c.sym)}')">
+      <div class="rec-rank ${rankClasses[i]}">${rankLabels[i]}</div>
+      <div class="rec-info">
+        <span class="rec-sym">${esc(c.sym)} <span style="font-size:0.58rem;color:var(--muted)">${esc(c.name.slice(0,10))}</span></span>
+        <span class="rec-reason">${c.reasons.join(' · ') || '복합지표 우세'}</span>
+      </div>
+      <div class="rec-score-wrap">
+        <span class="rec-score" style="color:${gc(c.grade)}">${fmt(c.recScore, 1)}</span>
+        <span class="rec-stars" style="color:${gc(c.grade)}">${c.rating?.stars || '—'}</span>
+      </div>
+      <div class="rec-grade-badge g${c.grade}" style="background:${gc(c.grade)}18;color:${gc(c.grade)};border-color:${gc(c.grade)}">${c.grade}</div>
+    </div>
+  `).join('');
+}
+
+function toggleRecommendCard(btn) {
+  const card = document.getElementById('recommendCard');
+  if (!card) return;
+  const isVisible = card.style.display !== 'none';
+  card.style.display = isVisible ? 'none' : 'block';
+  if (btn) btn.classList.toggle('active', !isVisible);
+  if (!isVisible) calcAndRenderRecommend();
 }
 
 function setFilter(g, btn) {
@@ -2822,14 +3009,26 @@ function _renderTabTech(c) {
   const corrHtml = `<div class="ms"><div class="ms-title">◈ 상관관계 매트릭스 (Top 8 vs ${esc(c.sym)})</div><div id="corrMatrixWrap"><div class="corr-loading"><div class="tab-spinner"><div class="spinner-dot"></div><div class="spinner-dot"></div><div class="spinner-dot"></div></div></div></div></div>`;
 
   wrap.innerHTML = `
-    <!-- WebGL 미니 퀀트 게이지 -->
+    <!-- 일자 퀀트 스코어 게이지바 -->
     <div class="ms">
       <div class="ms-title">◈ QUANT SCORE GAUGE</div>
-      <div class="webgl-gauge-wrap">
-        <canvas id="webglGaugeCanvas"></canvas>
-        <div class="webgl-gauge-overlay">
-          <div class="webgl-gauge-val" id="webglGaugeVal" style="color:${gradeColor(c.grade)}">${fmt(c.score, 0)}</div>
-          <div class="webgl-gauge-lbl">${esc(c.grade)} GRADE · QUANT SCORE</div>
+      <div class="linear-gauge-wrap">
+        <div class="linear-gauge-header">
+          <span class="linear-gauge-val" style="color:${gradeColor(c.grade)}">${fmt(c.score, 0)}</span>
+          <span class="linear-gauge-grade" style="color:${gradeColor(c.grade)}">${esc(c.grade)} GRADE</span>
+        </div>
+        <div class="linear-gauge-track">
+          <div class="linear-gauge-bg"></div>
+          <div class="linear-gauge-fill" id="linearGaugeFill" style="width:0%;background:${gradeColor(c.grade)};box-shadow:0 0 12px ${gradeColor(c.grade)}88"></div>
+          <div class="linear-gauge-zones">
+            <span style="left:0%">E</span><span style="left:15%">D</span><span style="left:30%">C</span><span style="left:50%">B</span><span style="left:65%">A</span><span style="left:80%">S</span>
+          </div>
+          <div class="linear-gauge-ticks">
+            <div style="left:15%"></div><div style="left:30%"></div><div style="left:50%"></div><div style="left:65%"></div><div style="left:80%"></div>
+          </div>
+        </div>
+        <div class="linear-gauge-labels">
+          <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
         </div>
       </div>
     </div>
@@ -2899,8 +3098,13 @@ function _renderTabTech(c) {
   el.innerHTML = '';
   el.appendChild(frag);
 
-  // WebGL 게이지 초기화 (rAF로 지연)
-  requestAnimationFrame(() => _initWebGLGauge(c));
+  // 일자 게이지바 애니메이션
+  requestAnimationFrame(() => {
+    const fill = document.getElementById('linearGaugeFill');
+    if (fill) {
+      setTimeout(() => { fill.style.transition = 'width 1.1s cubic-bezier(.4,0,.2,1)'; fill.style.width = c.score + '%'; }, 30);
+    }
+  });
   // 상관관계 비동기 계산
   setTimeout(() => _renderCorrMatrix(c), 80);
 }
