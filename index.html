@@ -505,6 +505,7 @@ let curFilter = 'ALL';
 let sortKey = 'grade';
 let sortDir = -1;
 let isRefreshing = false;
+let _showAllCoins = false; // ALL 뷰 10개 → 전체 펼침 상태
 let _prevBtcDom = null;
 let extremeMode = false;
 let _lastGradeMap = new Map();
@@ -1956,12 +1957,14 @@ document.addEventListener('keydown', e => {
 
 function setFilterByKey(g) {
  curFilter = g;
+ _showAllCoins = false; // 필터 변경 시 항상 10개 초기 상태로
  $$('.fbtn').forEach(b => b.classList.toggle('on', b.dataset.g === g));
  renderCoins();
 }
 
 function setSortByKey(key) {
  sortKey = key; sortDir = -1;
+ _showAllCoins = false; // 정렬 변경 시 10개 초기 상태로
  $$('.sort-btn').forEach((b, i) => b.classList.toggle('active', SORT_CYCLE[i] === key || b.textContent.trim() === key));
  renderCoins();
 }
@@ -1974,12 +1977,14 @@ function showOfflineBanner(show) {
 let searchQuery = '';
 function onSearch(val) {
  searchQuery = val.trim().toLowerCase();
+ if (searchQuery) _showAllCoins = true; // 검색 중엔 전체 코인 대상으로
  const clearBtn = $('searchClear');
  if (clearBtn) clearBtn.style.display = searchQuery ? 'block' : 'none';
  renderCoins();
 }
 function clearSearch() {
  searchQuery = '';
+ _showAllCoins = false; // 검색 해제 시 다시 10개로
  const inp = $('coinSearch');
  const clearBtn = $('searchClear');
  if (inp) inp.value = '';
@@ -2029,6 +2034,11 @@ function renderCoins() {
   return (b.score || 0) - (a.score || 0);
  });
 
+ // ── ALL 뷰 + 기본 정렬(시가총액) + 검색 없음 → 상위 10개만 표시
+ const ALL_DEFAULT = curFilter === 'ALL' && sortKey === 'grade' && !searchQuery;
+ const TOP_N = 10;
+ const displayCoins = (ALL_DEFAULT && !_showAllCoins) ? sorted.slice(0, TOP_N) : sorted;
+
  const list = $('coinList');
  if (!list) return;
  if (!sorted.length) {
@@ -2037,7 +2047,7 @@ function renderCoins() {
  }
 
  const frag = document.createDocumentFragment();
- sorted.forEach(c => {
+ displayCoins.forEach(c => {
   const [at, ac] = gradeAction(c.grade);
   const last7 = c.mcPred?.[c.mcPred.length - 1];
   const sp7 = pctToSP(last7 ? last7.muPct : 0);
@@ -2076,6 +2086,19 @@ function renderCoins() {
   div.innerHTML = `<div class="coin-left"><div class="coin-ico">${esc(c.sym.slice(0, 3))}</div><div><div class="csym">${esc(c.sym)}</div><div class="cname">${esc(c.name.slice(0, 12))}</div>${starBadge}</div></div><div><div class="coin-price">${priceStr} <span class="${c24cls}" style="font-size:0.66rem">${fmtPct(c.c24)}</span>${garchHtml}</div><div class="coin-meta"><span class="coin-rsi" style="color:${rsiColor}">RSI ${fmt(c.rsi, 0)}</span>${macd}<span style="color:${dc7};font-size:0.56rem;font-weight:700">${dir7}</span></div>${starDetail}<div style="margin-top:3px">${lsBadge}</div>${whaleBadge}${riskHtml ? '<div style="margin-top:3px">' + riskHtml + '</div>' : ''}<div class="cpb-track"><div class="cpb-fill" style="width:${sp7}%;background:${dc7}"></div></div></div><div class="coin-right"><span class="gbadge g${c.grade}">${c.grade}</span><span class="score-val" style="color:${gc}">${fmt(c.score, 0)}</span><span class="atag ${ac}">${at}</span><div class="score-breakdown">RSI<span style="color:${rsiC[0] === '-' ? 'var(--red)' : 'var(--green)'}">${rsiC}</span> MACD<span style="color:${macdC[0] === '-' ? 'var(--red)' : 'var(--green)'}">${macdC}</span> OI<span style="color:${oiCol}">${oiC}</span></div>${sparkline(c.sparkline)}</div>`;
   frag.appendChild(div);
  });
+
+ // ── "더 보기" 버튼 — ALL 기본 뷰에서 10개 이상일 때만
+ if (ALL_DEFAULT && !_showAllCoins && sorted.length > TOP_N) {
+  const btn = document.createElement('div');
+  btn.id = 'showMoreBtn';
+  btn.style.cssText = 'padding:14px;text-align:center;border-top:1px solid var(--border);cursor:pointer;transition:background 0.15s;';
+  btn.innerHTML = `<span style="font-family:'Orbitron',monospace;font-size:0.58rem;color:var(--accent);letter-spacing:1px">▼ 더 보기 (${sorted.length - TOP_N}개 더)</span>`;
+  btn.addEventListener('click', () => { _showAllCoins = true; renderCoins(); });
+  btn.addEventListener('mouseover', () => { btn.style.background = 'var(--card-hover)'; });
+  btn.addEventListener('mouseout',  () => { btn.style.background = ''; });
+  frag.appendChild(btn);
+ }
+
  list.innerHTML = '';
  list.appendChild(frag);
 
@@ -2285,6 +2308,7 @@ function _initFilterSection() {
 
 function setFilter(g, btn) {
  curFilter = g;
+ _showAllCoins = false; // 필터 변경 시 10개 초기 상태로
  $$('.fbtn').forEach(b => b.classList.remove('on'));
  if (btn) btn.classList.add('on');
  renderCoins();
@@ -2293,6 +2317,7 @@ function setFilter(g, btn) {
 function setSort(key, btn) {
  if (sortKey === key) sortDir *= -1;
  else { sortKey = key; sortDir = -1; }
+ _showAllCoins = false; // 정렬 변경 시 10개 초기 상태로
  $$('.sort-btn').forEach(b => b.classList.remove('active'));
  if (btn) btn.classList.add('active');
  renderCoins();
