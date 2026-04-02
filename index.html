@@ -6,11 +6,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#07090f">
-<title>레버리지 게이지 v16.1 · Extreme Quant Edition</title>
+<title>레버리지 게이지 v16 · Extreme Quant Edition</title>
 <!--
   ╔══════════════════════════════════════════════════════════════════════╗
   ║  레버리지 게이지 v16 · Extreme Quant Edition                        ║
-  ║  Build: 2025-07 | Base: v16 → v16.1 BugFix + Hardening            ║
+  ║  Build: 2025-01 | Base: v15 → v16 Realtime + Refactor + UX         ║
   ╠══════════════════════════════════════════════════════════════════════╣
   ║  [v16-WS]    L/S Ratio 실시간 WebSocket 추가                         ║
   ║              Binance globalLongShortAccountRatio 5m 스트림           ║
@@ -701,7 +701,7 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
   <div class="load-title">LEVERAGE GAUGE</div>
   <div class="load-bar-track"><div class="load-bar-fill" id="loadBar"></div></div>
   <div class="load-msg" id="loadMsg">INITIALIZING...</div>
-  <div class="load-version">v16.1 EXTREME QUANT EDITION</div>
+  <div class="load-version">v16 EXTREME QUANT EDITION</div>
 </div>
 
 <!-- ── 앱 본체 ── -->
@@ -711,7 +711,7 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
 <!-- ── 헤더 ── -->
 <header>
   <div>
-    <h1>LEVERAGE GAUGE v16.1<br>EXTREME QUANT</h1>
+    <h1>LEVERAGE GAUGE v16<br>EXTREME QUANT</h1>
   </div>
   <div class="hdr-right">
     <div class="live-dot"></div>
@@ -744,7 +744,7 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px 10px;flex-shrink:0;border-bottom:1px solid var(--border);">
       <div>
         <div style="font-family:'Orbitron',monospace;font-size:0.85rem;font-weight:900;color:var(--accent);letter-spacing:2px;">📖 사용 가이드</div>
-        <div style="font-size:0.48rem;color:var(--muted);margin-top:2px;">LEVERAGE GAUGE v16.1 · Extreme Quant Edition</div>
+        <div style="font-size:0.48rem;color:var(--muted);margin-top:2px;">LEVERAGE GAUGE v16 · Extreme Quant Edition</div>
       </div>
       <button onclick="closeGuide()" style="background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:6px;">✕</button>
     </div>
@@ -1112,45 +1112,62 @@ const $$ = sel => document.querySelectorAll(sel);
 ══════════════════════════════════════════════════════════════ */
 class WsManager {
   constructor(name, urlFn, onMsg, onOpen) {
-    this.name    = name;
-    this.urlFn   = urlFn;   // () => url string
-    this.onMsg   = onMsg;
-    this.onOpen  = onOpen || (() => {});
-    this.ws      = null;
-    this.retries = 0;
-    this.timer   = null;
-    this.dead    = false;
+    this.name      = name;
+    this.urlFn     = urlFn;   // () => url string
+    this.onMsg     = onMsg;
+    this.onOpen    = onOpen || (() => {});
+    this.ws        = null;
+    this.retries   = 0;
+    this.timer     = null;
+    this.dead      = false;
+    this._hbTimer   = null;   // [v16-FIX] heartbeat ping 인터벌
+    this._hbTimeout = null;   // [v16-FIX] pong 대기 타임아웃
   }
   get isOpen() { return this.ws?.readyState === WebSocket.OPEN; }
   get isConnecting() { return this.ws?.readyState === WebSocket.CONNECTING; }
 
+  /* ── Heartbeat: 30s ping / 10s pong timeout [v16-FIX] ── */
+  _startHeartbeat() {
+    this._stopHeartbeat();
+    this._hbTimer = setInterval(() => {
+      if (!this.isOpen) return;
+      // Binance WS는 pong을 별도로 보내지 않으므로
+      // ping 프레임 전송 후 10초 내 어떤 메시지라도 오지 않으면 재연결
+      try { this.ws.send(JSON.stringify({ method: 'ping' })); } catch (_) {}
+      this._hbTimeout = setTimeout(() => {
+        console.warn(`[WS:${this.name}] heartbeat timeout → force reconnect`);
+        try { this.ws.close(); } catch (_) {}
+      }, 10_000);
+    }, 30_000);
+  }
+  _stopHeartbeat() {
+    clearInterval(this._hbTimer);
+    clearTimeout(this._hbTimeout);
+    this._hbTimer   = null;
+    this._hbTimeout = null;
+  }
+
   connect() {
     if (this.dead || this.isOpen || this.isConnecting) return;
     clearTimeout(this.timer);
-    clearInterval(this._pingTimer);
     try {
       this.ws = new WebSocket(this.urlFn());
     } catch (_) { this._scheduleRetry(); return; }
     this.ws.onopen = () => {
       this.retries = 0;
-      this._lastMsg = Date.now();
+      this._startHeartbeat();   // [v16-FIX] 연결 성공 시 heartbeat 시작
       this.onOpen(this);
       updateWsStatus();
-      // 30s heartbeat: 45s 이상 메시지 없으면 재연결
-      this._pingTimer = setInterval(() => {
-        if (Date.now() - (this._lastMsg || 0) > 45000) {
-          console.warn('[WS]', this.name, 'heartbeat timeout — reconnecting');
-          try { this.ws.close(); } catch(_) {}
-        }
-      }, 15000);
     };
     this.ws.onmessage = ev => {
-      this._lastMsg = Date.now();
+      // 어떤 메시지든 수신 시 pong timeout 클리어 [v16-FIX]
+      clearTimeout(this._hbTimeout);
+      this._hbTimeout = null;
       try { this.onMsg(JSON.parse(ev.data), this); } catch (_) {}
     };
     this.ws.onerror = () => updateWsStatus();
     this.ws.onclose = () => {
-      clearInterval(this._pingTimer);
+      this._stopHeartbeat();    // [v16-FIX] 연결 종료 시 heartbeat 정지
       updateWsStatus();
       this._scheduleRetry();
     };
@@ -1164,8 +1181,8 @@ class WsManager {
   }
   close() {
     this.dead = true;
+    this._stopHeartbeat();      // [v16-FIX]
     clearTimeout(this.timer);
-    clearInterval(this._pingTimer);
     try { this.ws?.close(); } catch (_) {}
   }
 }
@@ -1586,11 +1603,11 @@ let _lsLiveMode = false;
 
 async function _fetchLSRatioPoll() {
   try {
-    const ctrl = new AbortController();
-    _lsRatioAbort = ctrl;
+    if (_lsRatioAbort) _lsRatioAbort.abort();
+    _lsRatioAbort = new AbortController();
     const res = await fetch(
       'https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=5m&limit=1',
-      { signal: ctrl.signal }
+      { signal: _lsRatioAbort.signal }
     );
     if (!res.ok) return;
     const data = await res.json();
@@ -1641,9 +1658,8 @@ function _setLSWsIndicator(live) {
 }
 
 function startLSRatioPolling() {
-  if (_lsRatioTimer) { clearInterval(_lsRatioTimer); _lsRatioTimer = null; }
-  if (_lsRatioAbort) { try { _lsRatioAbort.abort(); } catch(_){} _lsRatioAbort = null; }
   _fetchLSRatioPoll();
+  clearInterval(_lsRatioTimer);
   _lsRatioTimer = setInterval(_fetchLSRatioPoll, CONFIG.LS_WS_POLL_FALLBACK);
 }
 
@@ -1888,16 +1904,16 @@ function calcScore(rsi, bull, oiDelta, c24) {
   s += bull ? 14 : -14;
   let oiScore = 0;
   const od = oiDelta;
-  const c24v = safeNum(c24);
+  const c = safeNum(c24);
   if (od != null) {
-    if (od > 0 && c24v > 0) oiScore = clamp(od * 1.5, 0, 18);
-    else if (od > 0 && c24v < 0) oiScore = clamp(od * (-0.8), -12, 0);
-    else if (od < 0 && c24v < 0) oiScore = clamp(od * 1.0, -14, 0);
-    else if (od < 0 && c24v > 0) oiScore = clamp(od * 0.4, -4, 0);
+    if (od > 0 && c > 0) oiScore = clamp(od * 1.5, 0, 18);
+    else if (od > 0 && c < 0) oiScore = clamp(od * (-0.8), -12, 0);
+    else if (od < 0 && c < 0) oiScore = clamp(od * 1.0, -14, 0);
+    else if (od < 0 && c > 0) oiScore = clamp(od * 0.4, -4, 0);
   }
   s += oiScore;
-  const c24Sign = c24v >= 0 ? 1 : -1;
-  const c24Score = c24Sign * clamp(Math.sqrt(Math.abs(c24v)) * 3, 0, 14);
+  const c24Sign = c >= 0 ? 1 : -1;
+  const c24Score = c24Sign * clamp(Math.sqrt(Math.abs(c)) * 3, 0, 14);
   s += c24Score;
   return clamp(s, 0, 100);
 }
@@ -2242,14 +2258,6 @@ async function idbCleanup() {
 /* ── API 헬퍼 (캐시-어사이드) ── */
 // 메모리 캐시 (탭 세션 내) — getJSON 보다 먼저 선언
 const _memCache = new Map();
-const MEM_CACHE_MAX = 40;
-function _memSet(key, data, ts) {
-  if (_memCache.size >= MEM_CACHE_MAX) {
-    const oldest = [..._memCache.entries()].sort((a,b)=>a[1].ts-b[1].ts)[0];
-    if (oldest) _memCache.delete(oldest[0]);
-  }
-  _memCache.set(key, { data, ts });
-}
 
 async function getJSON(url, cacheKey, ttlMs = 60000) {
   if (cacheKey) {
@@ -2259,7 +2267,7 @@ async function getJSON(url, cacheKey, ttlMs = 60000) {
   const r = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' }, mode: 'cors' });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   const data = await r.json();
-  if (cacheKey) _memSet(cacheKey, data, Date.now());
+  if (cacheKey) _memCache.set(cacheKey, { data, ts: Date.now() });
   return data;
 }
 
@@ -2272,6 +2280,7 @@ async function fetchGlobal() {
     const mcap = fmtB(safeNum(g.total_market_cap?.usd));
     const vol = fmtB(safeNum(g.total_volume?.usd));
     const chg = safeNum(g.market_cap_change_percentage_24h_usd);
+    if (btcDom > 0) _prevBtcDom = (_prevBtcDom === null) ? btcDom : _prevBtcDom;
     const domEl = $('sBtcDom');
     if (domEl) domEl.textContent = dom;
     const domCEl = $('sBtcDomC');
@@ -2536,7 +2545,7 @@ async function saveSnapshot() {
   allCoins.forEach(c => snap.gradeMap[c.grade]++);
   const snapshots = (await idbGet('snapshots')) || [];
   snapshots.unshift(snap);
-  if (snapshots.length > 20) snapshots.splice(20); // 최대 20개
+  if (snapshots.length > 20) snapshots.length = 20; // 최대 20개
   await idbSet('snapshots', snapshots);
   showKbToast(`스냅샷 저장 완료 (${snap.datetime})`);
 }
@@ -2779,7 +2788,7 @@ function renderCoins() {
       ? `<span class="garch-badge" style="background:rgba(255,51,85,0.08);color:#ff6666;border-color:rgba(255,51,85,0.2)">GARCH ${fmt(c.garch.sigma * 100, 1)}%σ</span>` : '';
     const lsb = calcLSBias(c);
     const lsBadge = `<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:0.54rem;font-weight:700;background:${lsb.color}22;color:${lsb.color};border:1px solid ${lsb.color}44;margin-top:2px">${lsb.label}</span>${lsb.detail ? `<span style="font-size:0.5rem;color:var(--muted);margin-left:4px">${esc(lsb.detail)}</span>` : ''}`;
-    const starColor = (c.rating?.points||0) >= 5 ? '#00ff88' : (c.rating?.points||0) >= 4 ? '#ffd700' : (c.rating?.points||0) >= 3 ? '#ff8c00' : (c.rating?.points||0) >= 2 ? '#ff6b35' : '#666';
+    const starColor = c.rating.points >= 5 ? '#00ff88' : c.rating.points >= 4 ? '#ffd700' : c.rating.points >= 3 ? '#ff8c00' : c.rating.points >= 2 ? '#ff6b35' : '#666';
     const starBadge = `<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 7px;background:rgba(255,215,0,0.07);border:1px solid rgba(255,215,0,0.22);border-radius:5px;margin-top:4px"><span style="font-family:'Orbitron',monospace;font-size:0.62rem;font-weight:700;color:${starColor};line-height:1">${c.rating.stars}</span><span style="font-size:0.52rem;color:${starColor};font-weight:700">${c.rating.points}/6조건</span></div>`;
     const starDetail = `<div style="font-size:0.48rem;color:var(--muted);margin-top:2px">${esc(c.rating.conditions)}</div>`;
     const wh = c.whale;
@@ -3016,7 +3025,7 @@ function _initFilterSection() {
 
   // 다음 프레임부터 트랜지션 활성화
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => { body.style.transition = ''; });
+    body.style.transition = '';
   });
 }
 
@@ -3145,7 +3154,7 @@ function calcSentiment(coins, fng, lev) {
 /* ── 모달 상태 ── */
 let _modalSym = null;
 let _modalTab = 'tech';
-let _btWorker = null;       // 백테스트 Web Worker
+let _btWorker = null;       // [v16-FIX] Blob Worker 제거됨, 호환성 보존용
 let _obWS = null;           // Orderbook WebSocket
 let _obRafId = null;        // OB 히트맵 rAF
 let _webglCtx = null;       // WebGL 컨텍스트
@@ -3936,6 +3945,80 @@ function _renderTabBacktest(c) {
   `;
 }
 
+/* ── [v16-FIX] 백테스트 동기 계산 함수 (CSP eval/blob 위반 해결) ── */
+function _runBacktestSync(prices, capital, leverage, rsiBuy, rsiSell) {
+  // RSI 계산
+  function _btCalcRSI(data, period) {
+    if (data.length < period + 1) return new Array(data.length).fill(50);
+    let gains = 0, losses = 0;
+    for (let i = 1; i <= period; i++) {
+      const d = data[i] - data[i - 1];
+      if (d > 0) gains += d; else losses -= d;
+    }
+    let ag = gains / period, al = losses / period;
+    const rsi = [50];
+    for (let i = period + 1; i < data.length; i++) {
+      const d = data[i] - data[i - 1];
+      ag = (ag * (period - 1) + (d > 0 ? d : 0)) / period;
+      al = (al * (period - 1) + (d < 0 ? -d : 0)) / period;
+      rsi.push(al === 0 ? 100 : 100 - 100 / (1 + ag / al));
+    }
+    return new Array(period).fill(50).concat(rsi);
+  }
+  // SMA
+  function _btSMA(data, n) {
+    return data.map((_, i) => {
+      if (i < n - 1) return null;
+      return data.slice(i - n + 1, i + 1).reduce((a, b) => a + b, 0) / n;
+    });
+  }
+  // 백테스트 실행
+  const n = prices.length;
+  const rsi  = _btCalcRSI(prices, Math.min(6, n - 1));
+  const ma5  = _btSMA(prices, Math.min(5, n - 1));
+  const ma3  = _btSMA(prices, Math.min(3, n - 1));
+  let equity = capital, position = null;
+  const trades = [], equityCurve = [capital];
+  for (let i = 1; i < n; i++) {
+    const r = rsi[i], p = prices[i];
+    const bull = ma3[i] && ma5[i] && ma3[i] > ma5[i];
+    const bear = ma3[i] && ma5[i] && ma3[i] < ma5[i];
+    if (!position && r < rsiBuy && bull) {
+      position = { dir: 'LONG',  entry: p, entryIdx: i };
+    } else if (!position && r > rsiSell && bear) {
+      position = { dir: 'SHORT', entry: p, entryIdx: i };
+    } else if (position) {
+      const exitCond = (position.dir === 'LONG'  && (r > rsiSell || bear)) ||
+                       (position.dir === 'SHORT' && (r < rsiBuy  || bull));
+      if (exitCond || i === n - 1) {
+        const pnlPct = position.dir === 'LONG'
+          ? (p - position.entry) / position.entry
+          : (position.entry - p) / position.entry;
+        const pnl = equity * leverage * pnlPct;
+        equity += pnl;
+        trades.push({ idx: i, dir: position.dir, entry: position.entry, exit: p, pnlPct: pnlPct * 100, pnl });
+        position = null;
+      }
+    }
+    equityCurve.push(equity);
+  }
+  // 통계
+  const wins = trades.filter(t => t.pnl > 0).length;
+  const totalReturn = (equity - capital) / capital * 100;
+  const maxDD = equityCurve.reduce((dd, v, i, arr) => {
+    const peak = Math.max(...arr.slice(0, i + 1));
+    return Math.max(dd, (peak - v) / peak * 100);
+  }, 0);
+  let sharpe = 0;
+  if (trades.length > 1) {
+    const rets = trades.map(t => t.pnlPct);
+    const mr = rets.reduce((a, b) => a + b, 0) / rets.length;
+    const sd = Math.sqrt(rets.reduce((a, b) => a + Math.pow(b - mr, 2), 0) / rets.length);
+    sharpe = sd ? mr / sd * Math.sqrt(365) : 0;
+  }
+  return { equity, totalReturn, maxDD, trades, equityCurve, wins, sharpe };
+}
+
 function _runBacktest(sym) {
   const c = allCoins.find(x => x.sym === sym);
   if (!c || !c.sparkline?.length) return;
@@ -3943,100 +4026,23 @@ function _runBacktest(sym) {
   const btn = $('btRunBtn');
   if (btn) { btn.disabled = true; btn.textContent = '계산 중...'; }
 
-  const capital = parseFloat($('btCapital')?.value || '10000');
+  const capital  = parseFloat($('btCapital')?.value  || '10000');
   const leverage = parseFloat($('btLeverage')?.value || '1');
-  const rsiBuy = parseFloat($('btRsiBuy')?.value || '35');
-  const rsiSell = parseFloat($('btRsiSell')?.value || '65');
+  const rsiBuy   = parseFloat($('btRsiBuy')?.value   || '35');
+  const rsiSell  = parseFloat($('btRsiSell')?.value  || '65');
 
-  // Web Worker Blob URL 패턴 (외부 파일 불필요)
-  const workerCode = `
-    self.onmessage = function(e) {
-      const { prices, capital, leverage, rsiBuy, rsiSell } = e.data;
-      // RSI 계산
-      function calcRSI(data, period) {
-        if (data.length < period + 1) return new Array(data.length).fill(50);
-        let gains = 0, losses = 0;
-        for (let i = 1; i <= period; i++) {
-          const d = data[i] - data[i-1];
-          if (d > 0) gains += d; else losses -= d;
-        }
-        let ag = gains/period, al = losses/period;
-        const rsi = [50];
-        for (let i = period + 1; i < data.length; i++) {
-          const d = data[i] - data[i-1];
-          ag = (ag*(period-1) + (d>0?d:0))/period;
-          al = (al*(period-1) + (d<0?-d:0))/period;
-          rsi.push(al===0 ? 100 : 100 - 100/(1 + ag/al));
-        }
-        return new Array(period).fill(50).concat(rsi);
-      }
-      // SMA
-      function sma(data, n) {
-        return data.map((_, i) => {
-          if (i < n-1) return null;
-          return data.slice(i-n+1, i+1).reduce((a,b)=>a+b,0)/n;
-        });
-      }
-      // 백테스트 실행
-      const n = prices.length;
-      const rsi = calcRSI(prices, Math.min(6, n-1));
-      const ma5 = sma(prices, Math.min(5, n-1));
-      const ma3 = sma(prices, Math.min(3, n-1));
-      let equity = capital, position = null;
-      const trades = [], equityCurve = [capital];
-      for (let i = 1; i < n; i++) {
-        const r = rsi[i], p = prices[i], pp = prices[i-1];
-        const bull = ma3[i] && ma5[i] && ma3[i] > ma5[i];
-        const bear = ma3[i] && ma5[i] && ma3[i] < ma5[i];
-        if (!position && r < rsiBuy && bull) {
-          position = { dir:'LONG', entry:p, size:equity*leverage/p, entryIdx:i };
-        } else if (!position && r > rsiSell && bear) {
-          position = { dir:'SHORT', entry:p, size:equity*leverage/p, entryIdx:i };
-        } else if (position) {
-          const exitCond = (position.dir==='LONG' && (r > rsiSell || bear)) ||
-                           (position.dir==='SHORT' && (r < rsiBuy || bull));
-          if (exitCond || i === n-1) {
-            const pnlPct = position.dir==='LONG' ? (p-position.entry)/position.entry : (position.entry-p)/position.entry;
-            const pnl = equity * leverage * pnlPct;
-            equity += pnl;
-            trades.push({ idx:i, dir:position.dir, entry:position.entry, exit:p, pnlPct:pnlPct*100, pnl });
-            position = null;
-          }
-        }
-        equityCurve.push(equity);
-      }
-      // 통계
-      const wins = trades.filter(t=>t.pnl>0).length;
-      const totalReturn = (equity-capital)/capital*100;
-      const maxDD = equityCurve.reduce((dd,v,i,arr)=>{
-        const peak = Math.max(...arr.slice(0,i+1));
-        return Math.max(dd, (peak-v)/peak*100);
-      }, 0);
-      const sharpe = trades.length > 1 ?
-        (() => { const rets = trades.map(t=>t.pnlPct); const mr = rets.reduce((a,b)=>a+b,0)/rets.length; const sd = Math.sqrt(rets.reduce((a,b)=>a+(b-mr)**2,0)/rets.length); return sd ? mr/sd*Math.sqrt(365) : 0; })() : 0;
-      self.postMessage({ equity, totalReturn, maxDD, trades, equityCurve, wins, sharpe });
-    };
-  `;
-
-  const blob = new Blob([workerCode], { type: 'application/javascript' });
-  const url = URL.createObjectURL(blob);
-  if (_btWorker) { _btWorker.terminate(); }
-  _btWorker = new Worker(url);
-
-  _btWorker.onmessage = e => {
-    URL.revokeObjectURL(url);
-    const r = e.data;
-    _displayBtResults(r, capital, c);
-    if (btn) { btn.disabled = false; btn.textContent = '⚡ 백테스트 재실행'; }
-  };
-  _btWorker.onerror = (err) => {
-    console.error('[BackTest Worker]', err);
-    URL.revokeObjectURL(url);
-    if (_btWorker) { _btWorker.terminate(); _btWorker = null; }
-    if (btn) { btn.disabled = false; btn.textContent = '⚡ 재시도'; }
-  };
-
-  _btWorker.postMessage({ prices: c.sparkline, capital, leverage, rsiBuy, rsiSell });
+  // [v16-FIX] Blob Worker → setTimeout 비동기 (CSP eval/blob: 위반 제거)
+  // 7일 스파크라인(168포인트 이하)은 메인 스레드에서 충분히 빠름
+  setTimeout(() => {
+    try {
+      const r = _runBacktestSync(c.sparkline, capital, leverage, rsiBuy, rsiSell);
+      _displayBtResults(r, capital, c);
+      if (btn) { btn.disabled = false; btn.textContent = '⚡ 백테스트 재실행'; }
+    } catch (e) {
+      console.error('[BT]', e);
+      if (btn) { btn.disabled = false; btn.textContent = '⚡ 재시도'; }
+    }
+  }, 0);
 }
 
 function _displayBtResults(r, capital, c) {
@@ -4324,6 +4330,14 @@ function _displaySimResults(r) {
   });
 }
 
+/* ══════════════════════════════════════
+   기존 renderModalBody (하위 호환용)
+══════════════════════════════════════ */
+function renderModalBody(c) {
+  // v14에서는 탭별 렌더로 대체됨 — 직접 호출 시 기술지표 탭 내용 반환
+  return `<div style="padding:8px;font-size:0.6rem;color:var(--muted)">v14 탭 모달로 업그레이드됨</div>`;
+}
+
 /* ── 메인 리프레시 ── */
 async function refreshAll() {
   if (isRefreshing) return;
@@ -4435,7 +4449,7 @@ function triggerRefresh() { refreshAll(); }
   let _lastRefreshTs = 0;
   function safeRefresh() {
     const now = Date.now();
-    if (!document.hidden && !isRefreshing && now - _lastRefreshTs > 30_000) {
+    if (!document.hidden && now - _lastRefreshTs > 30_000) {
       _lastRefreshTs = now;
       refreshAll();
     }
