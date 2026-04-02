@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#07090f">
-<title>레버리지 게이지 v17 · Bug Fixed Edition</title>
+<title>레버리지 게이지 v18 · Hardened Edition</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
@@ -31,7 +31,7 @@
   <div class="load-title">LEVERAGE GAUGE</div>
   <div class="load-bar-track"><div class="load-bar-fill" id="loadBar"></div></div>
   <div class="load-msg" id="loadMsg">INITIALIZING...</div>
-  <div class="load-version">v16 EXTREME QUANT EDITION</div>
+  <div class="load-version">v18 HARDENED EDITION</div>
 </div>
 
 <!-- ── 앱 본체 ── -->
@@ -41,7 +41,7 @@
 <!-- ── 헤더 ── -->
 <header>
   <div>
-    <h1>LEVERAGE GAUGE v16<br>EXTREME QUANT</h1>
+    <h1>LEVERAGE GAUGE v18<br>HARDENED QUANT</h1>
   </div>
   <div class="hdr-right">
     <div class="live-dot"></div>
@@ -74,7 +74,7 @@
     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px 10px;flex-shrink:0;border-bottom:1px solid var(--border);">
       <div>
         <div style="font-family:'Orbitron',monospace;font-size:0.85rem;font-weight:900;color:var(--accent);letter-spacing:2px;">📖 사용 가이드</div>
-        <div style="font-size:0.48rem;color:var(--muted);margin-top:2px;">LEVERAGE GAUGE v16 · Extreme Quant Edition</div>
+        <div style="font-size:0.48rem;color:var(--muted);margin-top:2px;">LEVERAGE GAUGE v18 · Hardened Edition</div>
       </div>
       <button onclick="closeGuide()" style="background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:6px;">✕</button>
     </div>
@@ -370,7 +370,7 @@
 </div><!-- /wrap -->
 </div><!-- /app -->
 
-<!-- 코인 상세 모달 v14 — 5탭 강화판 -->
+<!-- 코인 상세 모달 v18 — 5탭 강화판 -->
 <div id="coinModal">
   <div class="modal-backdrop" onclick="closeModal()"></div>
   <div class="modal-sheet" id="modalSheet">
@@ -413,6 +413,11 @@ const CONFIG = {
  SNAPSHOT_AUTO_HOURS : 6,
  MC_BASE_N           : 800,
 };
+
+// 모바일 감지 — MC 경로 수 상한 조정으로 메인스레드 프리즈 방지
+const IS_MOBILE = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ||
+ (navigator.maxTouchPoints > 1 && window.innerWidth < 768);
+if (IS_MOBILE) CONFIG.MC_BASE_N = 300;
 
 const $  = id  => document.getElementById(id);
 const $$ = sel => document.querySelectorAll(sel);
@@ -562,6 +567,8 @@ function safeTime() {
 }
 
 function getCVDLive() {
+ // WS 미연결 상태면 즉시 hasCVD=false 반환 — stale 데이터 live 판정 방지
+ if (!wsCVD.isOpen) return { hasCVD: false, ratio: 0.5, buy5m: 0, sell5m: 0 };
  // 호출 시점에 만료 항목 정리 (WS 미연결로 push 없을 때 stale 방지)
  const now = Date.now();
  while (cvdData.window.length && cvdData.window[0].ts < now - LIQ_WINDOW_MS)
@@ -637,7 +644,9 @@ function monteCarloBootstrap(prices, days = 7, baseN = 800) {
  const garch = calcGARCH(valid);
  const sigma = garch.sigma;
 
- const N = clamp(Math.round(baseN * (1 + sigma * 20)), 600, 1500);
+ const _mcMax = IS_MOBILE ? 500 : 1500;
+ const _mcMin = IS_MOBILE ? 200 : 600;
+ const N = clamp(Math.round(baseN * (1 + sigma * 20)), _mcMin, _mcMax);
 
  const returns = [];
  for (let i = 1; i < valid.length; i++) {
@@ -1522,6 +1531,9 @@ const _memCache  = new Map();
 const _inflight  = new Map(); // 동일 cacheKey 동시 요청 dedup용
 
 // CoinGecko Demo API 키 — 분당 30회 고정 한도 보장
+// ⚠️ 보안 경고: 아래 키는 클라이언트 소스에 노출됩니다.
+// 공개 저장소(GitHub 등)에 절대 올리지 마세요.
+// 프로덕션 환경에서는 서버사이드 프록시로 이동 권장.
 const CG_KEY = 'CG-e8k9gg2mENwHiqwG8fQ5Z82M';
 
 async function getJSON(url, cacheKey, ttlMs = 60000) {
@@ -1801,7 +1813,7 @@ function exportCSV() {
   c.garch ? fmt(c.garch.sigma * 100, 3) : 'N/A'
  ].join(','));
  const csv = [headers.join(','), ...rows].join('\n');
- downloadFile(csv, `leverage_gauge_v14_${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv');
+ downloadFile(csv, `leverage_gauge_v18_${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv');
  showKbToast('CSV 내보내기 완료');
 }
 
@@ -1815,7 +1827,7 @@ function exportJSON() {
   mcPred_d1: c.mcPred?.[0]?.muPct ?? null, mcPred_d7: c.mcPred?.[6]?.muPct ?? null,
  }));
  downloadFile(JSON.stringify({ ts: new Date().toISOString(), coins: data }, null, 2),
-  `leverage_gauge_v14_${new Date().toISOString().slice(0, 10)}.json`, 'application/json');
+  `leverage_gauge_v18_${new Date().toISOString().slice(0, 10)}.json`, 'application/json');
  showKbToast('JSON 내보내기 완료');
 }
 
@@ -1850,7 +1862,7 @@ let _themeIdx = 0;
 function cycleTheme() {
  _themeIdx = (_themeIdx + 1) % THEMES.length;
  applyTheme(THEMES[_themeIdx]);
- try { localStorage.setItem('lgv14_theme', THEMES[_themeIdx]); } catch (_) {}
+ try { localStorage.setItem('lgv18_theme', THEMES[_themeIdx]); } catch (_) {}
 }
 
 function openGuide() {
@@ -1895,7 +1907,7 @@ function applyTheme(theme) {
 
 function initTheme() {
  try {
-  const saved = localStorage.getItem('lgv14_theme');
+  const saved = localStorage.getItem('lgv18_theme');
   if (saved && THEMES.includes(saved)) {
    _themeIdx = THEMES.indexOf(saved);
    applyTheme(saved);
@@ -2113,18 +2125,6 @@ function renderCoins() {
   else alertEl.className = 'grade-alert';
  }
 
- if (_lastGradeMap.size > 0) {
-  sorted.forEach(c => {
-   const prev = _lastGradeMap.get(c.sym);
-   if (prev && prev !== c.grade) {
-    const msg = `${c.sym} 등급 변경: ${prev} → ${c.grade}`;
-    pushNotif('📊 등급 변경', msg);
-    if (document.hasFocus()) showNotifBanner(msg);
-   }
-  });
- }
- sorted.forEach(c => _lastGradeMap.set(c.sym, c.grade));
-
  calcAndRenderRecommend();
 }
 
@@ -2217,7 +2217,7 @@ function calcAndRenderRecommend() {
  const gc = (g) => ({'S':'#00ff88','A':'#7fff00','B':'#ffd700','C':'#ff8c00','D':'#ff4444','E':'#cc2222'}[g]||'#888');
 
  listEl.innerHTML = candidates.map((c, i) => `
-  <div class="rec-coin-item" onclick="openCoinModal('${esc(c.sym)}')">
+  <div class="rec-coin-item" data-sym="${esc(c.sym)}" style="cursor:pointer">
    <div class="rec-rank ${rankClasses[i]}">${rankLabels[i]}</div>
    <div class="rec-info">
     <span class="rec-sym">${esc(c.sym)} <span style="font-size:0.58rem;color:var(--muted)">${esc(c.name.slice(0,10))}</span></span>
@@ -2230,6 +2230,12 @@ function calcAndRenderRecommend() {
    <div class="rec-grade-badge g${c.grade}" style="background:${gc(c.grade)}18;color:${gc(c.grade)};border-color:${gc(c.grade)}">${c.grade}</div>
   </div>
  `).join('');
+
+ // 이벤트 위임 — rec-coin-item 클릭 처리 (inline onclick 대체)
+ listEl.addEventListener('click', e => {
+  const item = e.target.closest('[data-sym]');
+  if (item && item.dataset.sym) openCoinModal(item.dataset.sym);
+ }, { once: true });
 }
 
 function toggleRecommendCard(btn) {
@@ -2274,7 +2280,7 @@ function toggleFilterSection(forceOpen) {
   if (icon) icon.style.transform = 'rotate(180deg)';
  }
 
- try { localStorage.setItem('lgv17_filterOpen', _filterOpen ? '1' : '0'); } catch (_) {}
+ try { localStorage.setItem('lgv18_filterOpen', _filterOpen ? '1' : '0'); } catch (_) {}
 }
 
 function _initFilterSection() {
@@ -2282,7 +2288,7 @@ function _initFilterSection() {
  if (!body) return;
 
  try {
-  const saved = localStorage.getItem('lgv17_filterOpen');
+  const saved = localStorage.getItem('lgv18_filterOpen');
   if (saved === '0') _filterOpen = false;
  } catch (_) {}
 
@@ -2426,6 +2432,7 @@ let _obWS = null;
 let _obRafId = null;
 let _webglCtx = null;
 let _simAbort = null;
+let _simRunning = false;
 
 function openCoinModal(sym) {
  const c = allCoins.find(x => x.sym === sym);
@@ -2452,8 +2459,8 @@ function openCoinModal(sym) {
  document.body.style.overflow = 'hidden';
 
  const tabNav = $('modalTabs');
- if (tabNav && !tabNav._v14bound) {
-  tabNav._v14bound = true;
+ if (tabNav && !tabNav._v18bound) {
+  tabNav._v18bound = true;
   tabNav.addEventListener('click', e => {
    const btn = e.target.closest('.mtab');
    if (!btn) return;
@@ -2472,6 +2479,7 @@ function closeModal() {
  if (_obRafId) { cancelAnimationFrame(_obRafId); _obRafId = null; }
  if (_webglCtx) { _webglCtx = null; }
  if (_simAbort) { _simAbort.abort(); _simAbort = null; }
+ _simRunning = false;
  _modalSym = null;
 }
 
@@ -2972,12 +2980,13 @@ function _renderTabHeatmap(c) {
  requestAnimationFrame(() => _connectOBWebSocket(c));
 }
 
-const _obState = { bids: new Map(), asks: new Map(), symbol: null };
+const _obState = { bids: new Map(), asks: new Map(), symbol: null, sortedBids: [], sortedAsks: [] };
 
 function _connectOBWebSocket(c) {
  if (_obWS) { try { _obWS.close(); } catch(e){} _obWS = null; }
  if (_obRafId) { cancelAnimationFrame(_obRafId); _obRafId = null; }
  _obState.bids.clear(); _obState.asks.clear();
+ _obState.sortedBids = []; _obState.sortedAsks = [];
  _obState.symbol = c.sym;
 
  const sym = (c.sym + 'USDT').toLowerCase().replace('usdtusdt', 'usdt');
@@ -2998,6 +3007,9 @@ function _connectOBWebSocket(c) {
     _obState.bids.clear(); _obState.asks.clear();
     bids.forEach(([p, q]) => { const pf = parseFloat(p); if (parseFloat(q) > 0) _obState.bids.set(pf, parseFloat(q)); });
     asks.forEach(([p, q]) => { const pf = parseFloat(p); if (parseFloat(q) > 0) _obState.asks.set(pf, parseFloat(q)); });
+    // 정렬 결과 캐싱 — RAF에서 매 프레임 재정렬 불필요
+    _obState.sortedBids = [..._obState.bids.entries()].sort((a,b)=>b[0]-a[0]);
+    _obState.sortedAsks = [..._obState.asks.entries()].sort((a,b)=>a[0]-b[0]);
     _updateOBSummary(c);
    } catch(err) {}
   };
@@ -3027,8 +3039,8 @@ function _connectOBWebSocket(c) {
 }
 
 function _updateOBSummary(c) {
- const bidArr = [..._obState.bids.entries()].sort((a,b)=>b[0]-a[0]);
- const askArr = [..._obState.asks.entries()].sort((a,b)=>a[0]-b[0]);
+ const bidArr = _obState.sortedBids;
+ const askArr = _obState.sortedAsks;
  const bestBid = bidArr[0]?.[0], bestAsk = askArr[0]?.[0];
  const midPrice = bestBid && bestAsk ? (bestBid + bestAsk) / 2 : c.price;
  const spread = bestBid && bestAsk ? ((bestAsk - bestBid) / midPrice * 100) : 0;
@@ -3061,8 +3073,8 @@ function _drawOBHeatmap() {
  const W = canvas.width, H = canvas.height;
  ctx.clearRect(0, 0, W, H);
 
- const bidArr = [..._obState.bids.entries()].sort((a,b)=>b[0]-a[0]).slice(0,20);
- const askArr = [..._obState.asks.entries()].sort((a,b)=>a[0]-b[0]).slice(0,20);
+ const bidArr = _obState.sortedBids.slice(0,20);
+ const askArr = _obState.sortedAsks.slice(0,20);
  if (!bidArr.length && !askArr.length) return;
 
  const allQty = [...bidArr, ...askArr].map(([,q])=>q);
@@ -3160,7 +3172,7 @@ function _renderTabBacktest(c) {
     <span class="bt-param-lbl">RSI 매도</span>
     <input class="bt-param-input" id="btRsiSell" type="number" value="65" min="50" max="90" step="1">
    </div>
-   <button class="bt-run-btn" id="btRunBtn" onclick="_runBacktest('${esc(c.sym)}')">⚡ 백테스트 실행</button>
+   <button class="bt-run-btn" id="btRunBtn" data-action="backtest" data-sym="${esc(c.sym)}">⚡ 백테스트 실행</button>
    <!-- 결과 -->
    <div id="btResults" style="display:none">
     <div class="bt-summary" id="btSummary"></div>
@@ -3367,7 +3379,7 @@ function _renderTabSim(c) {
     <span class="sim-lbl">MC 경로 수</span>
     <input class="sim-input" id="simPaths" type="number" value="500" min="100" max="2000" step="100">
    </div>
-   <button class="sim-run-btn" id="simRunBtn" onclick="_runPortfolioSim('${esc(c.sym)}')">💰 시뮬레이션 실행</button>
+   <button class="sim-run-btn" id="simRunBtn" data-action="sim" data-sym="${esc(c.sym)}">💰 시뮬레이션 실행</button>
    <!-- 결과 -->
    <div id="simResults" style="display:none">
     <div class="ms-title">◈ MC 결과 분포</div>
@@ -3388,6 +3400,8 @@ async function _runPortfolioSim(sym) {
  const btc = allCoins.find(x => x.sym === 'BTC');
  const eth = allCoins.find(x => x.sym === 'ETH');
  if (!c) return;
+ if (_simRunning) return; // 이중 실행 방지
+ _simRunning = true;
 
  const btn = $('simRunBtn');
  if (btn) { btn.disabled = true; btn.textContent = '시뮬 중...'; }
@@ -3463,6 +3477,7 @@ async function _runPortfolioSim(sym) {
   _displaySimResults({ mean, p5, p25, p50, p75, p95, probProfit, capital, paths, pathData, days, assets, finalValues });
   if (btn) { btn.disabled = false; btn.textContent = '💰 재시뮬레이션'; }
  }
+ _simRunning = false;
 }
 
 function _boxMuller() {
@@ -3550,7 +3565,7 @@ function _displaySimResults(r) {
 
 function renderModalBody(c) {
 
- return `<div style="padding:8px;font-size:0.6rem;color:var(--muted)">v14 탭 모달로 업그레이드됨</div>`;
+ return `<div style="padding:8px;font-size:0.6rem;color:var(--muted)">v18 탭 모달</div>`;
 }
 
 async function refreshAll() {
@@ -3565,6 +3580,19 @@ async function refreshAll() {
   fetchGlobal().catch(() => {});
   allCoins = await buildCoins(raw, lev);
   const sent = calcSentiment(allCoins, fng, lev);
+
+  // ── 등급 변경 감지 (데이터 갱신 시 1회만 — renderCoins 반복 실행과 분리) ──
+  if (_lastGradeMap.size > 0) {
+   allCoins.forEach(c => {
+    const prev = _lastGradeMap.get(c.sym);
+    if (prev && prev !== c.grade) {
+     const msg = `${c.sym} 등급 변경: ${prev} → ${c.grade}`;
+     pushNotif('📊 등급 변경', msg);
+     if (document.hasFocus()) showNotifBanner(msg);
+    }
+   });
+  }
+  allCoins.forEach(c => _lastGradeMap.set(c.sym, c.grade));
 
   // ── 우선순위 높은 렌더 (즉시) ──
   updateBarGauge(sent);
@@ -3603,7 +3631,7 @@ async function refreshAll() {
     const garchTxt = ` · σ̄ <b>${fmt(avgGarch * 100, 2)}%</b>`;
     const noteEl = $('mcNote');
     if (noteEl) noteEl.innerHTML =
-     `GARCH(1,1)+Bootstrap MC · <b>N=${CONFIG.MC_BASE_N}</b> (적응형) · OI가중펀딩 <b><span class="${fc}">${oiWF >= 0 ? '+' : ''}${oiWF.toFixed(4)}%</span></b>`
+     `GARCH(1,1)+Bootstrap MC · <b>N=${CONFIG.MC_BASE_N}</b> (적응형${IS_MOBILE ? ' · 📱모바일' : ''}) · OI가중펀딩 <b><span class="${fc}">${oiWF >= 0 ? '+' : ''}${oiWF.toFixed(4)}%</span></b>`
      + ` · L/S <b>${fmt(lev.longShortRatio, 3)}</b>`
      + ` · S/A코인 <b>${Math.round(bullRatio * 100)}%</b>`
      + ` · D+1 <b><span class="${biasCol}">${biasDir}</span></b>`
@@ -3694,6 +3722,19 @@ function triggerRefresh() { refreshAll(); }
   coinListEl.addEventListener('click', e => {
    const card = e.target.closest('.coin-card');
    if (card && card.dataset.sym) openCoinModal(card.dataset.sym);
+  });
+ }
+
+ // 모달 data-action 이벤트 위임 — 인라인 onclick 대체 (XSS 방지)
+ const modalBodyEl = $('modalBody');
+ if (modalBodyEl) {
+  modalBodyEl.addEventListener('click', e => {
+   const btn = e.target.closest('[data-action]');
+   if (!btn) return;
+   const action = btn.dataset.action;
+   const sym = btn.dataset.sym;
+   if (action === 'backtest' && sym) _runBacktest(sym);
+   else if (action === 'sim' && sym) _runPortfolioSim(sym);
   });
  }
 
