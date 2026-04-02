@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#07090f">
-<title>레버리지 게이지 v16 · Extreme Quant Edition</title>
+<title>레버리지 게이지 v17 · Bug Fixed Edition</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
@@ -435,15 +435,20 @@ class WsManager {
 
  _startHeartbeat() {
   this._stopHeartbeat();
+  // Binance stream은 서버가 자동 keepalive 전송 — send ping 불필요
+  // onmessage 수신 기반으로 silence timeout만 감지 (45s)
   this._hbTimer = setInterval(() => {
    if (!this.isOpen) return;
-
-   try { this.ws.send(JSON.stringify({ method: 'ping' })); } catch (_) {}
    this._hbTimeout = setTimeout(() => {
-    console.warn(`[WS:${this.name}] heartbeat timeout → force reconnect`);
+    console.warn(`[WS:${this.name}] silence timeout → force reconnect`);
     try { this.ws.close(); } catch (_) {}
-   }, 10_000);
+   }, 45_000);
   }, 30_000);
+ }
+ _resetHeartbeat() {
+  // 메시지 수신 시 호출 — silence 타이머 리셋
+  clearTimeout(this._hbTimeout);
+  this._hbTimeout = null;
  }
  _stopHeartbeat() {
   clearInterval(this._hbTimer);
@@ -465,9 +470,7 @@ class WsManager {
    updateWsStatus();
   };
   this.ws.onmessage = ev => {
-
-   clearTimeout(this._hbTimeout);
-   this._hbTimeout = null;
+   this._resetHeartbeat();
    try { this.onMsg(JSON.parse(ev.data), this); } catch (_) {}
   };
   this.ws.onerror = () => updateWsStatus();
@@ -553,6 +556,10 @@ function safeTime() {
 }
 
 function getCVDLive() {
+ // 호출 시점에 만료 항목 정리 (WS 미연결로 push 없을 때 stale 방지)
+ const now = Date.now();
+ while (cvdData.window.length && cvdData.window[0].ts < now - LIQ_WINDOW_MS)
+  cvdData.window.shift();
  const w = cvdData.window;
  const buy5m = w.reduce((a, b) => a + b.buy, 0);
  const sell5m = w.reduce((a, b) => a + b.sell, 0);
@@ -750,7 +757,9 @@ async function fetchSingleOI(sym) {
   const d = await res.json();
   if (!d || d.openInterest === undefined) return;
   const oi = parseFloat(d.openInterest) || 0;
-  const mp = markPriceCache.get(sym) || 1;
+  const mp = markPriceCache.get(sym);
+  // markPriceCache 미준비(mp 없음 또는 1 이하)시 계산 보류 — 값 오염 방지
+  if (!mp || mp <= 1) return;
   const oiUsd = oi * mp;
   const prev = oiCache.get(sym)?.oiUsd || 0;
   oiCache.set(sym, { oiUsd, prevOiUsd: prev > 0 ? prev : oiUsd });
@@ -759,11 +768,8 @@ async function fetchSingleOI(sym) {
 
 async function fetchAllOI() {
  const active = TARGET_SYMS.filter(s => !OI_DEAD_SYMS.has(s));
- const chunks = [];
- for (let i = 0; i < active.length; i += 5) chunks.push(active.slice(i, i + 5));
- for (const chunk of chunks) {
-  await Promise.all(chunk.map(sym => fetchSingleOI(sym)));
- }
+ // 전체 병렬 처리 — 청크 직렬 대기 제거 (RTT 누적 방지)
+ await Promise.all(active.map(sym => fetchSingleOI(sym)));
 }
 
 function calcOIMetrics(tickerMap) {
@@ -1502,18 +1508,31 @@ async function idbCleanup() {
  } catch (_) {}
 }
 
-const _memCache = new Map();
+const _memCache  = new Map();
+const _inflight  = new Map(); // 동일 cacheKey 동시 요청 dedup용
 
 async function getJSON(url, cacheKey, ttlMs = 60000) {
  if (cacheKey) {
   const mem = _memCache.get(cacheKey);
   if (mem && Date.now() - mem.ts < ttlMs) return mem.data;
+  // 동일 키 요청이 진행 중이면 해당 Promise 공유 (스탬피드 방지)
+  if (_inflight.has(cacheKey)) return _inflight.get(cacheKey);
  }
- const r = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' }, mode: 'cors' });
- if (!r.ok) throw new Error('HTTP ' + r.status);
- const data = await r.json();
- if (cacheKey) _memCache.set(cacheKey, { data, ts: Date.now() });
- return data;
+ const promise = (async () => {
+  const r = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' }, mode: 'cors' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const data = await r.json();
+  if (cacheKey) {
+   _memCache.set(cacheKey, { data, ts: Date.now() });
+   _inflight.delete(cacheKey);
+  }
+  return data;
+ })();
+ if (cacheKey) {
+  _inflight.set(cacheKey, promise);
+  promise.catch(() => _inflight.delete(cacheKey)); // 실패 시 inflight 정리
+ }
+ return promise;
 }
 
 async function fetchGlobal() {
@@ -1575,10 +1594,10 @@ async function fetchTop100() {
    'top150', 60000
   );
   const filtered = d.filter(c => !isStableOrWrapped(c)).slice(0, 100);
-  await idbSet('top100_raw', { data: filtered, ts: Date.now() });
+  // IDB 저장은 비동기 분리 — 호출자 await 블로킹 방지
+  idbSet('top100_raw', { data: filtered, ts: Date.now() }).catch(() => {});
   return filtered;
  } catch (e) {
-
   const cached = await idbGet('top100_raw');
   if (cached) {
    showOfflineBanner(true);
@@ -1595,11 +1614,15 @@ async function fetchLeverageMetrics() {
   oiMetrics: null, squeezeIdx: null, tickerMap: new Map(), frBTCVal: 0
  };
  try {
-  const [lsData, frData, tickers] = await Promise.all([
+  const [lsRes, frRes, tkRes] = await Promise.allSettled([
    getJSON('https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=5m&limit=1', 'lsr', 30000),
    getJSON('https://fapi.binance.com/fapi/v1/premiumIndex', 'premiumIndex', 30000),
    getJSON('https://fapi.binance.com/fapi/v1/ticker/24hr', 'ticker24hr', 60000),
   ]);
+  // 개별 실패 시 기본값 사용 — 하나 실패해도 전체 중단 없음
+  const lsData  = lsRes.status  === 'fulfilled' ? lsRes.value  : [{ longShortRatio: 1.0 }];
+  const frData  = frRes.status  === 'fulfilled' ? frRes.value  : [];
+  const tickers = tkRes.status  === 'fulfilled' ? tkRes.value  : [];
   const lsr = safeNum(lsData[0]?.longShortRatio, 1.0);
 
   _updateLSBar(lsr);
@@ -1659,35 +1682,45 @@ async function fetchLeverageMetrics() {
  }
 }
 
-function buildCoins(raw, levCtx) {
-
- return raw.map((c, i) => {
-  const prices = (c.sparkline_in_7d?.price) || [];
-  const validPrices = prices.filter(v => Number.isFinite(v) && v > 0);
-  const rsi = calcRSI(validPrices);
-  const bull = calcMACDbull(validPrices);
-  const c24 = safeNum(c.price_change_percentage_24h);
-  const c7d = safeNum(c.price_change_percentage_7d_in_currency);
-  const oiDelta = getOIDelta((c.symbol || '').toUpperCase());
-  const score = calcScore(rsi, bull, oiDelta, c24);
-  const grade = toGrade(score);
-  const mcPred = monteCarloBootstrap(validPrices, 7, CONFIG.MC_BASE_N);
-  const regime = detectRegime(validPrices);
-  const bbsqueeze = calcBBSqueeze(validPrices);
-  const mtf = calcMTF(validPrices);
-  const garch = calcGARCH(validPrices);
-  const volProfile = calcVolumeProfile(validPrices);
-  const rating = calcStarRating({ oiDelta, rsi, bull }, regime, bbsqueeze, mtf, levCtx, garch.sigma);
-  const coinObj = {
-   rank: i + 1, id: c.id, sym: (c.symbol || '').toUpperCase(), name: c.name || '',
-   price: safeNum(c.current_price), c24, c7d, rsi, bull, oiDelta, score, grade, mcPred,
-   sparkline: validPrices, mcap: safeNum(c.market_cap),
-   total_volume: safeNum(c.total_volume),
-   regime, bbsqueeze, mtf, rating, garch, volProfile
-  };
-  coinObj.whale = calcWhaleSignal(coinObj, levCtx);
-  return coinObj;
- });
+async function buildCoins(raw, levCtx) {
+ // 메인스레드 블로킹 방지: CHUNK_SIZE 단위로 처리 후 이벤트루프 양보
+ const CHUNK = 10;
+ const result = [];
+ for (let start = 0; start < raw.length; start += CHUNK) {
+  const slice = raw.slice(start, start + CHUNK);
+  for (let i = 0; i < slice.length; i++) {
+   const c = slice[i];
+   const globalIdx = start + i;
+   const prices = (c.sparkline_in_7d?.price) || [];
+   const validPrices = prices.filter(v => Number.isFinite(v) && v > 0);
+   const rsi = calcRSI(validPrices);
+   const bull = calcMACDbull(validPrices);
+   const c24 = safeNum(c.price_change_percentage_24h);
+   const c7d = safeNum(c.price_change_percentage_7d_in_currency);
+   const oiDelta = getOIDelta((c.symbol || '').toUpperCase());
+   const score = calcScore(rsi, bull, oiDelta, c24);
+   const grade = toGrade(score);
+   const mcPred = monteCarloBootstrap(validPrices, 7, CONFIG.MC_BASE_N);
+   const regime = detectRegime(validPrices);
+   const bbsqueeze = calcBBSqueeze(validPrices);
+   const mtf = calcMTF(validPrices);
+   const garch = calcGARCH(validPrices);
+   const volProfile = calcVolumeProfile(validPrices);
+   const rating = calcStarRating({ oiDelta, rsi, bull }, regime, bbsqueeze, mtf, levCtx, garch.sigma);
+   const coinObj = {
+    rank: globalIdx + 1, id: c.id, sym: (c.symbol || '').toUpperCase(), name: c.name || '',
+    price: safeNum(c.current_price), c24, c7d, rsi, bull, oiDelta, score, grade, mcPred,
+    sparkline: validPrices, mcap: safeNum(c.market_cap),
+    total_volume: safeNum(c.total_volume),
+    regime, bbsqueeze, mtf, rating, garch, volProfile
+   };
+   coinObj.whale = calcWhaleSignal(coinObj, levCtx);
+   result.push(coinObj);
+  }
+  // 청크 완료 후 이벤트루프에 제어권 반환 (UI 응답성 유지)
+  await new Promise(r => setTimeout(r, 0));
+ }
+ return result;
 }
 
 let notifEnabled = false;
@@ -2203,7 +2236,7 @@ function toggleFilterSection(forceOpen) {
   if (icon) icon.style.transform = 'rotate(180deg)';
  }
 
- try { localStorage.setItem('lgv16_filterOpen', _filterOpen ? '1' : '0'); } catch (_) {}
+ try { localStorage.setItem('lgv17_filterOpen', _filterOpen ? '1' : '0'); } catch (_) {}
 }
 
 function _initFilterSection() {
@@ -2211,7 +2244,7 @@ function _initFilterSection() {
  if (!body) return;
 
  try {
-  const saved = localStorage.getItem('lgv16_filterOpen');
+  const saved = localStorage.getItem('lgv17_filterOpen');
   if (saved === '0') _filterOpen = false;
  } catch (_) {}
 
@@ -2902,36 +2935,50 @@ function _renderTabHeatmap(c) {
 const _obState = { bids: new Map(), asks: new Map(), symbol: null };
 
 function _connectOBWebSocket(c) {
- if (_obWS) { try { _obWS.close(); } catch(e){} }
+ if (_obWS) { try { _obWS.close(); } catch(e){} _obWS = null; }
+ if (_obRafId) { cancelAnimationFrame(_obRafId); _obRafId = null; }
  _obState.bids.clear(); _obState.asks.clear();
  _obState.symbol = c.sym;
 
  const sym = (c.sym + 'USDT').toLowerCase().replace('usdtusdt', 'usdt');
- const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@depth20@100ms`);
- _obWS = ws;
+ let _obRetries = 0;
+ let _obRetryTimer = null;
 
- ws.onmessage = e => {
-  try {
-   const d = JSON.parse(e.data);
-   if (_obState.symbol !== c.sym) return;
+ function _obConnect() {
+  if (_obState.symbol !== c.sym) return; // 탭 전환/모달 닫힘 시 재연결 중단
+  const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@depth20@100ms`);
+  _obWS = ws;
 
-   const bids = d.bids || [];
-   const asks = d.asks || [];
-   _obState.bids.clear(); _obState.asks.clear();
-   bids.forEach(([p, q]) => { const pf = parseFloat(p); if (parseFloat(q) > 0) _obState.bids.set(pf, parseFloat(q)); });
-   asks.forEach(([p, q]) => { const pf = parseFloat(p); if (parseFloat(q) > 0) _obState.asks.set(pf, parseFloat(q)); });
+  ws.onmessage = e => {
+   try {
+    const d = JSON.parse(e.data);
+    if (_obState.symbol !== c.sym) return;
+    const bids = d.bids || [];
+    const asks = d.asks || [];
+    _obState.bids.clear(); _obState.asks.clear();
+    bids.forEach(([p, q]) => { const pf = parseFloat(p); if (parseFloat(q) > 0) _obState.bids.set(pf, parseFloat(q)); });
+    asks.forEach(([p, q]) => { const pf = parseFloat(p); if (parseFloat(q) > 0) _obState.asks.set(pf, parseFloat(q)); });
+    _updateOBSummary(c);
+   } catch(err) {}
+  };
 
-   _updateOBSummary(c);
-  } catch(err) {}
- };
+  ws.onerror = () => {
+   const canvas = $('obCanvas');
+   if (canvas) { const ctx = canvas.getContext('2d'); if (ctx) { canvas.width=canvas.offsetWidth; canvas.height=160; ctx.fillStyle='rgba(255,255,255,0.1)'; ctx.font='11px monospace'; ctx.fillText('WebSocket 연결 실패 — Binance API 확인', 20, 80); } }
+  };
 
- ws.onerror = () => {
-  const canvas = $('obCanvas');
-  if (canvas) { const ctx = canvas.getContext('2d'); if (ctx) { canvas.width=canvas.offsetWidth; canvas.height=160; ctx.fillStyle='rgba(255,255,255,0.1)'; ctx.font='11px monospace'; ctx.fillText('WebSocket 연결 실패 — Binance API 확인', 20, 80); } }
- };
+  ws.onclose = () => {
+   if (_obState.symbol !== c.sym) return; // 모달 닫힘 후 재연결 차단
+   const delay = Math.min(30000, 1000 * Math.pow(2, _obRetries++));
+   _obRetryTimer = setTimeout(_obConnect, delay);
+  };
+ }
+
+ _obConnect();
 
  function renderLoop() {
-  if (!$('obCanvas') || _obState.symbol !== c.sym) return;
+  // symbol 불일치 시 RAF 루프 종료 — 누수 방지
+  if (!$('obCanvas') || _obState.symbol !== c.sym) { _obRafId = null; return; }
   _drawOBHeatmap();
   _obRafId = requestAnimationFrame(renderLoop);
  }
@@ -3296,7 +3343,7 @@ function _renderTabSim(c) {
  `;
 }
 
-function _runPortfolioSim(sym) {
+async function _runPortfolioSim(sym) {
  const c = allCoins.find(x => x.sym === sym);
  const btc = allCoins.find(x => x.sym === 'BTC');
  const eth = allCoins.find(x => x.sym === 'ETH');
@@ -3316,59 +3363,66 @@ function _runPortfolioSim(sym) {
  const abortCtrl = new AbortController();
  _simAbort = abortCtrl;
 
- setTimeout(() => {
+ // 첫 프레임 렌더링 보장 후 시뮬 시작
+ await new Promise(r => setTimeout(r, 10));
+ if (abortCtrl.signal.aborted) return;
+
+ function simAsset(coin, weight) {
+  const sigma = coin?.garch?.sigma || 0.025;
+  const mu = ((coin?.c24 || 0) / 100) / 365;
+  return { sigma, mu, weight, price: coin?.price || 1, sym: coin?.sym || '?' };
+ }
+
+ const assets = [
+  simAsset(c, wCoin),
+  simAsset(btc, wBtc),
+  simAsset(eth, wEth),
+ ];
+
+ const finalValues = [];
+ const samplePaths = Math.min(20, paths);
+ const pathData = [];
+ const YIELD_EVERY = 100; // 100 path마다 이벤트루프 양보
+
+ for (let p = 0; p < paths; p++) {
   if (abortCtrl.signal.aborted) return;
+  let portVal = capital;
+  const path = p < samplePaths ? [capital] : null;
 
-  function simAsset(coin, weight) {
-   const sigma = coin?.garch?.sigma || 0.025;
-   const mu = ((coin?.c24 || 0) / 100) / 365;
-   return { sigma, mu, weight, price: coin?.price || 1, sym: coin?.sym || '?' };
+  for (let d = 0; d < days; d++) {
+   let dayReturn = 0;
+   assets.forEach(a => {
+    if (a.weight <= 0) return;
+    const z = _boxMuller();
+    const dr = a.mu + a.sigma * z;
+    dayReturn += a.weight * dr;
+   });
+   portVal *= (1 + dayReturn);
+   if (path) path.push(portVal);
   }
+  finalValues.push(portVal);
+  if (path) pathData.push(path);
 
-  const assets = [
-   simAsset(c, wCoin),
-   simAsset(btc, wBtc),
-   simAsset(eth, wEth),
-  ];
-
-  const finalValues = [];
-  const samplePaths = Math.min(20, paths);
-  const pathData = [];
-
-  for (let p = 0; p < paths; p++) {
+  // 주기적 yield — UI 응답성 유지
+  if ((p + 1) % YIELD_EVERY === 0) {
+   await new Promise(r => setTimeout(r, 0));
    if (abortCtrl.signal.aborted) return;
-   let portVal = capital;
-   const path = p < samplePaths ? [capital] : null;
-
-   for (let d = 0; d < days; d++) {
-    let dayReturn = 0;
-    assets.forEach(a => {
-     if (a.weight <= 0) return;
-     const z = _boxMuller();
-     const dr = a.mu + a.sigma * z;
-     dayReturn += a.weight * dr;
-    });
-    portVal *= (1 + dayReturn);
-    if (path) path.push(portVal);
-   }
-   finalValues.push(portVal);
-   if (path) pathData.push(path);
   }
+ }
 
-  finalValues.sort((a, b) => a - b);
-  const mean = finalValues.reduce((s,v)=>s+v,0)/paths;
-  const p5 = finalValues[Math.floor(paths*0.05)];
-  const p25 = finalValues[Math.floor(paths*0.25)];
-  const p50 = finalValues[Math.floor(paths*0.5)];
-  const p75 = finalValues[Math.floor(paths*0.75)];
-  const p95 = finalValues[Math.floor(paths*0.95)];
-  const probProfit = finalValues.filter(v=>v>capital).length/paths*100;
+ finalValues.sort((a, b) => a - b);
+ const mean = finalValues.reduce((s,v)=>s+v,0)/paths;
+ const p5 = finalValues[Math.floor(paths*0.05)];
+ const p25 = finalValues[Math.floor(paths*0.25)];
+ const p50 = finalValues[Math.floor(paths*0.5)];
+ const p75 = finalValues[Math.floor(paths*0.75)];
+ const p95 = finalValues[Math.floor(paths*0.95)];
+ const probProfit = finalValues.filter(v=>v>capital).length/paths*100;
 
-  if (!abortCtrl.signal.aborted) {
-   _displaySimResults({ mean, p5, p25, p50, p75, p95, probProfit, capital, paths, pathData, days, assets, finalValues });
-   if (btn) { btn.disabled = false; btn.textContent = '💰 재시뮬레이션'; }
-  }
- }, 10);
+ if (!abortCtrl.signal.aborted) {
+  _displaySimResults({ mean, p5, p25, p50, p75, p95, probProfit, capital, paths, pathData, days, assets, finalValues });
+  if (btn) { btn.disabled = false; btn.textContent = '💰 재시뮬레이션'; }
+ }
 }
 
 function _boxMuller() {
@@ -3469,49 +3523,65 @@ async function refreshAll() {
  try {
   const [fng, raw, lev] = await Promise.all([fetchFNG(), fetchTop100(), fetchLeverageMetrics()]);
   fetchGlobal().catch(() => {});
-  allCoins = buildCoins(raw, lev);
+  allCoins = await buildCoins(raw, lev);
   const sent = calcSentiment(allCoins, fng, lev);
+
+  // ── 우선순위 높은 렌더 (즉시) ──
   updateBarGauge(sent);
   updateLSGauge(lev.longShortRatio, lev.oiWeightedFunding || lev.avgFunding, lev.levScore, lev);
   renderCounts(allCoins);
   renderCoins();
-  const mktPred = buildMarketPred(allCoins, lev);
-  renderDayGauges(mktPred);
-  const btcCoin = allCoins.find(c => c.sym === 'BTC');
-  if (btcCoin && lev.oiMetrics) {
-   const si = calcSqueezeIndex(lev.oiMetrics, lev.longShortRatio, lev.frBTCVal || 0, btcCoin.sparkline);
-   renderSqueezeIndexPanel(si);
-  }
-  if (lev.oiMetrics) renderOIPanel(lev.oiMetrics);
-  const oiWF = (lev.oiWeightedFunding || 0) * 100;
-  const fc = oiWF > 0 ? 'up' : oiWF < 0 ? 'down' : 'neu';
-  const bullRatio = allCoins.filter(c => c.grade === 'S' || c.grade === 'A').length / Math.max(allCoins.length, 1);
-  const mktPredD1 = mktPred[0] ? mktPred[0].muPct : 0;
-  const biasDir = mktPredD1 > 0.3 ? '▲상승편향' : mktPredD1 < -0.3 ? '▼하락편향' : '→중립';
-  const biasCol = mktPredD1 > 0.3 ? 'up' : mktPredD1 < -0.3 ? 'down' : 'neu';
-  const sqTxt = lev.squeezeLabel ? ` · <b style="color:${lev.squeezeSignal === 'short_squeeze' ? 'var(--green)' : 'var(--red)'}">${lev.squeezeLabel}</b>` : '';
-  const cvd5m = cvdData.window.reduce((a, b) => a + b.delta, 0);
-  const cvdTxt = cvdData.window.length > 0 ? ` · CVD <b><span class="${cvd5m >= 0 ? 'up' : 'down'}">${cvd5m >= 0 ? '+' : ''}${fmtB(cvd5m)}</span></b>` : '';
 
-  const avgGarch = allCoins.reduce((a, c) => a + (c.garch?.sigma || 0), 0) / Math.max(allCoins.length, 1);
-  const garchTxt = ` · σ̄ <b>${fmt(avgGarch * 100, 2)}%</b>`;
-  const noteEl = $('mcNote');
-  if (noteEl) noteEl.innerHTML =
-   `GARCH(1,1)+Bootstrap MC · <b>N=${CONFIG.MC_BASE_N}</b> (적응형) · OI가중펀딩 <b><span class="${fc}">${oiWF >= 0 ? '+' : ''}${oiWF.toFixed(4)}%</span></b>`
-   + ` · L/S <b>${fmt(lev.longShortRatio, 3)}</b>`
-   + ` · S/A코인 <b>${Math.round(bullRatio * 100)}%</b>`
-   + ` · D+1 <b><span class="${biasCol}">${biasDir}</span></b>`
-   + garchTxt + sqTxt + cvdTxt;
   const utEl = $('updateTime');
   if (utEl) utEl.textContent = safeTime();
   const oiDeltaStr = lev.oiMetrics ? ` | OI변화 ${lev.oiMetrics.btcDeltaPct >= 0 ? '+' : ''}${fmt(lev.oiMetrics.btcDeltaPct, 2)}%` : '';
   setStatus(`✓ ${allCoins.length}개 분석 | 센티먼트 ${fmt(sent, 0)}%${oiDeltaStr} | 1분 후 자동갱신`, 'info');
 
-  const lastSnap = safeNum((await idbGet('lastAutoSnap'))?.ts);
-  if (Date.now() - lastSnap > CONFIG.SNAPSHOT_AUTO_HOURS * 3600 * 1000) {
-   await saveSnapshot();
-   await idbSet('lastAutoSnap', { ts: Date.now() });
-  }
+  // ── 비핵심 렌더 — 이벤트루프 양보 후 실행 (UI 첫 표시 속도 보장) ──
+  setTimeout(() => {
+   try {
+    const mktPred = buildMarketPred(allCoins, lev);
+    renderDayGauges(mktPred);
+
+    const btcCoin = allCoins.find(c => c.sym === 'BTC');
+    if (btcCoin && lev.oiMetrics) {
+     const si = calcSqueezeIndex(lev.oiMetrics, lev.longShortRatio, lev.frBTCVal || 0, btcCoin.sparkline);
+     renderSqueezeIndexPanel(si);
+    }
+    if (lev.oiMetrics) renderOIPanel(lev.oiMetrics);
+
+    const oiWF = (lev.oiWeightedFunding || 0) * 100;
+    const fc = oiWF > 0 ? 'up' : oiWF < 0 ? 'down' : 'neu';
+    const bullRatio = allCoins.filter(c => c.grade === 'S' || c.grade === 'A').length / Math.max(allCoins.length, 1);
+    const mktPredD1 = mktPred[0] ? mktPred[0].muPct : 0;
+    const biasDir = mktPredD1 > 0.3 ? '▲상승편향' : mktPredD1 < -0.3 ? '▼하락편향' : '→중립';
+    const biasCol = mktPredD1 > 0.3 ? 'up' : mktPredD1 < -0.3 ? 'down' : 'neu';
+    const sqTxt = lev.squeezeLabel ? ` · <b style="color:${lev.squeezeSignal === 'short_squeeze' ? 'var(--green)' : 'var(--red)'}">${lev.squeezeLabel}</b>` : '';
+    const cvd5m = cvdData.window.reduce((a, b) => a + b.delta, 0);
+    const cvdTxt = cvdData.window.length > 0 ? ` · CVD <b><span class="${cvd5m >= 0 ? 'up' : 'down'}">${cvd5m >= 0 ? '+' : ''}${fmtB(cvd5m)}</span></b>` : '';
+    const avgGarch = allCoins.reduce((a, c) => a + (c.garch?.sigma || 0), 0) / Math.max(allCoins.length, 1);
+    const garchTxt = ` · σ̄ <b>${fmt(avgGarch * 100, 2)}%</b>`;
+    const noteEl = $('mcNote');
+    if (noteEl) noteEl.innerHTML =
+     `GARCH(1,1)+Bootstrap MC · <b>N=${CONFIG.MC_BASE_N}</b> (적응형) · OI가중펀딩 <b><span class="${fc}">${oiWF >= 0 ? '+' : ''}${oiWF.toFixed(4)}%</span></b>`
+     + ` · L/S <b>${fmt(lev.longShortRatio, 3)}</b>`
+     + ` · S/A코인 <b>${Math.round(bullRatio * 100)}%</b>`
+     + ` · D+1 <b><span class="${biasCol}">${biasDir}</span></b>`
+     + garchTxt + sqTxt + cvdTxt;
+   } catch (_) {}
+
+   // IDB 스냅샷 — 가장 나중에 (락 연장 방지)
+   setTimeout(async () => {
+    try {
+     const lastSnap = safeNum((await idbGet('lastAutoSnap'))?.ts);
+     if (Date.now() - lastSnap > CONFIG.SNAPSHOT_AUTO_HOURS * 3600 * 1000) {
+      await saveSnapshot();
+      await idbSet('lastAutoSnap', { ts: Date.now() });
+     }
+    } catch (_) {}
+   }, 0);
+  }, 0);
+
  } catch (e) {
   console.error(e);
   setStatus('⚠ ' + e.message, 'error');
@@ -3567,8 +3637,8 @@ function triggerRefresh() { refreshAll(); }
  let _lastRefreshTs = 0;
  function safeRefresh() {
   const now = Date.now();
-  if (!document.hidden && now - _lastRefreshTs > 30_000) {
-   _lastRefreshTs = now;
+  if (!document.hidden && now - _lastRefreshTs > 30_000 && !isRefreshing) {
+   _lastRefreshTs = now; // isRefreshing 세트 전에 먼저 타임스탬프 갱신
    refreshAll();
   }
  }
