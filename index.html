@@ -418,11 +418,14 @@ const $  = id  => document.getElementById(id);
 const $$ = sel => document.querySelectorAll(sel);
 
 class WsManager {
- constructor(name, urlFn, onMsg, onOpen) {
+ // silenceMs: 이 시간 동안 메시지 없으면 재연결 (0 = 비활성화)
+ // LIQ처럼 청산이 드문 스트림은 0으로 설정 — onclose만으로 재연결 감지
+ constructor(name, urlFn, onMsg, onOpen, silenceMs = 120_000) {
   this.name      = name;
   this.urlFn     = urlFn;
   this.onMsg     = onMsg;
   this.onOpen    = onOpen || (() => {});
+  this.silenceMs = silenceMs;
   this.ws        = null;
   this.retries   = 0;
   this.timer     = null;
@@ -435,20 +438,22 @@ class WsManager {
 
  _startHeartbeat() {
   this._stopHeartbeat();
-  // Binance stream은 서버가 자동 keepalive 전송 — send ping 불필요
-  // onmessage 수신 기반으로 silence timeout만 감지 (45s)
-  this._hbTimer = setInterval(() => {
+  // silenceMs=0 이면 silence 감지 비활성화 (이벤트 드문 스트림용)
+  if (!this.silenceMs) return;
+  // 메시지 수신 기반 silence 감지 — 서버 ping frame은 onmessage 미발생이므로
+  // 주기적 체크 대신 단일 타이머로 단순화
+  this._hbTimeout = setTimeout(() => {
    if (!this.isOpen) return;
-   this._hbTimeout = setTimeout(() => {
-    console.warn(`[WS:${this.name}] silence timeout → force reconnect`);
-    try { this.ws.close(); } catch (_) {}
-   }, 45_000);
-  }, 30_000);
+   console.warn(`[WS:${this.name}] silence timeout(${this.silenceMs/1000}s) → force reconnect`);
+   try { this.ws.close(); } catch (_) {}
+  }, this.silenceMs);
  }
  _resetHeartbeat() {
-  // 메시지 수신 시 호출 — silence 타이머 리셋
+  // 메시지 수신 시 호출 — 타이머 재시작
+  if (!this.silenceMs) return;
   clearTimeout(this._hbTimeout);
   this._hbTimeout = null;
+  this._startHeartbeat();
  }
  _stopHeartbeat() {
   clearInterval(this._hbTimer);
@@ -853,7 +858,9 @@ const wsLiq = new WsManager(
    triggerLiqAlert(sym, side, usdSize);
    pushNotif(`🔥 대규모 ${side} 청산`, `${sym} ${fmtB(usdSize)} USD`);
   }
- }
+ },
+ null,
+ 0  // silenceMs=0: 청산 없는 구간에서 불필요한 재연결 방지
 );
 
 const cvdData = { session: 0, window: [], lastPrice: 0 };
@@ -874,7 +881,9 @@ const wsCVD = new WsManager(
   while (cvdData.window.length && cvdData.window[0].ts < now - LIQ_WINDOW_MS)
    cvdData.window.shift();
   if (now - _cvdLastRender > 1000) { _cvdLastRender = now; renderCVDPanel(); }
- }
+ },
+ null,
+ 90_000  // aggTrade: BTC 거래 빈번, 90s 무메시지면 실제 연결 문제
 );
 
 let _lsRatioTimer = null;
@@ -1511,6 +1520,9 @@ async function idbCleanup() {
 const _memCache  = new Map();
 const _inflight  = new Map(); // 동일 cacheKey 동시 요청 dedup용
 
+// CoinGecko Demo API 키 — 분당 30회 고정 한도 보장
+const CG_KEY = 'CG-e8k9gg2mENwHiqwG8fQ5Z82M';
+
 async function getJSON(url, cacheKey, ttlMs = 60000) {
  if (cacheKey) {
   const mem = _memCache.get(cacheKey);
@@ -1518,8 +1530,11 @@ async function getJSON(url, cacheKey, ttlMs = 60000) {
   // 동일 키 요청이 진행 중이면 해당 Promise 공유 (스탬피드 방지)
   if (_inflight.has(cacheKey)) return _inflight.get(cacheKey);
  }
+ // CoinGecko URL에만 Demo 키 헤더 추가 — 다른 API에는 영향 없음
+ const headers = { 'Accept': 'application/json' };
+ if (url.includes('coingecko.com') && CG_KEY) headers['x-cg-demo-api-key'] = CG_KEY;
  const promise = (async () => {
-  const r = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' }, mode: 'cors' });
+  const r = await fetch(url, { method: 'GET', headers, mode: 'cors' });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   const data = await r.json();
   if (cacheKey) {
