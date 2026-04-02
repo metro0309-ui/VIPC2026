@@ -545,10 +545,16 @@ header h1{font-family:'Orbitron',monospace;font-size:0.66rem;color:var(--accent)
 .vp-poc{position:absolute;top:0;bottom:0;width:2px;background:#fff;opacity:0.7;transform:translateX(-50%);}
 
 /* ── v16: 접기/펴기 ── */
-#filterToggleBar{border-top:1px solid var(--border);margin-top:6px;}
-#filterToggleBar:hover{opacity:0.8;}
-#filterSectionBody{overflow:hidden;transition:max-height 0.32s cubic-bezier(.4,0,.2,1),opacity 0.28s;}
-#filterSectionBody.collapsed{max-height:0!important;opacity:0;pointer-events:none;}
+#filterToggleBar{
+  border-top:1px solid var(--border);
+  margin-top:6px;
+}
+#filterToggleBar:hover{ opacity:0.8; }
+#filterSectionBody{
+  overflow:hidden;
+  transition:max-height 0.35s cubic-bezier(.4,0,.2,1),
+             opacity    0.30s ease;
+}
 
 /* ── v16: L/S 실시간 펄스 ── */
 @keyframes lsPulse{0%{opacity:1;}50%{opacity:0.3;}100%{opacity:1;}}
@@ -950,63 +956,75 @@ body.extreme-mode .panel{box-shadow:0 0 20px rgba(0,229,255,0.04);}
       <button class="search-clear" id="searchClear" onclick="clearSearch()">✕</button>
     </div>
     <div class="search-result-info" id="searchInfo"></div>
-    <!-- ▼ 접기/펴기 컨트롤 -->
-    <div id="filterToggleBar" onclick="toggleFilterSection()" style="display:flex;align-items:center;justify-content:space-between;padding:5px 2px;cursor:pointer;user-select:none;margin-bottom:2px;">
-      <span style="font-size:0.52rem;color:var(--muted);font-family:'Orbitron',monospace;letter-spacing:1px">필터 · 정렬 · 추천</span>
-      <span id="filterToggleIcon" style="font-size:0.7rem;color:var(--muted);transition:transform 0.25s">▲</span>
+
+    <!-- ▼ 접기/펴기 토글 바 -->
+    <div id="filterToggleBar" onclick="toggleFilterSection()" style="display:flex;align-items:center;justify-content:space-between;padding:6px 2px;cursor:pointer;user-select:none;margin-bottom:2px;">
+      <span style="font-size:0.52rem;color:var(--muted);font-family:'Orbitron',monospace;letter-spacing:1px">필터 · 정렬 · 추천 · 공식</span>
+      <span id="filterToggleIcon" style="font-size:0.7rem;color:var(--muted);transition:transform 0.28s">▲</span>
     </div>
+
+    <!-- ▼ 접기 대상: 검색창 아래 모든 컨트롤 -->
     <div id="filterSectionBody">
-      <button class="fbtn on" data-g="ALL" onclick="setFilter('ALL',this)">ALL</button>
-      <button class="fbtn" data-g="S" onclick="setFilter('S',this)">S</button>
-      <button class="fbtn" data-g="A" onclick="setFilter('A',this)">A</button>
-      <button class="fbtn" data-g="B" onclick="setFilter('B',this)">B</button>
-      <button class="fbtn" data-g="C" onclick="setFilter('C',this)">C</button>
-      <button class="fbtn" data-g="D" onclick="setFilter('D',this)">D</button>
-      <button class="fbtn" data-g="E" onclick="setFilter('E',this)">E</button>
-    </div>
-    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
-      <span style="font-size:0.52rem;color:var(--muted);align-self:center">정렬:</span>
-      <button class="sort-btn active" onclick="setSort('grade',this)">등급</button>
-      <button class="sort-btn" onclick="setSort('score',this)">점수</button>
-      <button class="sort-btn" onclick="setSort('stars',this)">별점</button>
-      <button class="sort-btn" onclick="setSort('c24',this)">24H%</button>
-      <button class="sort-btn" onclick="setSort('rsi',this)">RSI</button>
-      <button class="sort-btn recommend-btn" onclick="toggleRecommendCard(this)" id="recommendToggleBtn">🎯 AI추천</button>
-    </div>
-    <!-- AI 추천 카드 -->
-    <div id="recommendCard" style="display:none;margin-bottom:8px;padding:10px 12px;background:linear-gradient(135deg,rgba(0,229,255,0.05),rgba(255,107,53,0.05));border:1px solid rgba(0,229,255,0.25);border-radius:10px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div style="font-family:'Orbitron',monospace;font-size:0.52rem;letter-spacing:2px;color:var(--accent)">🎯 AI 종합추천 코인</div>
-        <div style="font-size:0.46rem;color:var(--muted)" id="recTimestamp">--</div>
+
+      <!-- 등급 필터 -->
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
+        <button class="fbtn on" data-g="ALL" onclick="setFilter('ALL',this)">ALL</button>
+        <button class="fbtn" data-g="S" onclick="setFilter('S',this)">S</button>
+        <button class="fbtn" data-g="A" onclick="setFilter('A',this)">A</button>
+        <button class="fbtn" data-g="B" onclick="setFilter('B',this)">B</button>
+        <button class="fbtn" data-g="C" onclick="setFilter('C',this)">C</button>
+        <button class="fbtn" data-g="D" onclick="setFilter('D',this)">D</button>
+        <button class="fbtn" data-g="E" onclick="setFilter('E',this)">E</button>
       </div>
-      <div id="recCoinList" style="display:flex;flex-direction:column;gap:6px;">
-        <div style="text-align:center;padding:12px;color:var(--muted);font-size:0.6rem">갱신 후 추천 코인이 표시됩니다</div>
+
+      <!-- 정렬 + AI추천 -->
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
+        <span style="font-size:0.52rem;color:var(--muted);align-self:center">정렬:</span>
+        <button class="sort-btn active" onclick="setSort('grade',this)">등급</button>
+        <button class="sort-btn" onclick="setSort('score',this)">점수</button>
+        <button class="sort-btn" onclick="setSort('stars',this)">별점</button>
+        <button class="sort-btn" onclick="setSort('c24',this)">24H%</button>
+        <button class="sort-btn" onclick="setSort('rsi',this)">RSI</button>
+        <button class="sort-btn recommend-btn" onclick="toggleRecommendCard(this)" id="recommendToggleBtn">🎯 AI추천</button>
       </div>
-      <div style="margin-top:8px;padding:6px 8px;background:rgba(0,229,255,0.03);border-radius:6px;font-size:0.48rem;color:var(--muted);line-height:1.7" id="recAlgoNote">
-        알고리즘: 퀀트점수(40%) + 별점가중치(25%) + 골든앵글OI(20%) + GARCH안정성(15%)
+
+      <!-- AI 추천 카드 -->
+      <div id="recommendCard" style="display:none;margin-bottom:8px;padding:10px 12px;background:linear-gradient(135deg,rgba(0,229,255,0.05),rgba(255,107,53,0.05));border:1px solid rgba(0,229,255,0.25);border-radius:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="font-family:'Orbitron',monospace;font-size:0.52rem;letter-spacing:2px;color:var(--accent)">🎯 AI 종합추천 코인</div>
+          <div style="font-size:0.46rem;color:var(--muted)" id="recTimestamp">--</div>
+        </div>
+        <div id="recCoinList" style="display:flex;flex-direction:column;gap:6px;">
+          <div style="text-align:center;padding:12px;color:var(--muted);font-size:0.6rem">갱신 후 추천 코인이 표시됩니다</div>
+        </div>
+        <div style="margin-top:8px;padding:6px 8px;background:rgba(0,229,255,0.03);border-radius:6px;font-size:0.48rem;color:var(--muted);line-height:1.7" id="recAlgoNote">
+          알고리즘: 퀀트점수(40%) + 별점가중치(25%) + 골든앵글OI(20%) + GARCH안정성(15%)
+        </div>
       </div>
-    </div>
-    <!-- 공식 안내 -->
-    <div class="formula-box">
-      <b>퀀트 점수 공식</b> (0-100)
-      <div class="frow" style="margin-top:4px">
-        <span class="ftag">RSI +22/+12/+4/-4/-12/-22</span>
-        <span class="ftag">MACD ±14</span>
-        <span class="ftag">OI delta ±18</span>
-        <span class="ftag">24H% ±14</span>
+
+      <!-- 퀀트 공식 안내 -->
+      <div class="formula-box">
+        <b>퀀트 점수 공식</b> (0-100)
+        <div class="frow" style="margin-top:4px">
+          <span class="ftag">RSI +22/+12/+4/-4/-12/-22</span>
+          <span class="ftag">MACD ±14</span>
+          <span class="ftag">OI delta ±18</span>
+          <span class="ftag">24H% ±14</span>
+        </div>
+        <div style="margin-top:4px;color:var(--muted)">별점: <b style="color:var(--accent)">추세·BB·MTF·CVD·레버·GARCH</b> 6개 조건 (★x1~★x6) | GARCH 변동성 클러스터링 적용</div>
       </div>
-      <div style="margin-top:4px;color:var(--muted)">별점: <b style="color:var(--accent)">추세·BB·MTF·CVD·레버·GARCH</b> 6개 조건 (⭐~⭐⭐⭐⭐⭐⭐) | GARCH 변동성 클러스터링 적용</div>
-    </div>
-    <!-- 내보내기 -->
-    <div class="export-section" style="padding:8px 0 0;border-top:1px solid var(--border);margin-top:8px;">
-      <div class="export-row">
-        <span class="export-label">내보내기:</span>
-        <button class="export-btn" onclick="exportCSV()">📊 CSV</button>
-        <button class="export-btn" onclick="exportJSON()">📋 JSON</button>
-        <button class="export-btn" onclick="saveSnapshot()">💾 스냅샷</button>
-        <button class="export-btn" onclick="toggleNotif()" id="notifBtn">🔔 알림설정</button>
+
+      <!-- 내보내기 -->
+      <div class="export-section" style="padding:8px 0 0;border-top:1px solid var(--border);margin-top:8px;">
+        <div class="export-row">
+          <span class="export-label">내보내기:</span>
+          <button class="export-btn" onclick="exportCSV()">📊 CSV</button>
+          <button class="export-btn" onclick="exportJSON()">📋 JSON</button>
+          <button class="export-btn" onclick="saveSnapshot()">💾 스냅샷</button>
+          <button class="export-btn" onclick="toggleNotif()" id="notifBtn">🔔 알림설정</button>
+        </div>
       </div>
-    </div>
+
     </div><!-- /filterSectionBody -->
   </div>
   <div id="coinList" class="coin-list"></div>
@@ -2902,7 +2920,7 @@ function toggleRecommendCard(btn) {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   [v16-UX] 접기/펴기 — 필터·정렬·추천 섹션
+   [v16-UX] 접기/펴기 — 검색창 아래 전체 섹션
 ══════════════════════════════════════════════════════════════ */
 let _filterOpen = true;
 
@@ -2915,16 +2933,25 @@ function toggleFilterSection(forceOpen) {
   else _filterOpen = !_filterOpen;
 
   if (_filterOpen) {
+    // 펼치기: max-height 를 실제 높이로 설정 후 none 으로 해제
     body.style.maxHeight = body.scrollHeight + 'px';
-    body.classList.remove('collapsed');
+    body.style.opacity   = '1';
+    body.style.pointerEvents = '';
+    // 트랜지션 끝나면 제한 해제 (동적 콘텐츠 높이변화 대응)
+    body.addEventListener('transitionend', function _te() {
+      body.style.maxHeight = 'none';
+      body.removeEventListener('transitionend', _te);
+    }, { once: true });
     if (icon) icon.style.transform = 'rotate(0deg)';
   } else {
-    // 먼저 현재 높이 고정 후 0으로
+    // 접기: 현재 높이 고정 후 0 으로
     body.style.maxHeight = body.scrollHeight + 'px';
-    requestAnimationFrame(() => {
-      body.style.maxHeight = '0px';
-      body.classList.add('collapsed');
-    });
+    body.style.opacity   = '1';
+    // 강제 reflow
+    void body.offsetHeight;
+    body.style.maxHeight    = '0px';
+    body.style.opacity      = '0';
+    body.style.pointerEvents = 'none';
     if (icon) icon.style.transform = 'rotate(180deg)';
   }
 
@@ -2934,20 +2961,33 @@ function toggleFilterSection(forceOpen) {
 function _initFilterSection() {
   const body = $('filterSectionBody');
   if (!body) return;
+
   // 저장된 상태 복원
   try {
     const saved = localStorage.getItem('lgv16_filterOpen');
     if (saved === '0') _filterOpen = false;
   } catch (_) {}
 
+  // transition 없이 즉시 초기 상태 적용
+  body.style.transition = 'none';
   if (_filterOpen) {
-    body.style.maxHeight = '9999px';
+    body.style.maxHeight    = 'none';
+    body.style.opacity      = '1';
+    body.style.pointerEvents = '';
+    const icon = $('filterToggleIcon');
+    if (icon) icon.style.transform = 'rotate(0deg)';
   } else {
-    body.style.maxHeight = '0px';
-    body.classList.add('collapsed');
+    body.style.maxHeight    = '0px';
+    body.style.opacity      = '0';
+    body.style.pointerEvents = 'none';
     const icon = $('filterToggleIcon');
     if (icon) icon.style.transform = 'rotate(180deg)';
   }
+
+  // 다음 프레임부터 트랜지션 활성화
+  requestAnimationFrame(() => {
+    body.style.transition = '';
+  });
 }
 
 function setFilter(g, btn) {
