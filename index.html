@@ -41,14 +41,13 @@
 <!-- ── 헤더 ── -->
 <header>
   <div>
-    <h1>LG v18.1 PE</h1>
+    <h1 style="white-space:nowrap;font-size:0.60rem">LG v18.1 PE</h1>
   </div>
   <div class="hdr-right">
     <div class="live-dot"></div>
     <span id="updateTime">--:--:--</span>
     <span id="countdown" style="font-family:'Orbitron',monospace;font-size:0.66rem;color:var(--yellow)">5:00</span>
     <span id="wsStatus"><span style="color:#64748b">● 연결중</span></span>
-    <button class="theme-btn" onclick="cycleTheme()" title="테마 (T)">🎨</button>
     <button class="btn" id="refreshBtn" onclick="triggerRefresh()" title="갱신 (R)">↺ 갱신</button>
   </div>
 </header>
@@ -79,11 +78,11 @@
         <div style="font-size:0.65rem;font-weight:700;color:#ff3355">SHORT ZONE</div>
         <div style="font-size:0.65rem;font-weight:700;color:#00ff88">LONG ZONE</div>
       </div>
-      <div style="position:relative;height:20px;border-radius:10px;overflow:hidden;background:#ff3355">
-        <div id="csBarFill" style="position:absolute;left:0;top:0;bottom:0;background:#00ff88;transition:width 0.7s;display:flex;align-items:center;justify-content:flex-end;padding-right:6px">
-          <span id="csLongPct" style="font-family:'Orbitron',monospace;font-size:0.70rem;font-weight:700;color:#000">--</span>
+      <div style="position:relative;height:20px;border-radius:10px;overflow:hidden;background:#00ff88">
+        <div id="csBarFill" style="position:absolute;left:0;top:0;bottom:0;background:#ff3355;transition:width 0.7s;display:flex;align-items:center;justify-content:flex-end;padding-right:6px">
+          <span id="csShortPct" style="font-family:'Orbitron',monospace;font-size:0.70rem;font-weight:700;color:rgba(255,255,255,0.9)">--</span>
         </div>
-        <span id="csShortPct" style="position:absolute;right:7px;top:50%;transform:translateY(-50%);font-family:'Orbitron',monospace;font-size:0.70rem;font-weight:700;color:rgba(255,255,255,0.85);z-index:2">--</span>
+        <span id="csLongPct" style="position:absolute;right:7px;top:50%;transform:translateY(-50%);font-family:'Orbitron',monospace;font-size:0.70rem;font-weight:700;color:#000;z-index:2">--</span>
         <div style="position:absolute;top:0;bottom:0;left:50%;width:2px;background:rgba(255,255,255,0.3);transform:translateX(-50%);z-index:2"></div>
       </div>
     </div>
@@ -1107,7 +1106,7 @@ function updateBarGauge(pct) {
  const csLongPct = $('csLongPct');
  const csShortPct = $('csShortPct');
  
- if (csBarFill) csBarFill.style.width = pct + '%';
+ if (csBarFill) csBarFill.style.width = (100 - pct) + '%';
  if (csLongPct) csLongPct.textContent = fmt(pct, 1) + '%';
  if (csShortPct) csShortPct.textContent = fmt(100 - pct, 1) + '%';
  
@@ -2124,35 +2123,19 @@ function downloadFile(content, filename, mimeType) {
  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-const THEMES = ['dark', 'light', 'contrast'];
+const THEMES = ['dark'];
 let _themeIdx = 0;
 
-function cycleTheme() {
- _themeIdx = (_themeIdx + 1) % THEMES.length;
- applyTheme(THEMES[_themeIdx]);
- try { localStorage.setItem('lgv18_theme', THEMES[_themeIdx]); } catch (_) {}
-}
+function cycleTheme() {}
 
 function initGuideSwipe() {}
 
 function applyTheme(theme) {
- document.documentElement.setAttribute('data-theme', theme === 'dark' ? '' : theme);
- const names = { dark: '다크', light: '라이트', contrast: '고대비' };
- showKbToast(`테마: ${names[theme] || theme}`);
+ document.documentElement.setAttribute('data-theme', '');
 }
 
 function initTheme() {
- try {
-  const saved = localStorage.getItem('lgv18_theme');
-  if (saved && THEMES.includes(saved)) {
-   _themeIdx = THEMES.indexOf(saved);
-   applyTheme(saved);
-   return;
-  }
- } catch (_) {}
- const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? true;
- _themeIdx = prefersDark ? 0 : 1;
- applyTheme(THEMES[_themeIdx]);
+ document.documentElement.setAttribute('data-theme', '');
 }
 
 const FILTER_CYCLE = ['ALL', 'S', 'A', 'B', 'C', 'D', 'E'];
