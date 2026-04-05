@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#07090f">
-<title>레버리지 게이지 v17.0 · 복합지표 Edition</title>
+<title>LG v17.0 · CS Edition</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
@@ -31,7 +31,7 @@
   <div class="load-title">LEVERAGE GAUGE</div>
   <div class="load-bar-track"><div class="load-bar-fill" id="loadBar"></div></div>
   <div class="load-msg" id="loadMsg">INITIALIZING...</div>
-  <div class="load-version">v17.0 복합지표 EDITION</div>
+  <div class="load-version">v17.0 CS EDITION</div>
 </div>
 
 <!-- ── 앱 본체 ── -->
@@ -41,11 +41,12 @@
 <!-- ── 헤더 ── -->
 <header>
   <div>
-    <h1>LEVERAGE GAUGE v17.0<br>복합지표 EDITION</h1>
+    <h1>LG v17.0 · CS<br>COMPOSITE SCORE</h1>
   </div>
   <div class="hdr-right">
     <div class="live-dot"></div>
     <span id="updateTime">--:--:--</span>
+    <span id="countdown" style="font-family:'Orbitron',monospace;font-size:0.66rem;color:var(--yellow)">5:00</span>
     <span id="wsStatus"><span style="color:#64748b">● 연결중</span></span>
     <button class="theme-btn" onclick="cycleTheme()" title="테마 (T)">🎨</button>
     <button class="btn btn-guide" onclick="openGuide()" title="사용법">📖 사용법</button>
@@ -165,20 +166,22 @@
         <div class="sentiment-sub" id="gaugeSub">잠시 기다려주세요</div>
       </div>
     </div>
-    <div class="bar-gauge-outer">
-      <div class="bar-gauge-track">
-        <div class="bar-dim" id="barDim" style="width:100%"></div>
-        <div class="bar-ptr" id="barPtr" style="left:0%"><div class="bar-ptr-inner"></div></div>
+    
+    <!-- 롱숏 스타일 게이지 (50% 중립 기준) -->
+    <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+        <div style="font-size:0.65rem;font-weight:700;color:#ff3355">SHORT ZONE</div>
+        <div style="font-size:0.65rem;font-weight:700;color:#00ff88">LONG ZONE</div>
       </div>
-      <div class="bar-zone-row">
-        <div class="bzl" style="width:15%;color:#cc2222">E</div>
-        <div class="bzl" style="width:15%;color:#ff4444">D</div>
-        <div class="bzl" style="width:20%;color:#ff8c00">C</div>
-        <div class="bzl" style="width:20%;color:#ffd700">B</div>
-        <div class="bzl" style="width:15%;color:#7fff00">A</div>
-        <div class="bzl" style="width:15%;color:#00ff88">S</div>
+      <div style="position:relative;height:20px;border-radius:10px;overflow:hidden;background:#ff3355">
+        <div id="csBarFill" style="position:absolute;left:0;top:0;bottom:0;background:#00ff88;transition:width 0.7s;display:flex;align-items:center;justify-content:flex-end;padding-right:6px">
+          <span id="csLongPct" style="font-family:'Orbitron',monospace;font-size:0.70rem;font-weight:700;color:#000">--</span>
+        </div>
+        <span id="csShortPct" style="position:absolute;right:7px;top:50%;transform:translateY(-50%);font-family:'Orbitron',monospace;font-size:0.70rem;font-weight:700;color:rgba(255,255,255,0.85);z-index:2">--</span>
+        <div style="position:absolute;top:0;bottom:0;left:50%;width:2px;background:rgba(255,255,255,0.3);transform:translateX(-50%);z-index:2"></div>
       </div>
     </div>
+    
     <div class="zone-list">
       <div class="zone-item" data-lo="85" data-hi="101"><div class="zdot" style="background:#00ff88"></div><div class="zname" style="color:#00ff88">S · 극도 과열</div><div class="zact">즉시 진입/주의</div></div>
       <div class="zone-item" data-lo="70" data-hi="85"><div class="zdot" style="background:#7fff00"></div><div class="zname" style="color:#7fff00">A · 레버 급증</div><div class="zact">추격 주의</div></div>
@@ -513,6 +516,7 @@ let isRefreshing = false;
 let _showAllCoins = false; // ALL 뷰 10개 → 전체 펼침 상태
 let _prevBtcDom = null;
 let extremeMode = false;
+let countdownSeconds = 60; // v17.0 카운트다운 타이머
 let _lastGradeMap = new Map();
 
 const domQueue = new Map();
@@ -1092,23 +1096,34 @@ function setStatus(msg, type) {
 
 function updateBarGauge(pct) {
  pct = clamp(pct, 0, 100);
- const ptr = $('barPtr');
- if (ptr) ptr.style.left = pct + '%';
- const dim = $('barDim');
- if (dim) dim.style.width = (100 - pct) + '%';
+ 
+ // 복합지표 점수 표시
  const gp = $('gaugePct');
  if (gp) gp.textContent = fmt(pct, 0) + '%';
+ 
+ // 롱숏 스타일 게이지 업데이트 (50% 중립 기준)
+ const csBarFill = $('csBarFill');
+ const csLongPct = $('csLongPct');
+ const csShortPct = $('csShortPct');
+ 
+ if (csBarFill) csBarFill.style.width = pct + '%';
+ if (csLongPct) csLongPct.textContent = fmt(pct, 1) + '%';
+ if (csShortPct) csShortPct.textContent = fmt(100 - pct, 1) + '%';
+ 
+ // 등급 및 레이블
  let lbl, sub;
- if (pct >= 85) { lbl = 'S등급 · 극도 과열'; sub = '즉시 진입 / 과열 주의'; }
- else if (pct >= 70) { lbl = 'A등급 · 레버리지 급증'; sub = 'FOMO 주도 · 추격 주의'; }
+ if (pct >= 80) { lbl = 'S등급 · 극도 과열'; sub = '롱 진입 / 과열 주의'; }
+ else if (pct >= 65) { lbl = 'A등급 · 레버리지 급증'; sub = 'FOMO 주도 · 추격 주의'; }
  else if (pct >= 50) { lbl = 'B등급 · 낙관'; sub = '현물 매수 우세'; }
- else if (pct >= 30) { lbl = 'C등급 · 중립 균형'; sub = '관망 / 분할매수'; }
- else if (pct >= 15) { lbl = 'D등급 · 신중한 하락세'; sub = '헤징 우세 · 진입 신중'; }
- else { lbl = 'E등급 · 극도 공포'; sub = '디레버리징 / 진입 금지'; }
+ else if (pct >= 35) { lbl = 'C등급 · 중립 균형'; sub = '관망 / 분할매수'; }
+ else if (pct >= 20) { lbl = 'D등급 · 신중한 하락세'; sub = '헤징 우세 · 진입 신중'; }
+ else { lbl = 'E등급 · 극도 공포'; sub = '숏 진입 고려'; }
+ 
  const gl = $('gaugeLbl');
  const gs = $('gaugeSub');
  if (gl) gl.textContent = lbl;
  if (gs) gs.textContent = sub;
+ 
  $$('.zone-item').forEach(el => {
   const lo = safeNum(el.dataset.lo), hi = safeNum(el.dataset.hi);
   el.classList.toggle('active', pct >= lo && pct < hi);
@@ -3705,7 +3720,13 @@ async function refreshAll() {
   isRefreshing = false;
  }
 }
-function triggerRefresh() { refreshAll(); }
+function triggerRefresh() { 
+  // 카운트다운 리셋
+  if (typeof countdownSeconds !== 'undefined') {
+    countdownSeconds = Math.floor(CONFIG.REFRESH_INTERVAL_MS / 1000);
+  }
+  refreshAll(); 
+}
 
 (function init() {
  initTheme();
@@ -3757,6 +3778,30 @@ function triggerRefresh() { refreshAll(); }
  }
  setInterval(safeRefresh, CONFIG.REFRESH_INTERVAL_MS);
  document.addEventListener('visibilitychange', safeRefresh);
+
+ // ━━━ 카운트다운 타이머 (v17.0) ━━━
+ let countdownSeconds = Math.floor(CONFIG.REFRESH_INTERVAL_MS / 1000);
+ function updateCountdown() {
+  const cd = $('countdown');
+  if (!cd) return;
+  const mins = Math.floor(countdownSeconds / 60);
+  const secs = countdownSeconds % 60;
+  cd.textContent = mins + ':' + String(secs).padStart(2, '0');
+  
+  if (countdownSeconds <= 10) {
+   cd.style.color = 'var(--red)';
+  } else if (countdownSeconds <= 30) {
+   cd.style.color = 'var(--yellow)';
+  } else {
+   cd.style.color = 'var(--muted)';
+  }
+  
+  countdownSeconds--;
+  if (countdownSeconds < 0) {
+   countdownSeconds = Math.floor(CONFIG.REFRESH_INTERVAL_MS / 1000);
+  }
+ }
+ setInterval(updateCountdown, 1000);
 
  setInterval(() => {
   if (!isRefreshing) { renderCVDPanel(); renderLiqPanel(); }
