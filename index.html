@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#07090f">
-<title>LG v18.1</title>
+<title>LG v18.1 PE</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
@@ -31,7 +31,7 @@
   <div class="load-title">LEVERAGE GAUGE</div>
   <div class="load-bar-track"><div class="load-bar-fill" id="loadBar"></div></div>
   <div class="load-msg" id="loadMsg">INITIALIZING...</div>
-  <div class="load-version">LG v18.1 · PERFORMANCE</div>
+  <div class="load-version">LG v18.1 PE</div>
 </div>
 
 <!-- ── 앱 본체 ── -->
@@ -41,7 +41,7 @@
 <!-- ── 헤더 ── -->
 <header>
   <div>
-    <h1>LG v18.1<br>PERFORMANCE EDITION</h1>
+    <h1>LG v18.1 PE</h1>
   </div>
   <div class="hdr-right">
     <div class="live-dot"></div>
@@ -49,7 +49,6 @@
     <span id="countdown" style="font-family:'Orbitron',monospace;font-size:0.66rem;color:var(--yellow)">5:00</span>
     <span id="wsStatus"><span style="color:#64748b">● 연결중</span></span>
     <button class="theme-btn" onclick="cycleTheme()" title="테마 (T)">🎨</button>
-    <button class="btn btn-guide" onclick="openGuide()" title="사용법">📖 사용법</button>
     <button class="btn" id="refreshBtn" onclick="triggerRefresh()" title="갱신 (R)">↺ 갱신</button>
   </div>
 </header>
@@ -60,103 +59,6 @@
 <!-- ── 상태바 ── -->
 <div class="status-bar" id="statusBar"></div>
 
-<!-- ── 사용법 팝업 모달 ── -->
-<div id="guideModal" style="display:none;position:fixed;inset:0;z-index:300;align-items:flex-end;justify-content:center;">
-  <div id="guideBackdrop" onclick="closeGuide()" style="position:absolute;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);"></div>
-  <div id="guideSheet" style="
-    position:relative;z-index:1;width:100%;max-width:600px;max-height:88vh;
-    background:var(--panel);border:1px solid rgba(0,229,255,0.2);
-    border-radius:20px 20px 0 0;display:flex;flex-direction:column;
-    transform:translateY(100%);transition:transform 0.35s cubic-bezier(.32,1,.4,1);
-  ">
-    <!-- 핸들 -->
-    <div style="width:36px;height:4px;background:rgba(255,255,255,0.14);border-radius:2px;margin:10px auto 0;flex-shrink:0;"></div>
-    <!-- 헤더 -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px 10px;flex-shrink:0;border-bottom:1px solid var(--border);">
-      <div>
-        <div style="font-family:'Orbitron',monospace;font-size:0.85rem;font-weight:900;color:var(--accent);letter-spacing:2px;">📖 사용 가이드</div>
-        <div style="font-size:0.48rem;color:var(--muted);margin-top:2px;">LEVERAGE GAUGE v18.1 · Performance Edition</div>
-      </div>
-      <button onclick="closeGuide()" style="background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:6px;">✕</button>
-    </div>
-    <!-- 스크롤 바디 -->
-    <div id="guideBody" style="flex:1;overflow-y:auto;padding:14px 16px 32px;overscroll-behavior:contain;">
-
-      <!-- ① 별점 시스템 -->
-      <div class="guide-section">
-        <div class="guide-sec-title">⭐ 별점 시스템 (최대 6개)</div>
-        <div class="guide-table">
-          <div class="gt-row"><span class="gt-star" style="font-family:'Orbitron',monospace;font-size:0.7rem">★x6</span><span class="gt-desc gt-s">6조건 전부 충족 · 최고 신뢰도 진입 검토</span></div>
-          <div class="gt-row"><span class="gt-star" style="font-family:'Orbitron',monospace;font-size:0.7rem">★x5</span><span class="gt-desc gt-a">5조건 · 강한 신호 · 진입 적극 고려</span></div>
-          <div class="gt-row"><span class="gt-star" style="font-family:'Orbitron',monospace;font-size:0.7rem">★x4</span><span class="gt-desc gt-b">4조건 · 양호 · 소규모 진입 검토</span></div>
-          <div class="gt-row"><span class="gt-star" style="font-family:'Orbitron',monospace;font-size:0.7rem">★x3</span><span class="gt-desc gt-c">3조건 · 중립 · 관망 또는 극소량</span></div>
-          <div class="gt-row"><span class="gt-star" style="font-family:'Orbitron',monospace;font-size:0.7rem;color:#666">★x2 이하</span><span class="gt-desc" style="color:var(--muted)">2조건 이하 · 진입 비권장</span></div>
-        </div>
-        <div class="guide-note">조건: 추세 · BB수축 · MTF일치 · CVD · 레버적정 · GARCH변동성안정</div>
-      </div>
-
-      <!-- ② 등급 & 점수 -->
-      <div class="guide-section">
-        <div class="guide-sec-title">📊 등급 & 퀀트 점수 (0~100)</div>
-        <div class="guide-table">
-          <div class="gt-row"><span class="gt-grade" style="color:#00ff88">S</span><span class="gt-desc gt-s">85~100 · 극도 강세 · 공격적 진입 검토</span></div>
-          <div class="gt-row"><span class="gt-grade" style="color:#7fff00">A</span><span class="gt-desc gt-a">70~84 · 강세 · 추격 주의하며 진입</span></div>
-          <div class="gt-row"><span class="gt-grade" style="color:#ffd700">B</span><span class="gt-desc gt-b">50~69 · 낙관 · 현물 위주 / 소량 선물</span></div>
-          <div class="gt-row"><span class="gt-grade" style="color:#ff8c00">C</span><span class="gt-desc gt-c">30~49 · 중립 · 관망 / 분할 매수</span></div>
-          <div class="gt-row"><span class="gt-grade" style="color:#ff4444">D</span><span class="gt-desc" style="color:#ff4444">15~29 · 신중 · 진입 자제</span></div>
-          <div class="gt-row"><span class="gt-grade" style="color:#cc2222">E</span><span class="gt-desc" style="color:#cc2222">0~14 · 극도 공포/하락 · 진입 금지</span></div>
-        </div>
-        <div class="guide-note">점수 = RSI(±22) + MACD(±14) + OI델타(±18) + 24H%(±14) 복합 산출</div>
-      </div>
-
-      <!-- ③ 핵심 신호 해석 -->
-      <div class="guide-section">
-        <div class="guide-sec-title">📡 핵심 신호 해석</div>
-        <div class="guide-sig-grid">
-          <div class="gsig gsig-green"><div class="gsig-lbl">Funding Rate 마이너스</div><div class="gsig-val">숏 과열 → 롱 기회</div></div>
-          <div class="gsig gsig-red"><div class="gsig-lbl">Funding Rate +0.1% 초과</div><div class="gsig-val">롱 과열 → 숏 기회</div></div>
-          <div class="gsig gsig-green"><div class="gsig-lbl">OI증가 + 가격상승</div><div class="gsig-val">신규 진입 → 추세 신뢰</div></div>
-          <div class="gsig gsig-red"><div class="gsig-lbl">OI급감 + 가격변동</div><div class="gsig-val">대규모 청산 → 역방향 주의</div></div>
-          <div class="gsig gsig-yellow"><div class="gsig-lbl">공포지수 &lt; 25</div><div class="gsig-val">극도 공포 → 분할 매수</div></div>
-          <div class="gsig gsig-red"><div class="gsig-lbl">공포지수 &gt; 75</div><div class="gsig-val">극도 탐욕 → 익절/숏 검토</div></div>
-        </div>
-      </div>
-
-      <!-- ④ 리스크 원칙 -->
-      <div class="guide-section">
-        <div class="guide-sec-title" style="color:var(--accent2);">⚠️ 필수 리스크 원칙</div>
-        <div class="guide-risk-list">
-          <div class="grisk"><span class="grisk-num">01</span><span>1회 포지션 리스크 = <b>총자산 1~2% 이하</b></span></div>
-          <div class="grisk"><span class="grisk-num">02</span><span>초기 레버리지 <b>3~5배 이하</b> 엄수</span></div>
-          <div class="grisk"><span class="grisk-num">03</span><span>진입 전 <b>손절가 반드시 설정</b> (±2~3%)</span></div>
-          <div class="grisk"><span class="grisk-num">04</span><span>신호 1개만 보고 <b>올인 절대 금지</b></span></div>
-          <div class="grisk"><span class="grisk-num">05</span><span>수익 나도 레버리지 <b>점진적으로만 증가</b></span></div>
-        </div>
-      </div>
-
-      <!-- ⑤ 단축키 & 갱신 -->
-      <div class="guide-section">
-        <div class="guide-sec-title">⌨️ 단축키 & 갱신</div>
-        <div class="guide-kb-grid">
-          <div class="gkb"><kbd class="gkbd">R</kbd><span>즉시 갱신</span></div>
-          <div class="gkb"><kbd class="gkbd">F</kbd><span>필터 순환</span></div>
-          <div class="gkb"><kbd class="gkbd">S</kbd><span>정렬 순환</span></div>
-          <div class="gkb"><kbd class="gkbd">T</kbd><span>테마 전환</span></div>
-          <div class="gkb"><kbd class="gkbd">E</kbd><span>극한 모드</span></div>
-          <div class="gkb"><kbd class="gkbd">/</kbd><span>검색</span></div>
-        </div>
-        <div class="guide-note">데이터: Binance Futures + CoinGecko · 1분 자동갱신 · WebSocket 실시간</div>
-      </div>
-
-      <!-- 면책 -->
-      <div style="font-size:0.44rem;color:var(--muted);text-align:center;padding:10px 0 0;border-top:1px solid var(--border);line-height:2;opacity:0.65;">
-        본 툴은 투자 판단 보조 도구입니다 · 투자 결정은 전적으로 본인 책임 · 수익을 보장하지 않습니다<br>
-        크립토 선물 거래는 원금 전액 손실 위험이 있습니다
-      </div>
-
-    </div>
-  </div>
-</div>
 <div class="panel">
   <div class="sentiment-panel">
     <div class="sentiment-top">
@@ -169,6 +71,10 @@
     
     <!-- 롱숏 스타일 게이지 (50% 중립 기준) -->
     <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+        <div style="font-family:'Orbitron',monospace;font-size:0.46rem;letter-spacing:1.5px;color:var(--muted)">예측 게이지</div>
+        <div style="font-family:'Orbitron',monospace;font-size:0.46rem;letter-spacing:1px;color:var(--muted);opacity:0.6">COMPOSITE FORECAST</div>
+      </div>
       <div style="display:flex;justify-content:space-between;margin-bottom:5px">
         <div style="font-size:0.65rem;font-weight:700;color:#ff3355">SHORT ZONE</div>
         <div style="font-size:0.65rem;font-weight:700;color:#00ff88">LONG ZONE</div>
@@ -205,13 +111,15 @@
 <div class="panel">
   <div class="ls-panel">
     <div class="ls-header">
-      <div class="pnl-label">LONG / SHORT RATIO <span style="font-size:0.46rem;color:var(--muted);font-weight:400">(참고·현황)</span></div>
-      <div style="display:flex;align-items:center;gap:6px;">
+      <div>
+        <div class="pnl-label">LONG / SHORT RATIO</div>
+        <div style="font-family:'Orbitron',monospace;font-size:0.44rem;letter-spacing:1px;color:var(--muted);margin-top:2px">현재 비율 게이지</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
         <span id="lsWsIndicator" style="font-size:0.48rem;font-family:'Orbitron',monospace;color:var(--muted)">● POLLING</span>
-        <div class="ls-ratio-val" id="lsRatioVal">--</div>
+        <div class="ls-ratio-val" id="lsRatioVal" style="font-size:1.1rem;line-height:1">--</div>
       </div>
     </div>
-    <div style="font-size:0.48rem;color:var(--muted);margin-bottom:6px;line-height:1.4">※ 위 복합게이지=진입신호 / 이 비율=시장현황 (다를 수 있음)</div>
     <div class="ls-bar-labels">
       <span class="ls-long-lbl">LONG <span id="lsLongPct">--</span></span>
       <span class="ls-short-lbl">SHORT <span id="lsShortPct">--</span></span>
@@ -1043,10 +951,10 @@ function _setLSWsIndicator(live) {
  const el = $('lsWsIndicator');
  if (!el) return;
  if (live) {
-  el.textContent = '● LIVE 30s';
+  el.innerHTML = '<span style="color:#00ff88;font-size:0.52rem">● LIVE</span> <span style="font-size:0.54rem;color:#00ff88;opacity:0.75">30s</span>';
   el.className = 'ws-live';
  } else {
-  el.textContent = '● POLLING';
+  el.innerHTML = '<span style="color:var(--yellow)">● POLLING</span>';
   el.className = 'ws-poll';
  }
 }
@@ -2223,39 +2131,7 @@ function cycleTheme() {
  try { localStorage.setItem('lgv18_theme', THEMES[_themeIdx]); } catch (_) {}
 }
 
-function openGuide() {
- const modal = $('guideModal');
- const sheet = $('guideSheet');
- const body  = $('guideBody');
- if (!modal || !sheet) return;
- modal.style.display = 'flex';
- if (body) body.scrollTop = 0;
- requestAnimationFrame(() => { sheet.style.transform = 'translateY(0)'; });
- document.body.style.overflow = 'hidden';
-}
-function closeGuide() {
- const modal = $('guideModal');
- const sheet = $('guideSheet');
- if (!modal || !sheet) return;
- sheet.style.transform = 'translateY(100%)';
- setTimeout(() => {
-  modal.style.display = 'none';
-  document.body.style.overflow = '';
- }, 380);
-}
-
-function initGuideSwipe() {
- const sheet = $('guideSheet');
- const body  = $('guideBody');
- if (!sheet) return;
- let _ty = 0;
- sheet.addEventListener('touchstart', e => { _ty = e.touches[0].clientY; }, { passive: true });
- sheet.addEventListener('touchmove', e => {
-  const dy = e.touches[0].clientY - _ty;
-  const atTop = !body || body.scrollTop <= 0;
-  if (dy > 80 && atTop) closeGuide();
- }, { passive: true });
-}
+function initGuideSwipe() {}
 
 function applyTheme(theme) {
  document.documentElement.setAttribute('data-theme', theme === 'dark' ? '' : theme);
