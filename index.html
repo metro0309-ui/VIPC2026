@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#07090f">
-<title>LG v17.0 · CS Edition</title>
+<title>DH v1.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
@@ -31,7 +31,7 @@
   <div class="load-title">LEVERAGE GAUGE</div>
   <div class="load-bar-track"><div class="load-bar-fill" id="loadBar"></div></div>
   <div class="load-msg" id="loadMsg">INITIALIZING...</div>
-  <div class="load-version">v17.0 CS EDITION</div>
+  <div class="load-version">DH v1.0</div>
 </div>
 
 <!-- ── 앱 본체 ── -->
@@ -41,7 +41,7 @@
 <!-- ── 헤더 ── -->
 <header>
   <div>
-    <h1>LG v17.0 · CS<br>COMPOSITE SCORE</h1>
+    <h1>DH v1.0<br>DYNAMIC HYBRID</h1>
   </div>
   <div class="hdr-right">
     <div class="live-dot"></div>
@@ -205,12 +205,13 @@
 <div class="panel">
   <div class="ls-panel">
     <div class="ls-header">
-      <div class="pnl-label">LONG / SHORT RATIO</div>
+      <div class="pnl-label">LONG / SHORT RATIO <span style="font-size:0.46rem;color:var(--muted);font-weight:400">(참고·현황)</span></div>
       <div style="display:flex;align-items:center;gap:6px;">
         <span id="lsWsIndicator" style="font-size:0.48rem;font-family:'Orbitron',monospace;color:var(--muted)">● POLLING</span>
         <div class="ls-ratio-val" id="lsRatioVal">--</div>
       </div>
     </div>
+    <div style="font-size:0.48rem;color:var(--muted);margin-bottom:6px;line-height:1.4">※ 위 복합게이지=진입신호 / 이 비율=시장현황 (다를 수 있음)</div>
     <div class="ls-bar-labels">
       <span class="ls-long-lbl">LONG <span id="lsLongPct">--</span></span>
       <span class="ls-short-lbl">SHORT <span id="lsShortPct">--</span></span>
@@ -599,8 +600,9 @@ function sparkline(prices) {
 }
 function pctToSP(pct) { return clamp(50 + safeNum(pct) * 3.5, 2, 98); }
 function dirLabel(sp) {
- if (sp > 60) return ['▲ 상승', 'var(--green)'];
- if (sp < 40) return ['▼ 하락', 'var(--red)'];
+ // v1.0: 임계값 완화 (53/47 → 더 민감하게)
+ if (sp > 53) return ['▲ 상승', 'var(--green)'];   // +1% 이상
+ if (sp < 47) return ['▼ 하락', 'var(--red)'];     // -1% 이하
  return ['→ 중립', 'var(--yellow)'];
 }
 
