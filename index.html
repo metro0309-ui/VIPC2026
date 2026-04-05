@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#07090f">
-<title>레버리지 게이지 v17.0 · 복합지표 시스템</title>
+<title>레버리지 게이지 v17.1 · 복합지표 시스템 (Futures Fix)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
@@ -683,7 +683,7 @@ header h1 {
     <div class="load-bar-fill" id="loadBar"></div>
   </div>
   <div class="load-msg" id="loadMsg">INITIALIZING...</div>
-  <div class="load-version">v17.0 복합지표 시스템</div>
+  <div class="load-version">v17.1 복합지표 시스템 (Futures Fix)</div>
 </div>
 
 <!-- ━━━ 앱 본체 ━━━ -->
@@ -693,7 +693,7 @@ header h1 {
 <!-- ━━━ 헤더 ━━━ -->
 <header>
   <div>
-    <h1>LEVERAGE GAUGE v17.0<br>복합 지표 시스템</h1>
+    <h1>LEVERAGE GAUGE v17.1<br>복합 지표 시스템</h1>
   </div>
   <div class="hdr-right">
     <div class="live-dot"></div>
@@ -805,7 +805,7 @@ header h1 {
 
 <script>
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// v17.0 복합 지표 시스템
+// v17.1 복합 지표 시스템 (Futures Fix)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const STATE = {
@@ -821,9 +821,9 @@ const STATE = {
 const CONFIG = {
   TOP_COINS: [
     'BTCUSDT','ETHUSDT','BNBUSDT','SOLUSDT','XRPUSDT',
-    'DOGEUSDT','ADAUSDT','AVAXUSDT','SHIBUSDT','DOTUSDT',
-    'MATICUSDT','LINKUSDT','TRXUSDT','UNIUSDT','ATOMUSDT',
-    'LTCUSDT','ETCUSDT','XLMUSDT','NEARUSDT','FILUSDT'
+    'DOGEUSDT','ADAUSDT','AVAXUSDT','DOTUSDT','LINKUSDT',
+    'MATICUSDT','LTCUSDT','TRXUSDT','UNIUSDT','ATOMUSDT',
+    'ARBUSDT','OPUSDT','SUIUSDT','APTUSDT','HBARUSDT'
   ],
   
   // 복합 지표 가중치
@@ -885,8 +885,19 @@ function updateLoadProgress(percent, msg) {
 // ━━━ 시장 데이터 로딩 ━━━
 async function loadMarketData() {
   try {
-    // CoinGecko API
-    const resp = await fetch('https://api.coingecko.com/api/v3/global');
+    // CoinGecko API (타임아웃 5초)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    
+    const resp = await fetch('https://api.coingecko.com/api/v3/global', {
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
+    
     const data = await resp.json();
     
     STATE.marketData = {
@@ -895,7 +906,7 @@ async function loadMarketData() {
       mcapChange24h: data.data.market_cap_change_percentage_24h_usd
     };
   } catch (err) {
-    console.error('시장 데이터 로딩 실패:', err);
+    console.error('시장 데이터 로딩 실패:', err.message);
     // 폴백 데이터
     STATE.marketData = {
       totalMcap: 2395958000000,
@@ -909,20 +920,32 @@ async function loadMarketData() {
 async function loadLongShortRatio() {
   try {
     const resp = await fetch('https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=5m&limit=1');
+    
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
+    
     const data = await resp.json();
     
     if (data && data[0]) {
       const longRatio = parseFloat(data[0].longAccount);
       const shortRatio = parseFloat(data[0].shortAccount);
       
+      // 유효성 검사
+      if (isNaN(longRatio) || isNaN(shortRatio)) {
+        throw new Error('Invalid ratio data');
+      }
+      
       STATE.longShortRatio = {
         long: longRatio * 100,
         short: shortRatio * 100,
         ratio: longRatio / shortRatio
       };
+    } else {
+      throw new Error('Empty response');
     }
   } catch (err) {
-    console.error('롱숏 비율 로딩 실패:', err);
+    console.error('롱숏 비율 로딩 실패:', err.message);
     // 폴백
     STATE.longShortRatio = {
       long: 61.0,
@@ -1133,10 +1156,29 @@ async function loadTopCoins() {
   for (const symbol of CONFIG.TOP_COINS) {
     try {
       const resp = await fetch(`https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${symbol}`);
+      
+      // 400 에러 체크 (Futures 미지원 심볼)
+      if (!resp.ok) {
+        console.warn(`${symbol} Futures 미지원 (${resp.status})`);
+        continue;
+      }
+      
       const data = await resp.json();
+      
+      // API 에러 응답 체크
+      if (data.code) {
+        console.warn(`${symbol} API 에러: ${data.msg}`);
+        continue;
+      }
       
       const price = parseFloat(data.lastPrice);
       const change24h = parseFloat(data.priceChangePercent);
+      
+      // 유효성 검사
+      if (isNaN(price) || isNaN(change24h)) {
+        console.warn(`${symbol} 잘못된 데이터`);
+        continue;
+      }
       
       // 간이 점수 (복합 지표 간소화)
       const score = 50 + (change24h * 2);
@@ -1151,8 +1193,14 @@ async function loadTopCoins() {
       });
       
     } catch (err) {
-      console.error(`${symbol} 로딩 실패:`, err);
+      console.error(`${symbol} 로딩 실패:`, err.message);
+      // 계속 진행 (다른 코인 로딩)
     }
+  }
+  
+  // 최소 10개 이상 로딩 확인
+  if (coins.length < 10) {
+    console.warn(`경고: ${coins.length}개 코인만 로딩됨`);
   }
   
   STATE.coins = coins;
