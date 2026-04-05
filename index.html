@@ -71,9 +71,9 @@
     
     <!-- 롱숏 스타일 게이지 (50% 중립 기준) -->
     <div style="margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-        <div style="font-family:'Orbitron',monospace;font-size:0.46rem;letter-spacing:1.5px;color:var(--muted)">예측 게이지</div>
-        <div style="font-family:'Orbitron',monospace;font-size:0.46rem;letter-spacing:1px;color:var(--muted);opacity:0.6">COMPOSITE FORECAST</div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+        <div style="font-family:'Orbitron',monospace;font-size:0.72rem;font-weight:700;letter-spacing:2px;color:#00e5ff;text-shadow:0 0 10px rgba(0,229,255,0.4)">COMPOSITE FORECAST</div>
+        <div style="font-family:'Orbitron',monospace;font-size:0.52rem;letter-spacing:1.5px;color:var(--muted)">예측 게이지</div>
       </div>
       <div style="display:flex;justify-content:space-between;margin-bottom:5px">
         <div style="font-size:0.65rem;font-weight:700;color:#ff3355">SHORT ZONE</div>
@@ -113,11 +113,13 @@
     <div class="ls-header">
       <div>
         <div class="pnl-label">LONG / SHORT RATIO</div>
-        <div style="font-family:'Orbitron',monospace;font-size:0.44rem;letter-spacing:1px;color:var(--muted);margin-top:2px">현재 비율 게이지</div>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
-        <span id="lsWsIndicator" style="font-size:0.48rem;font-family:'Orbitron',monospace;color:var(--muted)">● POLLING</span>
-        <div class="ls-ratio-val" id="lsRatioVal" style="font-size:1.1rem;line-height:1">--</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
+        <div class="ls-ratio-val" id="lsRatioVal" style="font-size:1.55rem;line-height:1;font-weight:900;color:var(--accent);text-shadow:0 0 12px rgba(0,229,255,0.35)">--</div>
+        <div style="display:flex;align-items:center;gap:5px;">
+          <span id="lsWsIndicator" style="font-size:0.48rem;font-family:'Orbitron',monospace;color:var(--muted)">● POLLING</span>
+          <span style="font-family:'Orbitron',monospace;font-size:0.46rem;letter-spacing:1px;color:var(--muted);opacity:0.7">현재 비율 게이지</span>
+        </div>
       </div>
     </div>
     <div class="ls-bar-labels">
